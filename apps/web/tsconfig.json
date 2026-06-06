@@ -1,0 +1,23 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "jsx": "preserve",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowJs": true,
+    "incremental": true,
+    "plugins": [{ "name": "next" }],
+    "paths": {
+      "@/*": ["./src/*"],
+      "@vidalog/core": ["../../packages/core/src/index.ts"],
+      "@vidalog/core/*": ["../../packages/core/src/*"],
+      "@vidalog/supabase": ["../../packages/supabase/src/index.ts"],
+      "@vidalog/supabase/*": ["../../packages/supabase/src/*"],
+      "@vidalog/ui-tokens": ["../../packages/ui-tokens/src/index.ts"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules", "e2e"]
+}

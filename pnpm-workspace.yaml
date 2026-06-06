@@ -1,0 +1,14 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+allowBuilds:
+  esbuild: true
+  sharp: true
+
+# Uma única versão de React/tipos em todo o monorepo (Expo 53 exige react 19.0.0).
+# Evita o conflito de múltiplos @types/react que quebra o JSX do web.
+overrides:
+  react: 19.0.0
+  react-dom: 19.0.0
+  "@types/react": ~19.0.0
+  "@types/react-dom": ~19.0.0

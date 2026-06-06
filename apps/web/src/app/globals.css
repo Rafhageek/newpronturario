@@ -1,0 +1,138 @@
+@import 'tailwindcss';
+
+/* Design tokens do VidaLog (espelham @vidalog/ui-tokens). */
+@theme {
+  --color-primary-foreground: #ffffff;
+  --color-trust-50: #f0f9ff;
+  --color-trust-100: #e0f2fe;
+  --color-trust-600: #0284c7;
+  --color-trust-700: #0369a1;
+  --color-trust-800: #075985;
+  --color-health-300: #6ee7b7;
+  --color-health-400: #34d399;
+  --color-health-500: #10b981;
+  --color-health-600: #059669;
+  --color-semaphore-ok: #10b981;
+  --color-semaphore-attention: #f59e0b;
+  --color-semaphore-alert: #ef4444;
+
+  /* ── Tokens semânticos (adaptam-se a claro/escuro via :root / .dark) ── */
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-fg: var(--fg);
+  --color-fg-soft: var(--fg-soft);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-primary: var(--primary);
+  --color-accent: var(--accent);
+
+  --font-sans:
+    Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display:
+    var(--font-bricolage), 'Bricolage Grotesque', system-ui, sans-serif;
+}
+
+/* ── Tema CLARO (padrão — mais acolhedor e legível, ideal p/ idosos) ── */
+:root {
+  color-scheme: light;
+  --bg: #faf9f6; /* off-white morno */
+  --surface: #ffffff;
+  --surface-2: #f3f1ec;
+  --line: #e6e3dc;
+  --fg: #1b1a18; /* quase-preto morno */
+  --fg-soft: #413c36;
+  --muted: #6b665f;
+  --faint: #9b958c;
+  --primary: #0369a1; /* azul com contraste em fundo claro */
+  --accent: #059669;
+}
+
+/* ── Tema ESCURO ── */
+.dark {
+  color-scheme: dark;
+  --bg: #0a1626;
+  --surface: #0f2034;
+  --surface-2: #16273d;
+  --line: rgba(255, 255, 255, 0.09);
+  --fg: #f1f5f9;
+  --fg-soft: #cbd5e1;
+  --muted: #94a3b8;
+  --faint: #6b7a90;
+  --primary: #38bdf8;
+  --accent: #34d399;
+}
+
+/* ── Motion do painel de autenticação ───────────────────────────── */
+@keyframes vl-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes vl-rotate-rev {
+  to {
+    transform: rotate(-360deg);
+  }
+}
+@keyframes vl-pulse-glow {
+  0%, 100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+@keyframes vl-dash {
+  to {
+    stroke-dashoffset: -1000;
+  }
+}
+@keyframes vl-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.vl-rise {
+  animation: vl-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Fundo do app: gradiente sutil que se adapta ao tema */
+:root {
+  --shell-1: #ffffff;
+  --shell-2: #f6f4ef;
+}
+.dark {
+  --shell-1: #0f2942;
+  --shell-2: #0b1b2e;
+}
+.vl-app-shell {
+  background: radial-gradient(
+    130% 90% at 100% 0%,
+    var(--shell-1) 0%,
+    var(--shell-2) 45%,
+    var(--bg) 100%
+  );
+}
+
+/* Foco visível e consistente (acessibilidade — WCAG 2.4.7) */
+:where(a, button, input, textarea, select, [tabindex]:not([tabindex='-1'])):focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 6px;
+}

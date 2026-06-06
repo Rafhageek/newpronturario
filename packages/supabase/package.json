@@ -1,0 +1,40 @@
+{
+  "name": "@vidalog/supabase",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./clients/browser": "./src/clients/browser.ts",
+    "./clients/server": "./src/clients/server.ts",
+    "./clients/native": "./src/clients/native.ts",
+    "./queries": "./src/queries/index.ts",
+    "./hooks": "./src/hooks/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf dist .turbo"
+  },
+  "dependencies": {
+    "@vidalog/core": "workspace:*",
+    "@supabase/supabase-js": "^2.47.10",
+    "@supabase/ssr": "^0.5.2"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "^5.62.0",
+    "react": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "@tanstack/react-query": { "optional": true },
+    "react": { "optional": true }
+  },
+  "devDependencies": {
+    "@tanstack/react-query": "^5.62.0",
+    "@types/react": "^19.0.0",
+    "react": "^19.0.0",
+    "typescript": "^5.7.3"
+  }
+}

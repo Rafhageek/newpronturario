@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+
+    "paths": {
+      "@vidalog/core": ["./packages/core/src/index.ts"],
+      "@vidalog/core/*": ["./packages/core/src/*"],
+      "@vidalog/supabase": ["./packages/supabase/src/index.ts"],
+      "@vidalog/supabase/*": ["./packages/supabase/src/*"],
+      "@vidalog/ui-tokens": ["./packages/ui-tokens/src/index.ts"],
+      "@vidalog/ui-tokens/*": ["./packages/ui-tokens/src/*"]
+    }
+  },
+  "exclude": ["node_modules", "dist", ".next", ".expo"]
+}

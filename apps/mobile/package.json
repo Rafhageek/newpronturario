@@ -1,0 +1,44 @@
+{
+  "name": "@vidalog/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "dev": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "lint": "eslint app src",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf .expo .turbo"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.107.0",
+    "@tanstack/react-query": "^5.62.0",
+    "@vidalog/core": "workspace:*",
+    "@vidalog/supabase": "workspace:*",
+    "@vidalog/ui-tokens": "workspace:*",
+    "expo": "~53.0.0",
+    "expo-constants": "~17.1.0",
+    "expo-linking": "~7.1.0",
+    "expo-router": "~5.0.0",
+    "expo-secure-store": "~14.2.0",
+    "expo-status-bar": "~2.2.0",
+    "nativewind": "^4.1.23",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "react-native": "0.79.5",
+    "react-native-gesture-handler": "~2.24.0",
+    "react-native-reanimated": "~3.17.4",
+    "react-native-safe-area-context": "5.4.0",
+    "react-native-screens": "~4.11.0",
+    "react-native-url-polyfill": "^2.0.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.0",
+    "@types/react": "~19.0.0",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.3"
+  }
+}

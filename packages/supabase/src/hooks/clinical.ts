@@ -1,0 +1,244 @@
+'use client';
+
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { InsertRow, UpdateRow, VitalType } from '@vidalog/core';
+import { moodEnergyAverage } from '@vidalog/core';
+import { useVidaLogClient } from './context';
+import { queryKeys } from './keys';
+import {
+  getNextAppointment,
+  listAppointments,
+  createAppointment,
+  updateAppointment,
+  listConditions,
+  createCondition,
+  updateCondition,
+  deleteCondition,
+  listAllergies,
+  createAllergy,
+  deleteAllergy,
+  listSurgeries,
+  createSurgery,
+  deleteSurgery,
+  listFamilyHistory,
+  createFamilyHistory,
+  deleteFamilyHistory,
+  getPrimaryInsurance,
+  upsertPrimaryInsurance,
+} from '../queries/clinical';
+import { listVitalsSince } from '../queries/vitals';
+import { listDiaryEntries } from '../queries/diary';
+import { getProfile, updateProfile } from '../queries/profile';
+
+function daysAgoIso(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString();
+}
+
+// ── Vitais por período (gráfico) ────────────────────────────────────────────
+export function useVitalsRange(patientId: string | undefined, type: VitalType, days = 30) {
+  const client = useVidaLogClient();
+  return useQuery({
+    queryKey: queryKeys.vitalsRange(patientId ?? '', type, days),
+    queryFn: () => listVitalsSince(client, patientId as string, type, daysAgoIso(days)),
+    enabled: Boolean(patientId),
+  });
+}
+
+// ── Resumo do diário (bem-estar 7 dias) ─────────────────────────────────────
+export function useDiarySummary(patientId: string | undefined, days = 7) {
+  const client = useVidaLogClient();
+  return useQuery({
+    queryKey: queryKeys.diarySummary(patientId ?? ''),
+    queryFn: async () => {
+      const entries = await listDiaryEntries(client, patientId as string, 60);
+      return moodEnergyAverage(entries, days);
+    },
+    enabled: Boolean(patientId),
+  });
+}
+
+// ── Próxima consulta ────────────────────────────────────────────────────────
+export function useNextAppointment(patientId: string | undefined) {
+  const client = useVidaLogClient();
+  return useQuery({
+    queryKey: queryKeys.nextAppointment(patientId ?? ''),
+    queryFn: () => getNextAppointment(client, patientId as string, new Date().toISOString()),
+    enabled: Boolean(patientId),
+  });
+}
+
+// ── Consultas (lista + mutations) ───────────────────────────────────────────
+export function useAppointments(patientId: string | undefined) {
+  const client = useVidaLogClient();
+  return useQuery({
+    queryKey: queryKeys.appointments(patientId ?? ''),
+    queryFn: () => listAppointments(client, patientId as string),
+    enabled: Boolean(patientId),
+  });
+}
+
+export function useAppointmentMutations(patientId: string) {
+  const client = useVidaLogClient();
+  const qc = useQueryClient();
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: queryKeys.appointments(patientId) });
+    qc.invalidateQueries({ queryKey: queryKeys.nextAppointment(patientId) });
+  };
+  return {
+    create: useMutation({
+      mutationFn: (row: InsertRow<'appointments'>) => createAppointment(client, row),
+      onSuccess: invalidate,
+    }),
+    update: useMutation({
+      mutationFn: ({ id, patch }: { id: string; patch: UpdateRow<'appointments'> }) =>
+        updateAppointment(client, id, patch),
+      onSuccess: invalidate,
+    }),
+  };
+}
+
+// ── Diário no período (humor/energia para Análise) ──────────────────────────
+export function useDiaryRange(patientId: string | undefined, days: number) {
+  const client = useVidaLogClient();
+  return useQuery({
+    queryKey: queryKeys.diaryRange(patientId ?? '', days),
+    queryFn: async () => {
+      const entries = await listDiaryEntries(client, patientId as string, 400);
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - days);
+      return entries.filter((e) => new Date(e.entry_date) >= cutoff);
+    },
+    enabled: Boolean(patientId),
+  });
+}
+
+// ── Perfil (update otimista) ────────────────────────────────────────────────
+export function useUpdateProfile(userId: string) {
+  const client = useVidaLogClient();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (patch: UpdateRow<'profiles'>) => updateProfile(client, userId, patch),
+    onMutate: async (patch) => {
+      await qc.cancelQueries({ queryKey: queryKeys.profile(userId) });
+      const previous = qc.getQueryData(queryKeys.profile(userId));
+      qc.setQueryData(queryKeys.profile(userId), (old: unknown) =>
+        old ? { ...old, ...patch } : old,
+      );
+      return { previous };
+    },
+    onError: (_e, _patch, ctx) => {
+      if (ctx?.previous) qc.setQueryData(queryKeys.profile(userId), ctx.previous);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: queryKeys.profile(userId) }),
+  });
+}
+
+export function useProfileQuery(userId: string | undefined) {
+  const client = useVidaLogClient();
+  return useQuery({
+    queryKey: queryKeys.profile(userId ?? ''),
+    queryFn: () => getProfile(client, userId as string),
+    enabled: Boolean(userId),
+  });
+}
+
+// ── Condições ───────────────────────────────────────────────────────────────
+export function useConditions(patientId: string | undefined) {
+  const client = useVidaLogClient();
+  return useQuery({
+    queryKey: queryKeys.conditions(patientId ?? ''),
+    queryFn: () => listConditions(client, patientId as string),
+    enabled: Boolean(patientId),
+  });
+}
+export function useConditionMutations(patientId: string) {
+  const client = useVidaLogClient();
+  const qc = useQueryClient();
+  const invalidate = () => qc.invalidateQueries({ queryKey: queryKeys.conditions(patientId) });
+  return {
+    create: useMutation({ mutationFn: (row: InsertRow<'conditions'>) => createCondition(client, row), onSuccess: invalidate }),
+    update: useMutation({
+      mutationFn: ({ id, patch }: { id: string; patch: UpdateRow<'conditions'> }) => updateCondition(client, id, patch),
+      onSuccess: invalidate,
+    }),
+    remove: useMutation({ mutationFn: (id: string) => deleteCondition(client, id), onSuccess: invalidate }),
+  };
+}
+
+// ── Alergias ────────────────────────────────────────────────────────────────
+export function useAllergies(patientId: string | undefined) {
+  const client = useVidaLogClient();
+  return useQuery({
+    queryKey: queryKeys.allergies(patientId ?? ''),
+    queryFn: () => listAllergies(client, patientId as string),
+    enabled: Boolean(patientId),
+  });
+}
+export function useAllergyMutations(patientId: string) {
+  const client = useVidaLogClient();
+  const qc = useQueryClient();
+  const invalidate = () => qc.invalidateQueries({ queryKey: queryKeys.allergies(patientId) });
+  return {
+    create: useMutation({ mutationFn: (row: InsertRow<'allergies'>) => createAllergy(client, row), onSuccess: invalidate }),
+    remove: useMutation({ mutationFn: (id: string) => deleteAllergy(client, id), onSuccess: invalidate }),
+  };
+}
+
+// ── Cirurgias ───────────────────────────────────────────────────────────────
+export function useSurgeries(patientId: string | undefined) {
+  const client = useVidaLogClient();
+  return useQuery({
+    queryKey: queryKeys.surgeries(patientId ?? ''),
+    queryFn: () => listSurgeries(client, patientId as string),
+    enabled: Boolean(patientId),
+  });
+}
+export function useSurgeryMutations(patientId: string) {
+  const client = useVidaLogClient();
+  const qc = useQueryClient();
+  const invalidate = () => qc.invalidateQueries({ queryKey: queryKeys.surgeries(patientId) });
+  return {
+    create: useMutation({ mutationFn: (row: InsertRow<'surgeries'>) => createSurgery(client, row), onSuccess: invalidate }),
+    remove: useMutation({ mutationFn: (id: string) => deleteSurgery(client, id), onSuccess: invalidate }),
+  };
+}
+
+// ── Antecedentes familiares ─────────────────────────────────────────────────
+export function useFamilyHistory(patientId: string | undefined) {
+  const client = useVidaLogClient();
+  return useQuery({
+    queryKey: queryKeys.familyHistory(patientId ?? ''),
+    queryFn: () => listFamilyHistory(client, patientId as string),
+    enabled: Boolean(patientId),
+  });
+}
+export function useFamilyHistoryMutations(patientId: string) {
+  const client = useVidaLogClient();
+  const qc = useQueryClient();
+  const invalidate = () => qc.invalidateQueries({ queryKey: queryKeys.familyHistory(patientId) });
+  return {
+    create: useMutation({ mutationFn: (row: InsertRow<'family_history'>) => createFamilyHistory(client, row), onSuccess: invalidate }),
+    remove: useMutation({ mutationFn: (id: string) => deleteFamilyHistory(client, id), onSuccess: invalidate }),
+  };
+}
+
+// ── Convênio ────────────────────────────────────────────────────────────────
+export function useInsurance(patientId: string | undefined) {
+  const client = useVidaLogClient();
+  return useQuery({
+    queryKey: queryKeys.insurance(patientId ?? ''),
+    queryFn: () => getPrimaryInsurance(client, patientId as string),
+    enabled: Boolean(patientId),
+  });
+}
+export function useUpsertInsurance(patientId: string) {
+  const client = useVidaLogClient();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (values: Omit<InsertRow<'insurance_plans'>, 'patient_id'>) =>
+      upsertPrimaryInsurance(client, patientId, values),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.insurance(patientId) }),
+  });
+}

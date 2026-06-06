@@ -1,0 +1,27 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM"],
+    "types": ["expo", "nativewind/types"],
+    "paths": {
+      "@/*": ["./src/*"],
+      "@vidalog/core": ["../../packages/core/src/index.ts"],
+      "@vidalog/core/*": ["../../packages/core/src/*"],
+      "@vidalog/supabase": ["../../packages/supabase/src/index.ts"],
+      "@vidalog/supabase/*": ["../../packages/supabase/src/*"],
+      "@vidalog/ui-tokens": ["../../packages/ui-tokens/src/index.ts"]
+    }
+  },
+  "include": [
+    "app",
+    "src",
+    "*.ts",
+    "*.tsx",
+    "nativewind-env.d.ts",
+    "expo-env.d.ts",
+    ".expo/types/**/*.ts"
+  ]
+}
