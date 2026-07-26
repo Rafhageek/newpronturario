@@ -40,7 +40,7 @@ export const CARE_KIND_LABELS: Record<CareRelationshipKind, string> = {
 
 /** Plano Família (modo cuidador). */
 export const FAMILY_PLAN = {
-  name: 'VidaLog Plus Família',
+  name: 'HubPatients Plus Família',
   priceMonthlyBRL: 34.9,
 } as const;
 

@@ -1,6 +1,6 @@
 'use client';
 
-import type { Poll, PollVote } from '@vidalog/core';
+import type { Poll, PollVote } from '@hubpatients/core';
 
 export function PollView({
   poll,

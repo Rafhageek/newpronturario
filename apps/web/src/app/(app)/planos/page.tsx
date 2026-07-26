@@ -1,7 +1,8 @@
 'use client';
 
 import { Check, ShieldCheck, Sparkles } from 'lucide-react';
-import { FEATURES, PLANS, type PlanId } from '@vidalog/core';
+import { FEATURES, PLANS, type PlanId } from '@hubpatients/core';
+import { VoucherRedeem } from '@/components/plus/voucher-redeem';
 
 const featureList = Object.values(FEATURES);
 
@@ -13,7 +14,7 @@ export default function PlanosPage() {
           Escolha seu plano
         </h2>
         <p className="mx-auto mt-2 max-w-lg text-sm text-muted">
-          As features de <span className="font-semibold text-emerald-300">segurança são gratuitas para sempre</span>. O
+          As features de <span className="font-semibold text-emerald-700 dark:text-emerald-300">segurança são gratuitas para sempre</span>. O
           Plus adiciona organização e interpretação didática.
         </p>
       </header>
@@ -23,8 +24,12 @@ export default function PlanosPage() {
         <PlanCard plan="plus" highlighted />
       </div>
 
+      <div className="mx-auto mt-5 max-w-md">
+        <VoucherRedeem />
+      </div>
+
       <p className="mt-6 flex items-center justify-center gap-1.5 text-xs text-muted">
-        <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+        <ShieldCheck className="h-3.5 w-3.5 text-status-ok-ink" />
         Trial de 14 dias no Plus · pagamento por cartão ou Pix (Fase 2)
       </p>
     </div>
@@ -64,10 +69,10 @@ function PlanCard({ plan, highlighted }: { plan: PlanId; highlighted?: boolean }
       <ul className="mt-5 space-y-2.5">
         {items.map((f) => (
           <li key={f.key} className="flex items-start gap-2.5 text-sm text-fg-soft">
-            <Check className={`mt-0.5 h-4 w-4 shrink-0 ${f.safetyCritical ? 'text-emerald-400' : 'text-primary'}`} />
+            <Check className={`mt-0.5 h-4 w-4 shrink-0 ${f.safetyCritical ? 'text-status-ok-ink' : 'text-primary'}`} />
             <span>
               {f.label}
-              {f.safetyCritical && <span className="ml-1.5 text-xs text-emerald-300/80">· grátis sempre</span>}
+              {f.safetyCritical && <span className="ml-1.5 text-xs text-emerald-700 dark:text-emerald-300/80">· grátis sempre</span>}
             </span>
           </li>
         ))}

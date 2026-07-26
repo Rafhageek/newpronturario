@@ -3,11 +3,13 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { NotebookPen, Plus } from 'lucide-react';
-import { useDiaryEntries, useVitalsAllRange } from '@vidalog/supabase';
-import type { Vital } from '@vidalog/core';
+import { Activity, NotebookPen, Plus } from 'lucide-react';
+import { useDiaryEntries, useVitalsAllRange } from '@hubpatients/supabase';
+import type { Vital } from '@hubpatients/core';
 import { useActiveProfile } from '@/components/profile-context';
 import { TimelineEntry } from '@/components/diary/timeline-entry';
+import { ListSkeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
 
 const PERIODS = [
   { days: 7, label: '7 dias' },
@@ -58,12 +60,20 @@ export default function DiarioPage() {
         <h1 className="text-2xl font-bold text-fg" style={{ fontFamily: 'var(--font-display)' }}>
           Diário clínico
         </h1>
-        <Link
-          href="/diario/novo"
-          className="inline-flex h-10 items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-400 px-4 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 transition hover:opacity-90"
-        >
-          <Plus className="h-4 w-4" /> Novo registro
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/diario/dor"
+            className="inline-flex h-10 items-center gap-2 rounded-xl border border-line px-3 text-sm font-medium text-fg-soft transition hover:bg-surface-2"
+          >
+            <Activity className="h-4 w-4" aria-hidden /> Ver histórico de dor
+          </Link>
+          <Link
+            href="/diario/novo"
+            className="inline-flex h-10 items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-400 px-4 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 transition hover:opacity-90"
+          >
+            <Plus className="h-4 w-4" /> Novo registro
+          </Link>
+        </div>
       </header>
 
       {/* Filtros */}
@@ -93,7 +103,7 @@ export default function DiarioPage() {
 
       {/* Timeline */}
       {isLoading ? (
-        <p className="text-sm text-muted">Carregando…</p>
+        <ListSkeleton rows={3} />
       ) : filtered.length > 0 ? (
         <motion.div
           initial="hidden"
@@ -106,13 +116,19 @@ export default function DiarioPage() {
           ))}
         </motion.div>
       ) : (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-line py-16 text-center">
-          <NotebookPen className="h-8 w-8 text-faint" />
-          <p className="mt-3 text-sm text-muted">Nenhum registro neste período.</p>
-          <Link href="/diario/novo" className="mt-3 text-sm font-medium text-primary hover:underline">
-            Criar o primeiro registro →
-          </Link>
-        </div>
+        <EmptyState
+          icon={NotebookPen}
+          title="Nenhum registro neste período"
+          description="Anote como você se sente — humor, energia, dor e sintomas — para acompanhar sua saúde no tempo."
+          action={
+            <Link
+              href="/diario/novo"
+              className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-400 px-4 text-sm font-semibold text-white"
+            >
+              <Plus className="h-4 w-4" /> Criar o primeiro registro
+            </Link>
+          }
+        />
       )}
     </div>
   );

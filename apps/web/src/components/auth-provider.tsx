@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
-import { useVidaLogClient } from '@vidalog/supabase';
+import { useHubPatientsClient } from '@hubpatients/supabase';
 
 interface AuthState {
   session: Session | null;
@@ -14,7 +14,7 @@ interface AuthState {
 const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const supabase = useVidaLogClient();
+  const supabase = useHubPatientsClient();
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 

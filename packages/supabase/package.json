@@ -1,5 +1,5 @@
 {
-  "name": "@vidalog/supabase",
+  "name": "@hubpatients/supabase",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -19,7 +19,7 @@
     "clean": "rimraf dist .turbo"
   },
   "dependencies": {
-    "@vidalog/core": "workspace:*",
+    "@hubpatients/core": "workspace:*",
     "@supabase/supabase-js": "^2.47.10",
     "@supabase/ssr": "^0.5.2"
   },

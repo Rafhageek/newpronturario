@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Plus, X } from 'lucide-react';
-import { COMMON_SYMPTOMS } from '@vidalog/core';
+import { COMMON_SYMPTOMS } from '@hubpatients/core';
 
 export function SymptomMultiselect({
   value,

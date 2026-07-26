@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { MessagesSquare, UserCog } from 'lucide-react';
-import { useSocialProfile, useTopics, useForumMutations } from '@vidalog/supabase';
-import { FORUM_SORTS, type ForumSort, CRISIS_NOTICE } from '@vidalog/core';
+import { useSocialProfile, useTopics, useForumMutations } from '@hubpatients/supabase';
+import { FORUM_SORTS, type ForumSort, CRISIS_NOTICE } from '@hubpatients/core';
 import { useAuth } from '@/components/auth-provider';
 import { SocialDisclaimer } from '@/components/social/bits';
 import { ProfileEditor } from '@/components/social/profile-editor';

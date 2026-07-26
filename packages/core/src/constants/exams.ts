@@ -11,13 +11,17 @@ export const EXAM_CATEGORY_LABELS: Record<ExamCategory, string> = {
 
 export interface MetricFlagMeta {
   label: string;
-  tone: 'ok' | 'attention' | 'alert';
+  tone: 'ok' | 'attention' | 'alert' | 'neutral';
 }
 export const METRIC_FLAG: Record<MetricFlag, MetricFlagMeta> = {
   ok: { label: 'Normal', tone: 'ok' },
   attention: { label: 'Atenção', tone: 'attention' },
   alert: { label: 'Alerta', tone: 'alert' },
+  unclassified: { label: 'Não classificado', tone: 'neutral' },
 };
+
+/** Estado derivado quando não há dados suficientes para classificar. */
+export const UNCLASSIFIED_METRIC = METRIC_FLAG.unclassified;
 
 /** Painéis temáticos: agrupam métricas por sistema (por metric_key). */
 export interface ThematicPanel {

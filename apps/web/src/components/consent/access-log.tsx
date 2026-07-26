@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight, ScrollText } from 'lucide-react';
-import { useAuditLog } from '@vidalog/supabase';
-import { LEGAL_BASIS_LABEL } from '@vidalog/core';
+import { useAuditLog } from '@hubpatients/supabase';
+import { LEGAL_BASIS_LABEL } from '@hubpatients/core';
 
 const ACTION_LABELS: Record<string, string> = {
   create: 'Criou', read: 'Acessou', update: 'Alterou', delete: 'Excluiu',

@@ -1,5 +1,5 @@
-import type { Medication, MedicationIntake, Vital } from '@vidalog/core';
-import type { VidaLogClient } from '../types';
+import type { Medication, MedicationIntake, Vital } from '@hubpatients/core';
+import type { HubPatientsClient } from '../types';
 import { getLatestVital } from './vitals';
 
 export interface DashboardSummary {
@@ -11,7 +11,7 @@ export interface DashboardSummary {
 
 /** Dados resumidos da tela Início (próxima medicação, última PA, alertas). */
 export async function getDashboardSummary(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   patientId: string,
 ): Promise<DashboardSummary> {
   const [latestBloodPressure, medsResult, intakesResult] = await Promise.all([

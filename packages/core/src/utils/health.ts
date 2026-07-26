@@ -22,6 +22,27 @@ export function findInteractions(
 }
 
 /**
+ * Procura correspondência textual entre o nome de um medicamento e as
+ * substâncias das alergias registradas. É uma barreira adicional de segurança,
+ * não uma validação farmacológica completa.
+ */
+export function findMedicationAllergyNameMatch<T extends { substance: string }>(
+  medicationName: string,
+  allergies: T[],
+): T | undefined {
+  const normalizedMedication = medicationName.trim().toLocaleLowerCase('pt-BR');
+  if (!normalizedMedication) return undefined;
+
+  return allergies.find((allergy) => {
+    const substance = allergy.substance.trim().toLocaleLowerCase('pt-BR');
+    return (
+      substance.length > 0 &&
+      (normalizedMedication.includes(substance) || substance.includes(normalizedMedication))
+    );
+  });
+}
+
+/**
  * Classifica a pressão arterial em faixas de REFERÊNCIA (não é diagnóstico).
  * Sempre acompanhar de disclaimer: só o médico interpreta com o contexto completo.
  * Referência geral adulto: ok < 130/85; atenção 130-139 ou 85-89; acima ≥ 140 ou ≥ 90.

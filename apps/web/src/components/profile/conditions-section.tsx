@@ -9,8 +9,8 @@ import {
   type ConditionInput,
   CID10_COMMON,
   CONDITION_STATUS_LABELS,
-} from '@vidalog/core';
-import { useConditions, useConditionMutations } from '@vidalog/supabase';
+} from '@hubpatients/core';
+import { useConditions, useConditionMutations } from '@hubpatients/supabase';
 import { Button, Field, Input } from '@/components/ui';
 
 export function ConditionsSection({ patientId }: { patientId: string }) {
@@ -51,7 +51,7 @@ export function ConditionsSection({ patientId }: { patientId: string }) {
                 </p>
                 <p className="text-xs text-muted">{CONDITION_STATUS_LABELS[c.status]}</p>
               </div>
-              <button onClick={() => remove.mutate(c.id)} className="rounded-lg p-1.5 text-muted hover:bg-rose-500/10 hover:text-rose-400" aria-label="Remover">
+              <button onClick={() => remove.mutate(c.id)} className="rounded-lg p-1.5 text-muted hover:bg-rose-500/10 hover:text-status-alert-ink" aria-label="Remover">
                 <Trash2 className="h-4 w-4" />
               </button>
             </li>

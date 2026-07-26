@@ -2,8 +2,8 @@
 
 import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { UpdateRow } from '@vidalog/core';
-import { useVidaLogClient } from './context';
+import type { UpdateRow } from '@hubpatients/core';
+import { useHubPatientsClient } from './context';
 import { queryKeys } from './keys';
 import {
   listGroups, listMyGroups, joinGroup, leaveGroup,
@@ -19,12 +19,12 @@ import {
 const scope = (groupId: string | null) => groupId ?? 'social';
 
 export function useGroups() {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({ queryKey: queryKeys.groups(), queryFn: () => listGroups(client), staleTime: 30 * 60 * 1000 });
 }
 
 export function useMyGroups(userId: string | undefined) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({
     queryKey: queryKeys.myGroups(userId ?? ''),
     queryFn: () => listMyGroups(client, userId as string),
@@ -33,7 +33,7 @@ export function useMyGroups(userId: string | undefined) {
 }
 
 export function useFeed(groupId: string | null, enabled = true) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({
     queryKey: queryKeys.feed(scope(groupId)),
     queryFn: () => listFeed(client, groupId),
@@ -42,7 +42,7 @@ export function useFeed(groupId: string | null, enabled = true) {
 }
 
 export function useFeedReactions(groupId: string | null, postIds: string[]) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({
     queryKey: queryKeys.reactions(scope(groupId)),
     queryFn: () => listReactionsFor(client, postIds),
@@ -51,7 +51,7 @@ export function useFeedReactions(groupId: string | null, postIds: string[]) {
 }
 
 export function useFeedPolls(groupId: string | null, postIds: string[]) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({
     queryKey: queryKeys.polls(scope(groupId)),
     queryFn: async () => {
@@ -64,7 +64,7 @@ export function useFeedPolls(groupId: string | null, postIds: string[]) {
 }
 
 export function useComments(postId: string, enabled: boolean) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({
     queryKey: queryKeys.comments(postId),
     queryFn: () => listComments(client, postId),
@@ -73,7 +73,7 @@ export function useComments(postId: string, enabled: boolean) {
 }
 
 export function useSocialMutations(userId: string, groupId: string | null) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   const qc = useQueryClient();
   const refreshFeed = () => {
     qc.invalidateQueries({ queryKey: queryKeys.feed(scope(groupId)) });
@@ -101,7 +101,7 @@ export function useSocialMutations(userId: string, groupId: string | null) {
 }
 
 export function useJoinGroup(userId: string) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ groupId, joined }: { groupId: string; joined: boolean }) =>
@@ -112,7 +112,7 @@ export function useJoinGroup(userId: string) {
 
 // ── Realtime: invalida o feed quando há mudanças ────────────────────────────
 export function useRealtimeFeed(groupId: string | null) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   const qc = useQueryClient();
   useEffect(() => {
     const channel = client
@@ -132,7 +132,7 @@ export function useRealtimeFeed(groupId: string | null) {
 
 // ── Rede social: perfil + conexões ──────────────────────────────────────────
 export function useSocialProfile(userId: string | undefined) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({
     queryKey: queryKeys.socialProfile(userId ?? ''),
     queryFn: () => getSocialProfile(client, userId as string),
@@ -141,7 +141,7 @@ export function useSocialProfile(userId: string | undefined) {
 }
 
 export function useUpsertSocialProfile(userId: string) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (patch: UpdateRow<'social_profiles'>) => upsertSocialProfile(client, userId, patch),
@@ -150,7 +150,7 @@ export function useUpsertSocialProfile(userId: string) {
 }
 
 export function useFollowing(userId: string | undefined) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({
     queryKey: queryKeys.following(userId ?? ''),
     queryFn: () => listFollowing(client, userId as string),
@@ -159,7 +159,7 @@ export function useFollowing(userId: string | undefined) {
 }
 
 export function useFollow(userId: string) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ targetId, following }: { targetId: string; following: boolean }) =>

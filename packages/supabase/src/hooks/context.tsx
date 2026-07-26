@@ -1,29 +1,29 @@
 'use client';
 
 import { createContext, useContext, type ReactNode } from 'react';
-import type { VidaLogClient } from '../types';
+import type { HubPatientsClient } from '../types';
 
-const VidaLogClientContext = createContext<VidaLogClient | null>(null);
+const HubPatientsClientContext = createContext<HubPatientsClient | null>(null);
 
 /**
  * Provider do client Supabase. Web e mobile criam o client com seus próprios
  * adaptadores (cookies / secure-store) e o injetam aqui — os hooks abaixo
  * passam a funcionar igual nas duas plataformas.
  */
-export function VidaLogClientProvider({
+export function HubPatientsClientProvider({
   client,
   children,
 }: {
-  client: VidaLogClient;
+  client: HubPatientsClient;
   children: ReactNode;
 }) {
-  return <VidaLogClientContext.Provider value={client}>{children}</VidaLogClientContext.Provider>;
+  return <HubPatientsClientContext.Provider value={client}>{children}</HubPatientsClientContext.Provider>;
 }
 
-export function useVidaLogClient(): VidaLogClient {
-  const client = useContext(VidaLogClientContext);
+export function useHubPatientsClient(): HubPatientsClient {
+  const client = useContext(HubPatientsClientContext);
   if (!client) {
-    throw new Error('useVidaLogClient deve ser usado dentro de <VidaLogClientProvider>.');
+    throw new Error('useHubPatientsClient deve ser usado dentro de <HubPatientsClientProvider>.');
   }
   return client;
 }

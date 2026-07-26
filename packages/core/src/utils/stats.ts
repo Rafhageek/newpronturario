@@ -26,6 +26,25 @@ export function computeTrendPct(values: number[]): number | null {
   return ((last - first) / Math.abs(first)) * 100;
 }
 
+/**
+ * Tendência SUAVIZADA: média do terço final vs. terço inicial (menos ruído que
+ * ponta-a-ponta). Ideal para a seta ↑/↓ de vitais. Positivo = subiu.
+ */
+export function smoothedTrendPct(values: number[]): number | null {
+  if (values.length < 4) return computeTrendPct(values);
+  const k = Math.max(1, Math.floor(values.length / 3));
+  const mean = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
+  const first = mean(values.slice(0, k));
+  if (first === 0) return null;
+  return ((mean(values.slice(-k)) - first) / Math.abs(first)) * 100;
+}
+
+/** Direção da tendência (com zona morta de 2% para "estável"). */
+export function trendDirection(pct: number | null): 'up' | 'down' | 'flat' {
+  if (pct == null || Math.abs(pct) < 2) return 'flat';
+  return pct > 0 ? 'up' : 'down';
+}
+
 /** Frase de tendência em PT-BR (ex.: "subiu 8%"). */
 export function trendLabel(pct: number | null): string {
   if (pct == null) return 'sem dados suficientes para tendência';

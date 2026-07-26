@@ -1,9 +1,10 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { InsertRow, UpdateRow, VitalType } from '@vidalog/core';
-import { moodEnergyAverage } from '@vidalog/core';
-import { useVidaLogClient } from './context';
+import type { InsertRow, UpdateRow, VitalType } from '@hubpatients/core';
+import { moodEnergyAverage, activityNotification } from '@hubpatients/core';
+import { enqueueNotification } from '../queries/notifications';
+import { useHubPatientsClient } from './context';
 import { queryKeys } from './keys';
 import {
   getNextAppointment,
@@ -38,7 +39,7 @@ function daysAgoIso(days: number): string {
 
 // ── Vitais por período (gráfico) ────────────────────────────────────────────
 export function useVitalsRange(patientId: string | undefined, type: VitalType, days = 30) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({
     queryKey: queryKeys.vitalsRange(patientId ?? '', type, days),
     queryFn: () => listVitalsSince(client, patientId as string, type, daysAgoIso(days)),
@@ -48,7 +49,7 @@ export function useVitalsRange(patientId: string | undefined, type: VitalType, d
 
 // ── Resumo do diário (bem-estar 7 dias) ─────────────────────────────────────
 export function useDiarySummary(patientId: string | undefined, days = 7) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({
     queryKey: queryKeys.diarySummary(patientId ?? ''),
     queryFn: async () => {
@@ -61,7 +62,7 @@ export function useDiarySummary(patientId: string | undefined, days = 7) {
 
 // ── Próxima consulta ────────────────────────────────────────────────────────
 export function useNextAppointment(patientId: string | undefined) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({
     queryKey: queryKeys.nextAppointment(patientId ?? ''),
     queryFn: () => getNextAppointment(client, patientId as string, new Date().toISOString()),
@@ -71,7 +72,7 @@ export function useNextAppointment(patientId: string | undefined) {
 
 // ── Consultas (lista + mutations) ───────────────────────────────────────────
 export function useAppointments(patientId: string | undefined) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({
     queryKey: queryKeys.appointments(patientId ?? ''),
     queryFn: () => listAppointments(client, patientId as string),
@@ -80,7 +81,7 @@ export function useAppointments(patientId: string | undefined) {
 }
 
 export function useAppointmentMutations(patientId: string) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   const qc = useQueryClient();
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: queryKeys.appointments(patientId) });
@@ -89,7 +90,10 @@ export function useAppointmentMutations(patientId: string) {
   return {
     create: useMutation({
       mutationFn: (row: InsertRow<'appointments'>) => createAppointment(client, row),
-      onSuccess: invalidate,
+      onSuccess: () => {
+        invalidate();
+        void enqueueNotification(client, activityNotification.appointmentScheduled());
+      },
     }),
     update: useMutation({
       mutationFn: ({ id, patch }: { id: string; patch: UpdateRow<'appointments'> }) =>
@@ -101,7 +105,7 @@ export function useAppointmentMutations(patientId: string) {
 
 // ── Diário no período (humor/energia para Análise) ──────────────────────────
 export function useDiaryRange(patientId: string | undefined, days: number) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({
     queryKey: queryKeys.diaryRange(patientId ?? '', days),
     queryFn: async () => {
@@ -116,7 +120,7 @@ export function useDiaryRange(patientId: string | undefined, days: number) {
 
 // ── Perfil (update otimista) ────────────────────────────────────────────────
 export function useUpdateProfile(userId: string) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (patch: UpdateRow<'profiles'>) => updateProfile(client, userId, patch),
@@ -136,7 +140,7 @@ export function useUpdateProfile(userId: string) {
 }
 
 export function useProfileQuery(userId: string | undefined) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({
     queryKey: queryKeys.profile(userId ?? ''),
     queryFn: () => getProfile(client, userId as string),
@@ -146,7 +150,7 @@ export function useProfileQuery(userId: string | undefined) {
 
 // ── Condições ───────────────────────────────────────────────────────────────
 export function useConditions(patientId: string | undefined) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({
     queryKey: queryKeys.conditions(patientId ?? ''),
     queryFn: () => listConditions(client, patientId as string),
@@ -154,7 +158,7 @@ export function useConditions(patientId: string | undefined) {
   });
 }
 export function useConditionMutations(patientId: string) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   const qc = useQueryClient();
   const invalidate = () => qc.invalidateQueries({ queryKey: queryKeys.conditions(patientId) });
   return {
@@ -169,7 +173,7 @@ export function useConditionMutations(patientId: string) {
 
 // ── Alergias ────────────────────────────────────────────────────────────────
 export function useAllergies(patientId: string | undefined) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({
     queryKey: queryKeys.allergies(patientId ?? ''),
     queryFn: () => listAllergies(client, patientId as string),
@@ -177,7 +181,7 @@ export function useAllergies(patientId: string | undefined) {
   });
 }
 export function useAllergyMutations(patientId: string) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   const qc = useQueryClient();
   const invalidate = () => qc.invalidateQueries({ queryKey: queryKeys.allergies(patientId) });
   return {
@@ -188,7 +192,7 @@ export function useAllergyMutations(patientId: string) {
 
 // ── Cirurgias ───────────────────────────────────────────────────────────────
 export function useSurgeries(patientId: string | undefined) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({
     queryKey: queryKeys.surgeries(patientId ?? ''),
     queryFn: () => listSurgeries(client, patientId as string),
@@ -196,7 +200,7 @@ export function useSurgeries(patientId: string | undefined) {
   });
 }
 export function useSurgeryMutations(patientId: string) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   const qc = useQueryClient();
   const invalidate = () => qc.invalidateQueries({ queryKey: queryKeys.surgeries(patientId) });
   return {
@@ -207,7 +211,7 @@ export function useSurgeryMutations(patientId: string) {
 
 // ── Antecedentes familiares ─────────────────────────────────────────────────
 export function useFamilyHistory(patientId: string | undefined) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({
     queryKey: queryKeys.familyHistory(patientId ?? ''),
     queryFn: () => listFamilyHistory(client, patientId as string),
@@ -215,7 +219,7 @@ export function useFamilyHistory(patientId: string | undefined) {
   });
 }
 export function useFamilyHistoryMutations(patientId: string) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   const qc = useQueryClient();
   const invalidate = () => qc.invalidateQueries({ queryKey: queryKeys.familyHistory(patientId) });
   return {
@@ -226,7 +230,7 @@ export function useFamilyHistoryMutations(patientId: string) {
 
 // ── Convênio ────────────────────────────────────────────────────────────────
 export function useInsurance(patientId: string | undefined) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({
     queryKey: queryKeys.insurance(patientId ?? ''),
     queryFn: () => getPrimaryInsurance(client, patientId as string),
@@ -234,7 +238,7 @@ export function useInsurance(patientId: string | undefined) {
   });
 }
 export function useUpsertInsurance(patientId: string) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (values: Omit<InsertRow<'insurance_plans'>, 'patient_id'>) =>

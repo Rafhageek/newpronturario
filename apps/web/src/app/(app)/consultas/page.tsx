@@ -2,10 +2,11 @@
 
 import { useMemo, useState } from 'react';
 import { CalendarDays, Plus } from 'lucide-react';
-import { useAppointments, useAppointmentMutations, useExams } from '@vidalog/supabase';
+import { useAppointments, useAppointmentMutations, useExams } from '@hubpatients/supabase';
 import { useActiveProfile } from '@/components/profile-context';
 import { AppointmentCard } from '@/components/consultas/appointment-card';
 import { NewAppointmentModal } from '@/components/consultas/new-appointment-modal';
+import { ClinicalReportButton } from '@/components/clinical/report-button';
 
 export default function ConsultasPage() {
   const { patientId } = useActiveProfile();
@@ -37,6 +38,10 @@ export default function ConsultasPage() {
           <Plus className="h-4 w-4" /> Nova consulta
         </button>
       </header>
+
+      {/* Levar os registros para a consulta é o passo mais útil desta tela —
+          por isso fica antes da lista, não escondido em um menu. */}
+      <ClinicalReportButton patientId={patientId} />
 
       <div className="flex w-fit rounded-xl border border-line bg-surface p-1">
         <Tab active={tab === 'upcoming'} onClick={() => setTab('upcoming')}>Próximas ({upcoming.length})</Tab>

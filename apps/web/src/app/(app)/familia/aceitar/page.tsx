@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { HeartHandshake } from 'lucide-react';
 import { toast } from 'sonner';
-import { useFamilyMutations } from '@vidalog/supabase';
+import { useFamilyMutations } from '@hubpatients/supabase';
 import { useAuth } from '@/components/auth-provider';
 
 export default function AceitarConvitePage() {
@@ -42,7 +42,7 @@ function AceitarConvite() {
       {!token ? (
         <p className="mt-3 text-sm text-muted">Link de convite inválido.</p>
       ) : done ? (
-        <p className="mt-3 text-sm text-emerald-300">Vínculo criado! Redirecionando…</p>
+        <p className="mt-3 text-sm text-emerald-700 dark:text-emerald-300">Vínculo criado! Redirecionando…</p>
       ) : (
         <>
           <p className="mt-3 max-w-sm text-sm text-muted">Ao aceitar, será criado um vínculo de cuidado conforme as permissões definidas por quem te convidou.</p>

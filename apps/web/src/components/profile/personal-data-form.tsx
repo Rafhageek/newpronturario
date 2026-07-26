@@ -3,8 +3,8 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { profileSchema, type ProfileInput, formatCPF, BLOOD_TYPES, BIOLOGICAL_SEX_LABELS, type Profile } from '@vidalog/core';
-import { useUpdateProfile } from '@vidalog/supabase';
+import { profileSchema, type ProfileInput, formatCPF, BLOOD_TYPES, BIOLOGICAL_SEX_LABELS, type Profile } from '@hubpatients/core';
+import { useUpdateProfile } from '@hubpatients/supabase';
 import { Button, Field, Input } from '@/components/ui';
 
 type Address = { zip?: string; street?: string; number?: string; city?: string; state?: string };

@@ -1,0 +1,44 @@
+# .easignore — controla o que sobe para o EAS Build.
+# Quando existe, SUBSTITUI o .gitignore no upload, então precisa ser completo.
+
+# dependências (o EAS instala no servidor)
+node_modules/
+.pnpm-store/
+
+# metadados do git e arquivos grandes — não vão para o build
+.git/
+*.zip
+
+# builds / caches
+dist/
+build/
+.next/
+out/
+.expo/
+.turbo/
+*.tsbuildinfo
+
+# env / segredos (as credenciais vão por EAS Environment Variables)
+.env
+.env.*
+!.env.example
+
+# supabase local
+supabase/.branches/
+supabase/.temp/
+
+# testes
+coverage/
+playwright-report/
+test-results/
+
+# editores / SO
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*

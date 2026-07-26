@@ -6,8 +6,9 @@ module.exports = function (api) {
       'nativewind/babel',
     ],
     plugins: [
-      // Reanimated precisa ser o último plugin.
-      'react-native-reanimated/plugin',
+      // Reanimated 4 (SDK 54): o plugin agora vem do react-native-worklets.
+      // Precisa ser o último plugin.
+      'react-native-worklets/plugin',
     ],
   };
 };

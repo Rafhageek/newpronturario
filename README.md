@@ -1,4 +1,4 @@
-# VidaLog — Prontuário Pessoal de Saúde (PHR)
+# HubPatients — Prontuário Pessoal de Saúde (PHR)
 
 App brasileiro, **paciente-first**, onde a pessoa é dona dos próprios dados de saúde e
 controla granularmente o que compartilha (família, médicos, laboratórios, pesquisa).
@@ -60,15 +60,15 @@ Detalhes da arquitetura e do fluxo de dados em [docs/architecture.md](docs/archi
 
 ```bash
 pnpm dev          # web em http://localhost:3000
-pnpm dev:mobile   # Expo (abra no Expo Go via QR code; deep link vidalog://)
+pnpm dev:mobile   # Expo (abra no Expo Go via QR code; deep link hubpatients://)
 ```
 
 ## Qualidade
 
 ```bash
 pnpm check        # lint + typecheck + testes (Vitest) em todo o monorepo
-pnpm --filter @vidalog/core test          # só os testes unitários
-pnpm --filter @vidalog/web test:e2e       # E2E Playwright (login → dashboard)
+pnpm --filter @hubpatients/core test          # só os testes unitários
+pnpm --filter @hubpatients/web test:e2e       # E2E Playwright (login → dashboard)
 ```
 
 Para o teste E2E de **login real**, defina `E2E_EMAIL` / `E2E_PASSWORD` (de um usuário de

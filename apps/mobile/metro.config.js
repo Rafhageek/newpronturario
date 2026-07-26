@@ -8,8 +8,8 @@ const monorepoRoot = path.resolve(projectRoot, '../..');
 
 const config = getDefaultConfig(projectRoot);
 
-// 1. Observa a raiz do monorepo (para resolver os packages compartilhados).
-config.watchFolders = [monorepoRoot];
+// 1. Observa a raiz do monorepo (mantendo os defaults do Expo).
+config.watchFolders = [...(config.watchFolders ?? []), monorepoRoot];
 
 // 2. Resolve módulos do projeto e da raiz.
 config.resolver.nodeModulesPaths = [
@@ -17,8 +17,6 @@ config.resolver.nodeModulesPaths = [
   path.resolve(monorepoRoot, 'node_modules'),
 ];
 
-// 3. pnpm usa symlinks — necessário para os packages workspace.
-config.resolver.unstable_enableSymlinks = true;
-config.resolver.disableHierarchicalLookup = false;
+// (SDK 54: symlinks do pnpm já são default — não precisa mais setar.)
 
 module.exports = withNativeWind(config, { input: './global.css' });

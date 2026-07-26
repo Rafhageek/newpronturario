@@ -1,47 +1,18 @@
 import { Tabs } from 'expo-router';
-import { Text } from 'react-native';
-
-function TabIcon({ icon, color }: { icon: string; color: string }) {
-  return <Text style={{ fontSize: 20, color }}>{icon}</Text>;
-}
+import { HubPatientsTabBar } from '@/components/tab-bar';
 
 export default function TabsLayout() {
   return (
     <Tabs
-      screenOptions={{
-        headerShown: true,
-        tabBarActiveTintColor: '#0284C7',
-        tabBarInactiveTintColor: '#94A3B8',
-      }}
+      screenOptions={{ headerShown: false }}
+      tabBar={(props) => <HubPatientsTabBar {...props} />}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Início',
-          tabBarIcon: ({ color }) => <TabIcon icon="🏠" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="diario"
-        options={{
-          title: 'Diário',
-          tabBarIcon: ({ color }) => <TabIcon icon="📔" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="medicamentos"
-        options={{
-          title: 'Medicamentos',
-          tabBarIcon: ({ color }) => <TabIcon icon="💊" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="perfil"
-        options={{
-          title: 'Perfil',
-          tabBarIcon: ({ color }) => <TabIcon icon="👤" color={color} />,
-        }}
-      />
+      <Tabs.Screen name="index" />
+      <Tabs.Screen name="diario" />
+      <Tabs.Screen name="medicamentos" />
+      <Tabs.Screen name="mais" />
+      {/* Fora da barra (acessível pela aba "Mais" / navegação) */}
+      <Tabs.Screen name="perfil" options={{ href: null }} />
     </Tabs>
   );
 }

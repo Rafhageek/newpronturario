@@ -1,6 +1,6 @@
 'use client';
 
-import { CAREGIVER_PERMISSIONS, type CaregiverPermissions } from '@vidalog/core';
+import { CAREGIVER_PERMISSIONS, type CaregiverPermissions } from '@hubpatients/core';
 
 export function PermissionsEditor({
   value,
@@ -24,7 +24,7 @@ export function PermissionsEditor({
             aria-checked={value[perm.key]}
             disabled={readOnly}
             onClick={() => onChange?.({ ...value, [perm.key]: !value[perm.key] })}
-            className={`relative h-5 w-9 shrink-0 rounded-full transition ${value[perm.key] ? 'bg-emerald-500' : 'bg-white/15'} ${readOnly ? 'opacity-60' : ''}`}
+            className={`relative h-5 w-9 shrink-0 rounded-full transition ${value[perm.key] ? 'bg-emerald-500' : 'bg-line'} ${readOnly ? 'opacity-60' : ''}`}
           >
             <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${value[perm.key] ? 'left-[18px]' : 'left-0.5'}`} />
           </button>

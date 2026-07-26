@@ -1,18 +1,32 @@
 'use client';
 
 import { useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { Plus, Trash2, Upload, X } from 'lucide-react';
+import { Plus, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
-import { examSchema, EXAM_CATEGORY_LABELS, type ExamCategory } from '@vidalog/core';
-import { useCreateExam, useVidaLogClient, uploadExamFile, type NewExamMetric } from '@vidalog/supabase';
+import {
+  examSchema,
+  EXAM_CATEGORY_LABELS,
+  DISCLAIMERS,
+  EXAM_UPLOAD_ACCEPT,
+  validateExamUpload,
+  type ExamCategory,
+} from '@hubpatients/core';
+import {
+  ExamRecordPersistedError,
+  useCreateExam,
+  useHubPatientsClient,
+  uploadExamFile,
+  removeExamFile,
+  type NewExamMetric,
+} from '@hubpatients/supabase';
 import { Button, Field, Input } from '@/components/ui';
+import { Modal } from '@/components/ui/modal';
 
 type MetricRow = { name: string; value: string; unit: string; refMin: string; refMax: string };
 const emptyRow: MetricRow = { name: '', value: '', unit: '', refMin: '', refMax: '' };
 
 export function UploadExamModal({ open, onClose, patientId }: { open: boolean; onClose: () => void; patientId: string }) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   const createExam = useCreateExam(patientId);
 
   const [name, setName] = useState('');
@@ -34,8 +48,8 @@ export function UploadExamModal({ open, onClose, patientId }: { open: boolean; o
       return;
     }
     setSaving(true);
+    let storagePath: string | null = null;
     try {
-      let storagePath: string | null = null;
       let fileMime: string | null = null;
       if (file) {
         storagePath = await uploadExamFile(client, patientId, file);
@@ -71,8 +85,20 @@ export function UploadExamModal({ open, onClose, patientId }: { open: boolean; o
       toast.success('Exame salvo.');
       reset();
       onClose();
-    } catch {
-      toast.error('Não foi possível salvar o exame.');
+    } catch (error) {
+      if (storagePath && !(error instanceof ExamRecordPersistedError)) {
+        try {
+          await removeExamFile(client, storagePath);
+        } catch {
+          // A falha de limpeza não substitui o erro principal; monitoração
+          // server-side deve reconciliar raros objetos órfãos remanescentes.
+        }
+      }
+      toast.error(
+        error instanceof ExamRecordPersistedError
+          ? 'O exame foi salvo, mas os resultados não. Revise o registro antes de continuar.'
+          : 'Não foi possível salvar o exame.',
+      );
     } finally {
       setSaving(false);
     }
@@ -83,25 +109,22 @@ export function UploadExamModal({ open, onClose, patientId }: { open: boolean; o
     setFile(null); setRows([{ ...emptyRow }]);
   }
 
-  return (
-    <AnimatePresence>
-      {open && (
-        <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-          <motion.div
-            role="dialog"
-            aria-modal="true"
-            className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-line bg-surface p-6 shadow-2xl"
-            initial={{ scale: 0.95, y: 12, opacity: 0 }}
-            animate={{ scale: 1, y: 0, opacity: 1 }}
-            exit={{ scale: 0.96, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 320, damping: 26 }}
-          >
-            <button onClick={onClose} className="absolute right-4 top-4 rounded-lg p-1 text-muted hover:bg-surface-2 hover:text-fg" aria-label="Fechar">
-              <X className="h-4 w-4" />
-            </button>
-            <h2 className="mb-4 text-xl font-bold text-fg" style={{ fontFamily: 'var(--font-display)' }}>Adicionar exame</h2>
+  function onFileChange(nextFile: File | null) {
+    if (!nextFile) {
+      setFile(null);
+      return;
+    }
+    const validation = validateExamUpload(nextFile);
+    if (!validation.valid) {
+      setFile(null);
+      toast.error(validation.message);
+      return;
+    }
+    setFile(nextFile);
+  }
 
+  return (
+    <Modal open={open} onClose={onClose} title="Adicionar exame" className="max-w-2xl">
             <div className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Nome do exame" htmlFor="e-name"><Input id="e-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Hemograma completo" /></Field>
@@ -116,10 +139,26 @@ export function UploadExamModal({ open, onClose, patientId }: { open: boolean; o
               </div>
 
               {/* Arquivo */}
-              <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-line px-4 py-3 text-sm text-fg-soft hover:bg-surface-2">
-                <Upload className="h-4 w-4 text-primary" />
-                {file ? file.name : 'Anexar arquivo (PDF ou imagem)'}
-                <input type="file" accept="application/pdf,image/*" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+              <label className="block rounded-xl border border-dashed border-line px-4 py-3 text-sm text-fg-soft focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/25">
+                <span className="mb-2 flex items-center gap-2 font-medium text-fg">
+                  <Upload aria-hidden="true" className="h-4 w-4 text-primary" />
+                  Anexar laudo
+                </span>
+                <input
+                  type="file"
+                  accept={EXAM_UPLOAD_ACCEPT}
+                  className="block w-full cursor-pointer text-xs text-muted file:mr-3 file:min-h-11 file:cursor-pointer file:rounded-lg file:border-0 file:bg-primary-soft file:px-3 file:font-semibold file:text-primary"
+                  onChange={(event) => {
+                    const nextFile = event.target.files?.[0] ?? null;
+                    onFileChange(nextFile);
+                    if (nextFile && !validateExamUpload(nextFile).valid) {
+                      event.currentTarget.value = '';
+                    }
+                  }}
+                />
+                <span className="mt-2 block text-xs text-muted">
+                  PDF ou imagem compatível, até 10 MB.
+                </span>
               </label>
 
               {category === 'lab' ? (
@@ -127,13 +166,13 @@ export function UploadExamModal({ open, onClose, patientId }: { open: boolean; o
                   <p className="mb-2 text-sm font-medium text-fg-soft">Resultados</p>
                   <div className="space-y-2">
                     {rows.map((r, i) => (
-                      <div key={i} className="grid grid-cols-[1fr_70px_70px_70px_70px_auto] gap-2">
-                        <input value={r.name} onChange={(e) => setRows((a) => a.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} placeholder="Métrica" className="h-9 rounded-lg border border-line bg-surface-2 px-2 text-xs text-fg" />
-                        <input value={r.value} onChange={(e) => setRows((a) => a.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))} placeholder="Valor" className="h-9 rounded-lg border border-line bg-surface-2 px-2 text-xs text-fg" />
-                        <input value={r.unit} onChange={(e) => setRows((a) => a.map((x, j) => (j === i ? { ...x, unit: e.target.value } : x)))} placeholder="Un." className="h-9 rounded-lg border border-line bg-surface-2 px-2 text-xs text-fg" />
-                        <input value={r.refMin} onChange={(e) => setRows((a) => a.map((x, j) => (j === i ? { ...x, refMin: e.target.value } : x)))} placeholder="Mín" className="h-9 rounded-lg border border-line bg-surface-2 px-2 text-xs text-fg" />
-                        <input value={r.refMax} onChange={(e) => setRows((a) => a.map((x, j) => (j === i ? { ...x, refMax: e.target.value } : x)))} placeholder="Máx" className="h-9 rounded-lg border border-line bg-surface-2 px-2 text-xs text-fg" />
-                        <button type="button" onClick={() => setRows((a) => a.filter((_, j) => j !== i))} className="rounded-lg p-1.5 text-muted hover:text-rose-400"><Trash2 className="h-4 w-4" /></button>
+                      <div key={i} className="grid gap-2 rounded-xl border border-line p-3 sm:grid-cols-2">
+                        <input aria-label={`Métrica do resultado ${i + 1}`} value={r.name} onChange={(e) => setRows((a) => a.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} placeholder="Métrica" className="h-11 rounded-lg border border-line bg-surface-2 px-3 text-sm text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:col-span-2" />
+                        <input aria-label={`Valor do resultado ${i + 1}`} value={r.value} onChange={(e) => setRows((a) => a.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))} placeholder="Valor" inputMode="decimal" className="h-11 rounded-lg border border-line bg-surface-2 px-3 text-sm text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" />
+                        <input aria-label={`Unidade do resultado ${i + 1}`} value={r.unit} onChange={(e) => setRows((a) => a.map((x, j) => (j === i ? { ...x, unit: e.target.value } : x)))} placeholder="Unidade" className="h-11 rounded-lg border border-line bg-surface-2 px-3 text-sm text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" />
+                        <input aria-label={`Referência mínima do resultado ${i + 1}`} value={r.refMin} onChange={(e) => setRows((a) => a.map((x, j) => (j === i ? { ...x, refMin: e.target.value } : x)))} placeholder="Referência mínima" inputMode="decimal" className="h-11 rounded-lg border border-line bg-surface-2 px-3 text-sm text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" />
+                        <input aria-label={`Referência máxima do resultado ${i + 1}`} value={r.refMax} onChange={(e) => setRows((a) => a.map((x, j) => (j === i ? { ...x, refMax: e.target.value } : x)))} placeholder="Referência máxima" inputMode="decimal" className="h-11 rounded-lg border border-line bg-surface-2 px-3 text-sm text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" />
+                        <button type="button" aria-label={`Remover resultado ${i + 1}`} onClick={() => setRows((a) => a.filter((_, j) => j !== i))} className="min-h-11 rounded-lg border border-line px-3 text-sm text-muted hover:border-rose-400 hover:text-status-alert-ink sm:col-span-2"><Trash2 aria-hidden="true" className="mr-2 inline h-4 w-4" /> Remover resultado</button>
                       </div>
                     ))}
                   </div>
@@ -147,14 +186,15 @@ export function UploadExamModal({ open, onClose, patientId }: { open: boolean; o
                 </Field>
               )}
 
+              <p className="rounded-xl border border-line bg-surface-2 px-3 py-2 text-[11px] text-muted">
+                {DISCLAIMERS.notDiagnosis}
+              </p>
+
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={onClose} className="inline-flex h-11 items-center rounded-xl border border-line px-4 text-sm text-fg-soft hover:bg-surface-2">Cancelar</button>
                 <Button onClick={onSubmit} disabled={saving}>{saving ? 'Salvando…' : 'Salvar exame'}</Button>
               </div>
             </div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    </Modal>
   );
 }

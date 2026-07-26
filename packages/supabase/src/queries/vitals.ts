@@ -1,8 +1,8 @@
-import type { Vital, InsertRow, VitalType } from '@vidalog/core';
-import type { VidaLogClient } from '../types';
+import type { Vital, InsertRow, VitalType } from '@hubpatients/core';
+import type { HubPatientsClient } from '../types';
 
 export async function listVitals(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   patientId: string,
   options: { type?: VitalType; limit?: number } = {},
 ): Promise<Vital[]> {
@@ -20,7 +20,7 @@ export async function listVitals(
 
 /** Última medição de um tipo (ex.: última PA para o dashboard). */
 export async function getLatestVital(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   patientId: string,
   type: VitalType,
 ): Promise<Vital | null> {
@@ -38,7 +38,7 @@ export async function getLatestVital(
 
 /** Medições de um tipo a partir de uma data (ascendente — ideal para gráficos). */
 export async function listVitalsSince(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   patientId: string,
   type: VitalType,
   sinceIso: string,
@@ -56,7 +56,7 @@ export async function listVitalsSince(
 
 /** Todas as medições (qualquer tipo) a partir de uma data — para a timeline do diário. */
 export async function listVitalsSinceAll(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   patientId: string,
   sinceIso: string,
 ): Promise<Vital[]> {
@@ -71,7 +71,7 @@ export async function listVitalsSinceAll(
 }
 
 export async function createVital(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   vital: InsertRow<'vitals'>,
 ): Promise<Vital> {
   const { data, error } = await client.from('vitals').insert(vital).select('*').single();

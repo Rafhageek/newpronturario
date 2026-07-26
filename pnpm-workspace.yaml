@@ -5,10 +5,13 @@ allowBuilds:
   esbuild: true
   sharp: true
 
-# Uma única versão de React/tipos em todo o monorepo (Expo 53 exige react 19.0.0).
-# Evita o conflito de múltiplos @types/react que quebra o JSX do web.
+# Overrides DUPLICADOS de propósito (aqui + package.json -> pnpm.overrides):
+# pnpm >= 10.4 (local 11.5.2) lê deste arquivo; pnpm mais antigo (servidor EAS)
+# lê do package.json. Manter os MESMOS valores nos dois evita o
+# ERR_PNPM_LOCKFILE_CONFIG_MISMATCH no `pnpm install --frozen-lockfile` do EAS.
+# Expo 54 exige react 19.1.0; unificar tipos evita conflito de @types/react no web.
 overrides:
-  react: 19.0.0
-  react-dom: 19.0.0
-  "@types/react": ~19.0.0
-  "@types/react-dom": ~19.0.0
+  react: 19.1.0
+  react-dom: 19.1.0
+  "@types/react": ~19.1.0
+  "@types/react-dom": ~19.1.0

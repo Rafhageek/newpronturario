@@ -7,12 +7,12 @@ import type {
   InsurancePlan,
   Surgery,
   UpdateRow,
-} from '@vidalog/core';
-import type { VidaLogClient } from '../types';
+} from '@hubpatients/core';
+import type { HubPatientsClient } from '../types';
 
 // ── Consultas (appointments) ────────────────────────────────────────────────
 export async function listAppointments(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   patientId: string,
 ): Promise<Appointment[]> {
   const { data, error } = await client
@@ -26,7 +26,7 @@ export async function listAppointments(
 
 /** Próxima consulta agendada (a partir de agora). */
 export async function getNextAppointment(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   patientId: string,
   nowIso: string,
 ): Promise<Appointment | null> {
@@ -44,7 +44,7 @@ export async function getNextAppointment(
 }
 
 export async function createAppointment(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   row: InsertRow<'appointments'>,
 ): Promise<Appointment> {
   const { data, error } = await client.from('appointments').insert(row).select('*').single();
@@ -53,7 +53,7 @@ export async function createAppointment(
 }
 
 export async function updateAppointment(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   id: string,
   patch: UpdateRow<'appointments'>,
 ): Promise<Appointment> {
@@ -69,7 +69,7 @@ export async function updateAppointment(
 
 // ── Condições (conditions) ──────────────────────────────────────────────────
 export async function listConditions(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   patientId: string,
 ): Promise<Condition[]> {
   const { data, error } = await client
@@ -80,23 +80,23 @@ export async function listConditions(
   if (error) throw error;
   return data ?? [];
 }
-export async function createCondition(client: VidaLogClient, row: InsertRow<'conditions'>) {
+export async function createCondition(client: HubPatientsClient, row: InsertRow<'conditions'>) {
   const { data, error } = await client.from('conditions').insert(row).select('*').single();
   if (error) throw error;
   return data;
 }
-export async function updateCondition(client: VidaLogClient, id: string, patch: UpdateRow<'conditions'>) {
+export async function updateCondition(client: HubPatientsClient, id: string, patch: UpdateRow<'conditions'>) {
   const { data, error } = await client.from('conditions').update(patch).eq('id', id).select('*').single();
   if (error) throw error;
   return data;
 }
-export async function deleteCondition(client: VidaLogClient, id: string) {
+export async function deleteCondition(client: HubPatientsClient, id: string) {
   const { error } = await client.from('conditions').delete().eq('id', id);
   if (error) throw error;
 }
 
 // ── Alergias (allergies) ────────────────────────────────────────────────────
-export async function listAllergies(client: VidaLogClient, patientId: string): Promise<Allergy[]> {
+export async function listAllergies(client: HubPatientsClient, patientId: string): Promise<Allergy[]> {
   const { data, error } = await client
     .from('allergies')
     .select('*')
@@ -105,18 +105,18 @@ export async function listAllergies(client: VidaLogClient, patientId: string): P
   if (error) throw error;
   return data ?? [];
 }
-export async function createAllergy(client: VidaLogClient, row: InsertRow<'allergies'>) {
+export async function createAllergy(client: HubPatientsClient, row: InsertRow<'allergies'>) {
   const { data, error } = await client.from('allergies').insert(row).select('*').single();
   if (error) throw error;
   return data;
 }
-export async function deleteAllergy(client: VidaLogClient, id: string) {
+export async function deleteAllergy(client: HubPatientsClient, id: string) {
   const { error } = await client.from('allergies').delete().eq('id', id);
   if (error) throw error;
 }
 
 // ── Cirurgias (surgeries) ───────────────────────────────────────────────────
-export async function listSurgeries(client: VidaLogClient, patientId: string): Promise<Surgery[]> {
+export async function listSurgeries(client: HubPatientsClient, patientId: string): Promise<Surgery[]> {
   const { data, error } = await client
     .from('surgeries')
     .select('*')
@@ -125,19 +125,19 @@ export async function listSurgeries(client: VidaLogClient, patientId: string): P
   if (error) throw error;
   return data ?? [];
 }
-export async function createSurgery(client: VidaLogClient, row: InsertRow<'surgeries'>) {
+export async function createSurgery(client: HubPatientsClient, row: InsertRow<'surgeries'>) {
   const { data, error } = await client.from('surgeries').insert(row).select('*').single();
   if (error) throw error;
   return data;
 }
-export async function deleteSurgery(client: VidaLogClient, id: string) {
+export async function deleteSurgery(client: HubPatientsClient, id: string) {
   const { error } = await client.from('surgeries').delete().eq('id', id);
   if (error) throw error;
 }
 
 // ── Antecedentes familiares (family_history) ────────────────────────────────
 export async function listFamilyHistory(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   patientId: string,
 ): Promise<FamilyHistory[]> {
   const { data, error } = await client
@@ -148,19 +148,19 @@ export async function listFamilyHistory(
   if (error) throw error;
   return data ?? [];
 }
-export async function createFamilyHistory(client: VidaLogClient, row: InsertRow<'family_history'>) {
+export async function createFamilyHistory(client: HubPatientsClient, row: InsertRow<'family_history'>) {
   const { data, error } = await client.from('family_history').insert(row).select('*').single();
   if (error) throw error;
   return data;
 }
-export async function deleteFamilyHistory(client: VidaLogClient, id: string) {
+export async function deleteFamilyHistory(client: HubPatientsClient, id: string) {
   const { error } = await client.from('family_history').delete().eq('id', id);
   if (error) throw error;
 }
 
 // ── Convênio (insurance_plans) ──────────────────────────────────────────────
 export async function getPrimaryInsurance(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   patientId: string,
 ): Promise<InsurancePlan | null> {
   const { data, error } = await client
@@ -176,7 +176,7 @@ export async function getPrimaryInsurance(
 
 /** Cria ou atualiza o convênio primário do paciente. */
 export async function upsertPrimaryInsurance(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   patientId: string,
   values: Omit<InsertRow<'insurance_plans'>, 'patient_id'>,
 ): Promise<InsurancePlan> {

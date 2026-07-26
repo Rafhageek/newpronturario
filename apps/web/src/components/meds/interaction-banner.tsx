@@ -1,39 +1,46 @@
 'use client';
 
-import { AlertTriangle, Lock, ShieldCheck } from 'lucide-react';
-import type { DrugInteraction } from '@vidalog/core';
-import { INTERACTION_SEVERITY } from '@vidalog/core';
+import { AlertTriangle, Info } from 'lucide-react';
+import type { DrugInteraction } from '@hubpatients/core';
+import { INTERACTION_SEVERITY } from '@hubpatients/core';
 
 export function InteractionBanner({
-  isPlus,
   interactions,
-  onUpgrade,
+  isLoading,
+  isError,
 }: {
-  isPlus: boolean;
   interactions: DrugInteraction[];
-  onUpgrade: () => void;
+  isLoading: boolean;
+  isError: boolean;
 }) {
-  if (!isPlus) {
+  if (isLoading) {
     return (
-      <button
-        onClick={onUpgrade}
-        className="flex w-full items-center gap-3 rounded-2xl border border-sky-400/20 bg-sky-500/[0.08] p-4 text-left transition hover:bg-sky-500/[0.12]"
-      >
-        <Lock className="h-5 w-5 shrink-0 text-primary" />
-        <div className="flex-1">
-          <p className="text-sm font-semibold text-fg">Verificação de interações</p>
-          <p className="text-xs text-muted">Desbloqueie alertas de interações entre seus medicamentos no Plus.</p>
-        </div>
-        <span className="rounded bg-sky-500/20 px-2 py-0.5 text-[10px] font-bold text-primary">PLUS</span>
-      </button>
+      <div role="status" className="flex items-center gap-3 rounded-2xl border border-line bg-surface-2 p-4">
+        <Info className="h-5 w-5 shrink-0 text-primary" />
+        <p className="text-sm text-fg-soft">Verificando possíveis interações na base disponível…</p>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div role="alert" className="flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/[0.08] p-4">
+        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-status-attention-ink" />
+        <p className="text-sm text-amber-800 dark:text-amber-100">
+          Não foi possível verificar possíveis interações agora. Confira os princípios ativos e consulte um médico ou farmacêutico antes de tomar qualquer decisão.
+        </p>
+      </div>
     );
   }
 
   if (interactions.length === 0) {
     return (
-      <div className="flex items-center gap-3 rounded-2xl border border-emerald-400/20 bg-emerald-500/[0.08] p-4">
-        <ShieldCheck className="h-5 w-5 text-emerald-400" />
-        <p className="text-sm text-emerald-200">Nenhuma interação conhecida entre seus medicamentos ativos.</p>
+      <div className="flex items-start gap-3 rounded-2xl border border-line bg-surface-2 p-4">
+        <Info className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+        <p className="text-sm text-fg-soft">
+          A base atual não encontrou correspondências entre os nomes cadastrados. A verificação não é
+          completa e não substitui a avaliação de um médico ou farmacêutico. Confira os princípios ativos e as bulas.
+        </p>
       </div>
     );
   }
@@ -46,15 +53,17 @@ export function InteractionBanner({
         return (
           <div
             key={i.id}
-            className={`flex items-start gap-3 rounded-2xl border p-4 ${alert ? 'border-rose-500/30 bg-rose-500/10' : 'border-amber-500/25 bg-amber-500/[0.08]'}`}
+            role={alert ? 'alert' : undefined}
+            aria-live={alert ? 'assertive' : undefined}
+            className={`flex items-start gap-3 rounded-2xl border p-4 ${alert ? 'border-rose-500/40 bg-rose-500/15' : 'border-amber-500/25 bg-amber-500/[0.08]'}`}
           >
-            <AlertTriangle className={`mt-0.5 h-5 w-5 shrink-0 ${alert ? 'text-rose-400' : 'text-amber-400'}`} />
+            <AlertTriangle className={`mt-0.5 h-5 w-5 shrink-0 ${alert ? 'text-status-alert-ink' : 'text-status-attention-ink'}`} />
             <div>
-              <p className={`text-sm font-semibold ${alert ? 'text-rose-200' : 'text-amber-100'}`}>
+              <p className={`text-sm font-semibold ${alert ? 'text-rose-700 dark:text-rose-200' : 'text-amber-700 dark:text-amber-100'}`}>
                 {i.drug_a} + {i.drug_b} · {meta.label}
               </p>
               <p className="mt-0.5 text-xs text-fg-soft">{i.description}</p>
-              <p className="mt-1 text-[11px] text-muted">Converse com seu médico. O VidaLog não substitui avaliação profissional.</p>
+              <p className="mt-1 text-[11px] text-muted">Converse com seu médico. O HubPatients não substitui avaliação profissional.</p>
             </div>
           </div>
         );

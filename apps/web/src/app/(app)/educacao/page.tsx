@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import { BookOpen, GraduationCap } from 'lucide-react';
-import { useHealthContent, useConditions, useReadingList, useToggleReadingList } from '@vidalog/supabase';
-import { recommendContentByCids, isRelevant } from '@vidalog/core';
+import { useHealthContent, useConditions, useReadingList, useToggleReadingList } from '@hubpatients/supabase';
+import { recommendContentByCids, isRelevant } from '@hubpatients/core';
 import { useAuth } from '@/components/auth-provider';
 import { ContentCard } from '@/components/education/content-card';
 

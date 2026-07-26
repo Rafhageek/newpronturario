@@ -1,14 +1,14 @@
-import type { UserSettings, UpdateRow } from '@vidalog/core';
-import type { VidaLogClient } from '../types';
+import type { UserSettings, UpdateRow } from '@hubpatients/core';
+import type { HubPatientsClient } from '../types';
 
-export async function getSettings(client: VidaLogClient, userId: string): Promise<UserSettings | null> {
+export async function getSettings(client: HubPatientsClient, userId: string): Promise<UserSettings | null> {
   const { data, error } = await client.from('user_settings').select('*').eq('user_id', userId).maybeSingle();
   if (error) throw error;
   return data;
 }
 
 export async function upsertSettings(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   userId: string,
   patch: UpdateRow<'user_settings'>,
 ): Promise<UserSettings> {

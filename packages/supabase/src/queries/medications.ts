@@ -1,8 +1,8 @@
-import type { Medication, MedicationIntake, InsertRow } from '@vidalog/core';
-import type { VidaLogClient } from '../types';
+import type { Medication, MedicationIntake, InsertRow, UpdateRow } from '@hubpatients/core';
+import type { HubPatientsClient } from '../types';
 
 export async function listMedications(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   patientId: string,
   options: { activeOnly?: boolean } = {},
 ): Promise<Medication[]> {
@@ -18,7 +18,7 @@ export async function listMedications(
 }
 
 export async function createMedication(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   medication: InsertRow<'medications'>,
 ): Promise<Medication> {
   const { data, error } = await client
@@ -32,7 +32,7 @@ export async function createMedication(
 
 /** Registra a tomada de um medicamento (feature de segurança gratuita). */
 export async function registerIntake(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   intake: InsertRow<'medication_intakes'>,
 ): Promise<MedicationIntake> {
   const { data, error } = await client
@@ -45,7 +45,7 @@ export async function registerIntake(
 }
 
 export async function listRecentIntakes(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   patientId: string,
   limit = 20,
 ): Promise<MedicationIntake[]> {
@@ -57,4 +57,49 @@ export async function listRecentIntakes(
     .limit(limit);
   if (error) throw error;
   return data ?? [];
+}
+
+// ── Controle de estoque ──────────────────────────────────────────────────────
+
+export interface StockPatch {
+  stockCount?: number | null;
+  stockUnit?: string;
+  stockLowThresholdDays?: number;
+  packageSize?: number | null;
+}
+
+/** Atualiza os campos de estoque do medicamento (toggle/edição manual). */
+export async function updateStock(
+  client: HubPatientsClient,
+  medicationId: string,
+  patch: StockPatch,
+): Promise<void> {
+  const row: UpdateRow<'medications'> = { stock_last_updated_at: new Date().toISOString() };
+  if (patch.stockCount !== undefined) row.stock_count = patch.stockCount;
+  if (patch.stockUnit !== undefined) row.stock_unit = patch.stockUnit;
+  if (patch.stockLowThresholdDays !== undefined) row.stock_low_threshold_days = patch.stockLowThresholdDays;
+  if (patch.packageSize !== undefined) row.package_size = patch.packageSize;
+  const { error } = await client.from('medications').update(row).eq('id', medicationId);
+  if (error) throw error;
+}
+
+/** "Comprei mais!" — soma atômica no banco; evita lost update concorrente. */
+export async function markRefill(
+  client: HubPatientsClient,
+  medicationId: string,
+  unitsToAdd: number,
+): Promise<void> {
+  // A assinatura será incorporada aos tipos gerados após a migration 0036.
+  // O cast local evita editar manualmente os tipos compartilhados.
+  const rpcClient = client as unknown as {
+    rpc: (
+      functionName: 'refill_medication_stock',
+      args: { p_medication_id: string; p_units: number },
+    ) => PromiseLike<{ error: unknown | null }>;
+  };
+  const { error } = await rpcClient.rpc('refill_medication_stock', {
+    p_medication_id: medicationId,
+    p_units: unitsToAdd,
+  });
+  if (error) throw error;
 }

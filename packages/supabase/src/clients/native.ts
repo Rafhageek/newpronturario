@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@vidalog/core';
+import type { Database } from '@hubpatients/core';
 
 /**
  * Adaptador de armazenamento (ex.: expo-secure-store). Injetado pelo app mobile
@@ -26,6 +26,8 @@ export function createSupabaseNativeClient(
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: false,
+      // PKCE: necessário para o login social via deep link (hubpatients://) no app.
+      flowType: 'pkce',
     },
   });
 }

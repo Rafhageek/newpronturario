@@ -4,8 +4,9 @@ import type {
   ExamMetric,
   ExamMetricExplanation,
   InsertRow,
-} from '@vidalog/core';
-import type { VidaLogClient } from '../types';
+} from '@hubpatients/core';
+import { safeExamFileName, validateExamUpload } from '@hubpatients/core';
+import type { HubPatientsClient } from '../types';
 
 export interface ExamFilters {
   category?: ExamCategory;
@@ -14,7 +15,7 @@ export interface ExamFilters {
 }
 
 export async function listExams(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   patientId: string,
   filters: ExamFilters = {},
 ): Promise<Exam[]> {
@@ -30,13 +31,13 @@ export async function listExams(
   return data ?? [];
 }
 
-export async function getExam(client: VidaLogClient, examId: string): Promise<Exam | null> {
+export async function getExam(client: HubPatientsClient, examId: string): Promise<Exam | null> {
   const { data, error } = await client.from('exams').select('*').eq('id', examId).maybeSingle();
   if (error) throw error;
   return data;
 }
 
-export async function getExamMetrics(client: VidaLogClient, examId: string): Promise<ExamMetric[]> {
+export async function getExamMetrics(client: HubPatientsClient, examId: string): Promise<ExamMetric[]> {
   const { data, error } = await client
     .from('exam_metrics')
     .select('*')
@@ -46,14 +47,14 @@ export async function getExamMetrics(client: VidaLogClient, examId: string): Pro
   return data ?? [];
 }
 
-export async function createExam(client: VidaLogClient, row: InsertRow<'exams'>): Promise<Exam> {
+export async function createExam(client: HubPatientsClient, row: InsertRow<'exams'>): Promise<Exam> {
   const { data, error } = await client.from('exams').insert(row).select('*').single();
   if (error) throw error;
   return data;
 }
 
 export async function createExamMetrics(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   rows: InsertRow<'exam_metrics'>[],
 ): Promise<void> {
   if (rows.length === 0) return;
@@ -62,7 +63,7 @@ export async function createExamMetrics(
 }
 
 /** Dicionário educativo completo (tabela pequena, cacheável). */
-export async function getExplanations(client: VidaLogClient): Promise<ExamMetricExplanation[]> {
+export async function getExplanations(client: HubPatientsClient): Promise<ExamMetricExplanation[]> {
   const { data, error } = await client.from('exam_metric_explanations').select('*');
   if (error) throw error;
   return data ?? [];
@@ -70,7 +71,7 @@ export async function getExplanations(client: VidaLogClient): Promise<ExamMetric
 
 /** Histórico de uma métrica ao longo do tempo (evolução temporal). */
 export async function getMetricHistory(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   patientId: string,
   metricName: string,
   metricCode: string | null,
@@ -83,7 +84,7 @@ export async function getMetricHistory(
 }
 
 /** Quantos exames o paciente criou no mês atual (limite Free). */
-export async function monthlyUploadCount(client: VidaLogClient, patientId: string): Promise<number> {
+export async function monthlyUploadCount(client: HubPatientsClient, patientId: string): Promise<number> {
   const start = new Date();
   start.setDate(1);
   start.setHours(0, 0, 0, 0);
@@ -98,19 +99,33 @@ export async function monthlyUploadCount(client: VidaLogClient, patientId: strin
 
 // ── Storage ─────────────────────────────────────────────────────────────────
 export async function uploadExamFile(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   patientId: string,
   file: File,
 ): Promise<string> {
-  const safe = file.name.replace(/[^\w.-]/g, '_');
+  const validation = validateExamUpload(file);
+  if (!validation.valid) throw new Error(validation.message);
+  const safe = safeExamFileName(file.name);
   const path = `${patientId}/${Date.now()}_${safe}`;
-  const { error } = await client.storage.from('exams').upload(path, file, { upsert: false });
+  const { error } = await client.storage.from('exams').upload(path, file, {
+    contentType: validation.mime,
+    cacheControl: '3600',
+    upsert: false,
+  });
   if (error) throw error;
   return path;
 }
 
+export async function removeExamFile(
+  client: HubPatientsClient,
+  storagePath: string,
+): Promise<void> {
+  const { error } = await client.storage.from('exams').remove([storagePath]);
+  if (error) throw error;
+}
+
 export async function getExamSignedUrl(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   storagePath: string,
   expiresIn = 60,
 ): Promise<string | null> {

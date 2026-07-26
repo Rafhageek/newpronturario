@@ -4,9 +4,10 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { AlertTriangle, Trash2 } from 'lucide-react';
-import { allergySchema, type AllergyInput, ALLERGY_SEVERITY } from '@vidalog/core';
-import { useAllergies, useAllergyMutations } from '@vidalog/supabase';
+import { allergySchema, type AllergyInput, ALLERGY_SEVERITY } from '@hubpatients/core';
+import { useAllergies, useAllergyMutations } from '@hubpatients/supabase';
 import { Button, Field, Input } from '@/components/ui';
+import { confirmAction } from '@/lib/confirm';
 
 export function AllergiesSection({ patientId }: { patientId: string }) {
   const { data: allergies } = useAllergies(patientId);
@@ -45,15 +46,15 @@ export function AllergiesSection({ patientId }: { patientId: string }) {
                 className={`flex items-center justify-between rounded-xl border px-3 py-2.5 ${alert ? 'border-rose-500/30 bg-rose-500/10' : 'border-amber-500/20 bg-amber-500/[0.06]'}`}
               >
                 <div className="flex min-w-0 items-center gap-2.5">
-                  {alert && <AlertTriangle className="h-4 w-4 shrink-0 text-rose-400" />}
+                  {alert && <AlertTriangle className="h-4 w-4 shrink-0 text-status-alert-ink" />}
                   <div className="min-w-0">
-                    <p className={`truncate text-sm font-medium ${alert ? 'text-rose-200' : 'text-amber-100'}`}>
+                    <p className={`truncate text-sm font-medium ${alert ? 'text-rose-700 dark:text-rose-200' : 'text-amber-100'}`}>
                       {a.substance} · {meta.label}
                     </p>
                     {a.reaction && <p className="truncate text-xs text-muted">{a.reaction}</p>}
                   </div>
                 </div>
-                <button onClick={() => remove.mutate(a.id)} className="rounded-lg p-1.5 text-muted hover:bg-rose-500/10 hover:text-rose-400" aria-label="Remover">
+                <button onClick={() => { if (confirmAction(`Remover a alergia "${a.substance}"? Essa informação é importante para sua segurança em emergências.`)) remove.mutate(a.id); }} className="flex h-10 w-10 items-center justify-center rounded-lg text-muted hover:bg-rose-500/10 hover:text-status-alert-ink" aria-label={`Remover alergia ${a.substance}`}>
                   <Trash2 className="h-4 w-4" />
                 </button>
               </li>

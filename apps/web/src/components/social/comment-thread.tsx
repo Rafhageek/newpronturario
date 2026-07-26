@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Send } from 'lucide-react';
-import { useComments } from '@vidalog/supabase';
+import { useComments } from '@hubpatients/supabase';
 
 export function CommentThread({
   postId,

@@ -1,6 +1,6 @@
 import { createBrowserClient } from '@supabase/ssr';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '@vidalog/core';
+import type { Database } from '@hubpatients/core';
 
 /**
  * Client para componentes de navegador (Next.js client components).

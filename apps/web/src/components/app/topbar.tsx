@@ -1,10 +1,11 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Bell, LogOut, Moon, Languages, Menu } from 'lucide-react';
-import { useProfile } from '@vidalog/supabase';
+import { Menu } from 'lucide-react';
+import { useProfile } from '@hubpatients/supabase';
 import { useAuth } from '@/components/auth-provider';
 import { ProfileSwitcher } from '@/components/app/profile-switcher';
+import { ThemeMenu, LanguageMenu, NotificationsMenu, UserMenu } from '@/components/app/topbar-menus';
 
 function greeting(hour: number): string {
   if (hour < 12) return 'Bom dia';
@@ -57,49 +58,18 @@ export function AppTopbar({ onMenuClick }: { onMenuClick?: () => void }) {
       <div className="flex shrink-0 items-center gap-1.5">
         <div className="hidden items-center gap-1.5 sm:flex">
           <ProfileSwitcher />
-          <IconButton label="Idioma" onClick={() => router.push('/configuracoes')}>
-            <Languages className="h-[18px] w-[18px]" />
-          </IconButton>
-          <IconButton label="Tema" onClick={() => router.push('/configuracoes')}>
-            <Moon className="h-[18px] w-[18px]" />
-          </IconButton>
-          <IconButton label="Notificações">
-            <Bell className="h-[18px] w-[18px]" />
-            <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
-              3
-            </span>
-          </IconButton>
-          <div className="mx-1 h-6 w-px bg-line" />
+          <LanguageMenu />
+          <ThemeMenu />
         </div>
-
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-cyan-400 text-sm font-bold text-white">
-          {initial}
-        </span>
-        <IconButton label="Sair" onClick={handleSignOut}>
-          <LogOut className="h-[18px] w-[18px]" />
-        </IconButton>
+        <NotificationsMenu />
+        <div className="mx-1 hidden h-6 w-px bg-line sm:block" />
+        <UserMenu
+          initial={initial}
+          name={profile?.full_name ?? firstName}
+          email={user?.email ?? undefined}
+          onSignOut={handleSignOut}
+        />
       </div>
     </header>
-  );
-}
-
-function IconButton({
-  children,
-  label,
-  onClick,
-}: {
-  children: React.ReactNode;
-  label: string;
-  onClick?: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      className="relative flex h-9 w-9 items-center justify-center rounded-xl text-muted transition hover:bg-surface-2 hover:text-fg"
-    >
-      {children}
-    </button>
   );
 }

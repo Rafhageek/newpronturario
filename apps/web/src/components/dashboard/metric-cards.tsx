@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import type { LucideIcon } from 'lucide-react';
 import { ArrowDownRight, ArrowRight, ArrowUpRight } from 'lucide-react';
+import { statusVars, type StatusKind } from '@/components/ui/status-chip';
 
 export const container = {
   hidden: { opacity: 0 },
@@ -15,13 +16,29 @@ export const item = {
 
 export type Tone = 'ok' | 'attention' | 'alert' | 'neutral';
 
-const TONE_COLOR: Record<Tone, string> = {
-  ok: '#10B981',
-  attention: '#F59E0B',
-  alert: '#EF4444',
-  neutral: '#38BDF8',
+/**
+ * Ponte entre o `Tone` legado destes cartões e o sistema de status do redesign.
+ *
+ * O `#10B981 / #F59E0B / #EF4444` que estava aqui dava 2,41 / 2,04 / 3,57:1 em
+ * texto sobre o canvas creme — reprovava em AA nos três tons e não tinha versão
+ * de tema escuro. O sistema separa `ink` (texto, ≥4,5:1 sobre o `tint`), `mark`
+ * (traço, ≥3:1) e `tint` (fundo), que é a única forma honesta de ter âmbar e
+ * vermelho acessíveis. Ver `components/ui/status-chip.tsx`.
+ */
+const TONE_STATUS: Record<Tone, StatusKind> = {
+  ok: 'ok',
+  attention: 'attention',
+  alert: 'alert',
+  neutral: 'neutro',
 };
 
+/**
+ * Cartão de leitura da Home.
+ *
+ * `accent` continua sendo uma cor CSS livre (API preservada), mas agora aceita
+ * CSS var — por isso o fundo do ícone usa `color-mix()` em vez de concatenar
+ * `${accent}1f` (concatenação de alfa só funciona com hex literal).
+ */
 export function MetricCard({
   icon: Icon,
   accent,
@@ -40,7 +57,10 @@ export function MetricCard({
     >
       <span className="absolute inset-x-0 top-0 h-0.5" style={{ background: accent }} />
       <div className="flex items-center justify-between">
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: `${accent}1f`, color: accent }}>
+        <span
+          className="flex h-10 w-10 items-center justify-center rounded-xl"
+          style={{ background: `color-mix(in srgb, ${accent} 14%, transparent)`, color: accent }}
+        >
           <Icon className="h-5 w-5" />
         </span>
       </div>
@@ -52,20 +72,29 @@ export function MetricCard({
 
 /** Chip de status clínico (faixa de referência — não diagnóstico). */
 export function StatusChip({ tone, label }: { tone: Tone; label: string }) {
-  const color = TONE_COLOR[tone];
+  const { ink, mark, tint } = statusVars(TONE_STATUS[tone]);
   return (
     <span
       className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium"
-      style={{ background: `${color}1f`, color }}
+      style={{ background: tint, color: ink }}
     >
-      <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
+      <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full" style={{ background: mark }} />
       {label}
     </span>
   );
 }
 
+/**
+ * Seta de tendência entre duas medições.
+ *
+ * SEM SEMÁFORO de propósito: antes "subiu" era vermelho e "desceu" era verde —
+ * isto é diagnóstico disfarçado (subir peso ou pressão não é "ruim" por si só, e
+ * quem interpreta é o médico). A direção já está na FORMA da seta; a cor fica
+ * neutra e o `aria-label` diz em palavras o que a seta mostra (SC 1.4.1).
+ */
 export function Trend({ direction }: { direction: 'up' | 'down' | 'flat' }) {
-  if (direction === 'up') return <ArrowUpRight className="h-4 w-4 text-rose-400" />;
-  if (direction === 'down') return <ArrowDownRight className="h-4 w-4 text-emerald-400" />;
-  return <ArrowRight className="h-4 w-4 text-muted" />;
+  const cls = 'h-4 w-4 text-status-neutro-ink';
+  if (direction === 'up') return <ArrowUpRight className={cls} aria-label="acima da medição anterior" role="img" />;
+  if (direction === 'down') return <ArrowDownRight className={cls} aria-label="abaixo da medição anterior" role="img" />;
+  return <ArrowRight className={cls} aria-label="igual à medição anterior" role="img" />;
 }

@@ -3,21 +3,40 @@
 import { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CheckCircle2, ChevronDown, Clock, MessageCircleQuestion, Stethoscope } from 'lucide-react';
-import type { Exam, ExamMetric, ExamMetricExplanation } from '@vidalog/core';
-import { buildExamNarrative, EXAM_CATEGORY_LABELS, normalizeMetricKey } from '@vidalog/core';
-import { useExplanations } from '@vidalog/supabase';
+import type { AiDisclosureMeta, Exam, ExamMetric, ExamMetricExplanation } from '@hubpatients/core';
+import { buildExamNarrative, EXAM_CATEGORY_LABELS, normalizeMetricKey } from '@hubpatients/core';
+import { useExplanations } from '@hubpatients/supabase';
+import { AiDisclosure } from '@/components/ai/ai-disclosure';
 import { ExamDisclaimer, CriticalBanner } from './exam-disclaimer';
 import { MetricRow } from './metric-row';
 import { ThematicPanels } from './thematic-panels';
+
+/**
+ * Fontes que alimentam a leitura do exame quando não há registro específico em
+ * public.ai_invocations (ex.: exame digitado à mão). São fatos do pipeline, não
+ * metadados inventados de modelo.
+ */
+const EXAM_AI_SOURCES = [
+  'Valores do laudo enviado por você',
+  'Dicionário educativo do HubPatients (faixas de referência)',
+];
+
+const EXAM_AI_NOTE =
+  'Os valores deste exame podem ter sido extraídos automaticamente do arquivo que você enviou ' +
+  '(leitura por IA). O resumo, os painéis e as perguntas são montados a partir desses valores e do ' +
+  'dicionário educativo do HubPatients — confira sempre com o laudo original.';
 
 export function ExamReport({
   exam,
   metrics,
   patientId,
+  aiMeta,
 }: {
   exam: Exam;
   metrics: ExamMetric[];
   patientId: string;
+  /** Metadados de public.ai_invocations, quando houver registro para este exame. */
+  aiMeta?: AiDisclosureMeta;
 }) {
   const { data: explanations } = useExplanations();
   const [showOk, setShowOk] = useState(false);
@@ -37,6 +56,16 @@ export function ExamReport({
   return (
     <div className="space-y-5">
       {narrative.hasCritical && <CriticalBanner />}
+
+      {/* Disclosure de IA (CFM 2.454/2026) — antes de qualquer saída interpretada. */}
+      <AiDisclosure
+        taskType={aiMeta?.taskType ?? 'exam_reading'}
+        modelId={aiMeta?.modelId}
+        promptVersion={aiMeta?.promptVersion}
+        sources={aiMeta?.sources ?? EXAM_AI_SOURCES}
+        createdAt={aiMeta?.createdAt ?? exam.created_at}
+        note={EXAM_AI_NOTE}
+      />
 
       {/* 1) Resumo em 30 segundos */}
       <section className="rounded-2xl border border-sky-400/20 bg-gradient-to-br from-sky-500/[0.1] to-transparent p-5">
@@ -59,9 +88,25 @@ export function ExamReport({
           {/* 2) Priorização — pontos de atenção primeiro */}
           {narrative.attention.length > 0 && (
             <section>
-              <h3 className="mb-2 text-sm font-semibold text-amber-300">Pontos de atenção</h3>
+              <h3 className="mb-2 text-sm font-semibold text-amber-700 dark:text-amber-300">Pontos de atenção</h3>
               <div className="space-y-2">
                 {narrative.attention.map((m) => (
+                  <MetricRow key={m.id} metric={m} explanation={explFor(m)} patientId={patientId} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {narrative.unclassified.length > 0 && (
+            <section>
+              <h3 className="mb-2 text-sm font-semibold text-muted">
+                Não classificados ({narrative.unclassified.length})
+              </h3>
+              <p className="mb-2 text-xs text-muted">
+                Falta valor ou faixa de referência no laudo. Estes resultados não contam como normais.
+              </p>
+              <div className="space-y-2">
+                {narrative.unclassified.map((m) => (
                   <MetricRow key={m.id} metric={m} explanation={explFor(m)} patientId={patientId} />
                 ))}
               </div>
@@ -71,7 +116,7 @@ export function ExamReport({
           {/* Tudo certo (colapsado) */}
           {narrative.normal.length > 0 && (
             <section>
-              <button onClick={() => setShowOk((v) => !v)} className="flex w-full items-center gap-2 text-sm font-semibold text-emerald-300">
+              <button onClick={() => setShowOk((v) => !v)} className="flex w-full items-center gap-2 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
                 <CheckCircle2 className="h-4 w-4" />
                 Tudo certo ({narrative.normal.length})
                 <ChevronDown className={`h-4 w-4 transition-transform ${showOk ? 'rotate-180' : ''}`} />
@@ -121,7 +166,7 @@ export function ExamReport({
             </p>
           )}
           <p className="mt-3 text-[11px] text-muted">
-            Para exames de imagem, o VidaLog não interpreta a imagem — apenas organiza o laudo do seu médico.
+            Para exames de imagem, o HubPatients não interpreta a imagem — apenas organiza o laudo do seu médico.
           </p>
         </section>
       )}

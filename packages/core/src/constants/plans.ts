@@ -1,13 +1,11 @@
 /**
  * Planos e features. Regra ética inegociável: features de SEGURANÇA são
  * gratuitas para sempre (lembrete básico de medicação, registro de tomada,
- * cartão de emergência QR). Paywalls só sobre conveniência/avançado.
+ * alertas de interação, cartão de emergência QR). Paywalls só sobre
+ * conveniência/avançado.
  */
 
 export type PlanId = 'free' | 'plus';
-
-/** Limite de medicamentos no plano Free (lembrete/registro continuam grátis). */
-export const FREE_MEDICATION_LIMIT = 3;
 
 export interface Plan {
   id: PlanId;
@@ -19,13 +17,13 @@ export interface Plan {
 export const PLANS: Record<PlanId, Plan> = {
   free: {
     id: 'free',
-    name: 'VidaLog Free',
+    name: 'HubPatients Free',
     priceMonthlyBRL: 0,
     description: 'Tudo que importa para sua segurança, para sempre grátis.',
   },
   plus: {
     id: 'plus',
-    name: 'VidaLog Plus',
+    name: 'HubPatients Plus',
     priceMonthlyBRL: 19.9,
     description: 'Recursos avançados de organização e interpretação didática.',
   },
@@ -35,6 +33,7 @@ export const PLANS: Record<PlanId, Plan> = {
 export type FeatureKey =
   | 'medication_reminder_basic'
   | 'medication_intake_log'
+  | 'medication_interaction_alerts'
   | 'emergency_qr_card'
   | 'diary'
   | 'vitals_tracking'
@@ -62,6 +61,12 @@ export const FEATURES: Record<FeatureKey, FeatureDef> = {
   medication_intake_log: {
     key: 'medication_intake_log',
     label: 'Registro de tomada',
+    safetyCritical: true,
+    plans: ['free', 'plus'],
+  },
+  medication_interaction_alerts: {
+    key: 'medication_interaction_alerts',
+    label: 'Alertas de possíveis interações medicamentosas',
     safetyCritical: true,
     plans: ['free', 'plus'],
   },

@@ -4,8 +4,12 @@ Skills para Claude Code selecionadas via varredura dos melhores repositórios da
 comunidade (jun/2026). São acionadas **automaticamente** quando a tarefa bate com a
 descrição de cada uma — não precisa chamar manualmente.
 
-**Total: 29 skills.** Algumas de animação incluem scripts Python auxiliares
+**Total: 44 skills.** Algumas de animação incluem scripts Python auxiliares
 (geradores de boilerplate) — autorizados explicitamente pelo usuário.
+
+> **Mobile (React Native / Expo):** 15 skills vendorizadas dos repos oficiais da Expo,
+> Software Mansion e Callstack em 2026-06-07 — ver [VENDORED_SKILLS.md](VENDORED_SKILLS.md)
+> para origem, commits e licenças.
 
 ## Fontes
 
@@ -16,6 +20,9 @@ descrição de cada uma — não precisa chamar manualmente.
 | `affaan-m/everything-claude-code` | Comunidade | backend, frontend, segurança, testes, saúde |
 | `freshtechbro/claudedesignskills` | Comunidade | animações e design visual |
 | `agamm/claude-code-owasp` | Comunidade | owasp-security |
+| `expo/skills` | Oficial (Expo) | mobile: building-native-ui, EAS, deployment, NativeWind |
+| `software-mansion-labs/skills` | Oficial (Software Mansion) | mobile: RN best-practices (Reanimated/gestos/SVG), radon-mcp |
+| `callstackincubator/agent-skills` | Oficial (Callstack) | mobile: performance/profiling, upgrade RN, CI |
 
 ## Inventário por categoria
 
@@ -37,6 +44,28 @@ descrição de cada uma — não precisa chamar manualmente.
 ### Frontend
 - `frontend-patterns` — padrões de arquitetura de frontend
 - `frontend-a11y` — acessibilidade (WCAG/ARIA)
+
+### Mobile (React Native / Expo / EAS) — vendorizadas, ver [VENDORED_SKILLS.md](VENDORED_SKILLS.md)
+**Expo (oficial):**
+- `building-native-ui` — UI com Expo Router (estilo, navegação, animações, native tabs)
+- `expo-tailwind-setup` — NativeWind / Tailwind no Expo
+- `native-data-fetching` — fetch / React Query / SWR + loaders do Expo Router
+- `expo-api-routes` — rotas de API no Expo Router + EAS Hosting
+- `expo-deployment` — publicar na App Store / Play Store / web
+- `expo-cicd-workflows` — workflows YAML do EAS (CI/CD)
+- `expo-dev-client` — build/distribuição de dev client (local / TestFlight)
+- `eas-update-insights` — saúde de EAS Updates (OTA): crash rate, adoção embedded vs OTA
+- `expo-observe` — métricas EAS Observe (cold/warm launch, TTI, TTR)
+- `upgrading-expo` — upgrade de SDK do Expo
+
+**Software Mansion (autores de Reanimated / Gesture Handler):**
+- `swm-react-native-best-practices` — New Architecture; animações, gestos, SVG, JSI, multithreading (sub-skills em `references/`)
+- `radon-mcp` — debug ao vivo via Radon IDE (screenshots, logs, network, component tree)
+
+**Callstack:**
+- `callstack-react-native-best-practices` — performance: FPS, TTI, bundle, memory leaks, jank
+- `upgrading-react-native` — upgrade de versão do RN (diffs, gradle/pods, breaking changes)
+- `github-actions` — CI de builds RN (simulador iOS / emulador Android) + artifacts
 
 ### Backend
 - `backend-patterns` — padrões de backend

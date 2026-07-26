@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { BarChart3, Plus, Send, Trophy, X } from 'lucide-react';
 import { toast } from 'sonner';
-import { postSchema, POST_FLAIRS } from '@vidalog/core';
+import { postSchema, POST_FLAIRS } from '@hubpatients/core';
 
 export interface ComposerSubmit {
   content: string;
@@ -68,7 +68,7 @@ export function PostComposer({
           {pollOpts.map((o, i) => (
             <div key={i} className="flex gap-2">
               <input value={o} onChange={(e) => setPollOpts((a) => a.map((x, j) => (j === i ? e.target.value : x)))} placeholder={`Opção ${i + 1}`} className="h-9 flex-1 rounded-lg border border-line bg-surface-2 px-2 text-sm text-fg" />
-              {pollOpts.length > 2 && <button onClick={() => setPollOpts((a) => a.filter((_, j) => j !== i))} className="text-muted hover:text-rose-400"><X className="h-4 w-4" /></button>}
+              {pollOpts.length > 2 && <button onClick={() => setPollOpts((a) => a.filter((_, j) => j !== i))} className="text-muted hover:text-status-alert-ink"><X className="h-4 w-4" /></button>}
             </div>
           ))}
           {pollOpts.length < 6 && <button onClick={() => setPollOpts((a) => [...a, ''])} className="inline-flex items-center gap-1 text-xs text-primary"><Plus className="h-3.5 w-3.5" /> opção</button>}

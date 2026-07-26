@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { Check, Copy, X } from 'lucide-react';
+import { Check, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   CARE_KIND_LABELS,
@@ -11,9 +10,10 @@ import {
   type CaregiverInviteRole,
   type CaregiverPermissions,
   type CareRelationshipKind,
-} from '@vidalog/core';
-import { useFamilyMutations } from '@vidalog/supabase';
+} from '@hubpatients/core';
+import { useFamilyMutations } from '@hubpatients/supabase';
 import { Field, Input } from '@/components/ui';
+import { Modal } from '@/components/ui/modal';
 import { PermissionsEditor } from './permissions-editor';
 
 export function InviteModal({
@@ -56,16 +56,15 @@ export function InviteModal({
     setPermissions(DEFAULT_CAREGIVER_PERMISSIONS); setLink(null); setCopied(false);
   }
 
-  return (
-    <AnimatePresence>
-      {open && (
-        <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { reset(); onClose(); }} />
-          <motion.div role="dialog" aria-modal="true" className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-line bg-surface p-6 shadow-2xl"
-            initial={{ scale: 0.95, y: 12, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }} transition={{ type: 'spring', stiffness: 320, damping: 26 }}>
-            <button onClick={() => { reset(); onClose(); }} className="absolute right-4 top-4 rounded-lg p-1 text-muted hover:bg-surface-2 hover:text-fg" aria-label="Fechar"><X className="h-4 w-4" /></button>
-            <h2 className="mb-4 text-xl font-bold text-fg" style={{ fontFamily: 'var(--font-display)' }}>Convidar para a família</h2>
+  function handleClose() {
+    reset();
+    onClose();
+  }
 
+  return (
+    <Modal open={open} onClose={handleClose} title="Convidar para a família" className="max-w-lg">
+      {(
+        <>
             {link ? (
               <div className="space-y-3">
                 <p className="text-sm text-fg-soft">Convite criado para <span className="font-semibold text-fg">{email}</span>. Envie este link (válido por 48h):</p>
@@ -76,7 +75,7 @@ export function InviteModal({
                   </button>
                 </div>
                 <p className="text-[11px] text-muted">Envio automático por e-mail entra na Fase 4.</p>
-                <button onClick={() => { reset(); onClose(); }} className="mt-1 h-11 w-full rounded-xl bg-gradient-to-r from-sky-500 to-cyan-400 text-sm font-semibold text-white">Concluir</button>
+                <button onClick={handleClose} className="mt-1 h-11 w-full rounded-xl bg-gradient-to-r from-sky-500 to-cyan-400 text-sm font-semibold text-white">Concluir</button>
               </div>
             ) : (
               <div className="space-y-4">
@@ -102,14 +101,13 @@ export function InviteModal({
                 </div>
 
                 <div className="flex justify-end gap-2">
-                  <button onClick={() => { reset(); onClose(); }} className="inline-flex h-11 items-center rounded-xl border border-line px-4 text-sm text-fg-soft hover:bg-surface-2">Cancelar</button>
+                  <button onClick={handleClose} className="inline-flex h-11 items-center rounded-xl border border-line px-4 text-sm text-fg-soft hover:bg-surface-2">Cancelar</button>
                   <button onClick={onSubmit} disabled={invite.isPending} className="inline-flex h-11 items-center rounded-xl bg-gradient-to-r from-sky-500 to-cyan-400 px-5 text-sm font-semibold text-white disabled:opacity-60">{invite.isPending ? 'Criando…' : 'Criar convite'}</button>
                 </div>
               </div>
             )}
-          </motion.div>
-        </motion.div>
+        </>
       )}
-    </AnimatePresence>
+    </Modal>
   );
 }

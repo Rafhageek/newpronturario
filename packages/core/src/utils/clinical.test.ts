@@ -1,10 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { classifyBloodPressure, moodEnergyAverage } from './health';
-import { classifyMetric, isCriticalValue, normalizeMetricKey, buildExamNarrative } from './exams';
+import { classifyBloodPressure, findMedicationAllergyNameMatch, moodEnergyAverage } from './health';
+import {
+  classifyMetric,
+  isCriticalValue,
+  normalizeMetricKey,
+  buildExamNarrative,
+  metricClassificationForPersistence,
+} from './exams';
 import { computeStats, computeTrendPct, computeBMI, bmiCategory } from './stats';
 import { computeAdherence, findInteractions } from './health';
 import { recommendContentByCids } from './education';
-import { glucoseZone } from '../constants/analysis';
+import { describeGlucoseRange } from '../constants/analysis';
+import { isFeatureAvailable } from '../constants/plans';
 import type { ExamMetric, DrugInteraction, HealthContent } from '../types/db';
 
 describe('classifyBloodPressure (faixa de referência)', () => {
@@ -20,7 +27,12 @@ describe('classifyMetric', () => {
     expect(classifyMetric(100, 70, 110)).toBe('ok');
     expect(classifyMetric(118, 70, 110)).toBe('attention');
     expect(classifyMetric(150, 70, 110)).toBe('alert');
-    expect(classifyMetric(null, 70, 110)).toBe('ok');
+    expect(classifyMetric(null, 70, 110)).toBe('unclassified');
+    expect(classifyMetric(100, null, null)).toBe('unclassified');
+  });
+
+  it('persiste explicitamente o estado não classificado', () => {
+    expect(metricClassificationForPersistence('unclassified')).toBe('unclassified');
   });
 });
 
@@ -57,11 +69,11 @@ describe('computeStats / trend / BMI', () => {
   });
 });
 
-describe('glucoseZone', () => {
-  it('faixas de glicemia', () => {
-    expect(glucoseZone(90).tone).toBe('ok');
-    expect(glucoseZone(110).tone).toBe('attention');
-    expect(glucoseZone(130).tone).toBe('alert');
+describe('describeGlucoseRange', () => {
+  it('descreve somente o intervalo numérico, sem linguagem diagnóstica', () => {
+    expect(describeGlucoseRange(90)).toBe('abaixo de 100 mg/dL');
+    expect(describeGlucoseRange(110)).toBe('de 100 a menos de 126 mg/dL');
+    expect(describeGlucoseRange(130)).toBe('126 mg/dL ou mais');
   });
 });
 
@@ -80,6 +92,31 @@ describe('findInteractions', () => {
   it('cruza por substring case-insensitive', () => {
     expect(findInteractions(['Varfarina 5mg', 'AAS Aspirina'], base)).toHaveLength(1);
     expect(findInteractions(['Dipirona'], base)).toHaveLength(0);
+  });
+});
+
+describe('findMedicationAllergyNameMatch', () => {
+  const allergies = [
+    { id: '1', substance: 'Amoxicilina' },
+    { id: '2', substance: 'Dipirona' },
+  ];
+
+  it('encontra correspondência textual nos dois sentidos e ignora maiúsculas', () => {
+    expect(findMedicationAllergyNameMatch('AMOXICILINA 500 mg', allergies)?.id).toBe('1');
+    expect(findMedicationAllergyNameMatch('Dipirona', [{ substance: 'Dipirona monoidratada' }]))
+      .toEqual({ substance: 'Dipirona monoidratada' });
+  });
+
+  it('não cria correspondência para nome vazio ou substância diferente', () => {
+    expect(findMedicationAllergyNameMatch('', allergies)).toBeUndefined();
+    expect(findMedicationAllergyNameMatch('Losartana', allergies)).toBeUndefined();
+  });
+});
+
+describe('segurança medicamentosa por plano', () => {
+  it('mantém alertas de possíveis interações no plano gratuito', () => {
+    expect(isFeatureAvailable('medication_interaction_alerts', 'free')).toBe(true);
+    expect(isFeatureAvailable('medication_interaction_alerts', 'plus')).toBe(true);
   });
 });
 
@@ -115,5 +152,19 @@ describe('recommendContentByCids', () => {
     expect(n.summary.length).toBeGreaterThan(0);
     expect(n.attention.length).toBe(1);
     expect(n.questions.length).toBeGreaterThan(0);
+  });
+
+  it('buildExamNarrative não conta métrica sem referência como normal', () => {
+    const metrics: ExamMetric[] = [
+      { id: '1', exam_id: 'e', patient_id: 'p', name: 'Ferritina', metric_code: null, value: 80, value_text: null, unit: 'ng/mL', reference_min: null, reference_max: null, flag: 'ok', measured_at: null, created_at: '' },
+    ];
+
+    const narrative = buildExamNarrative(metrics);
+
+    expect(narrative.normal).toHaveLength(0);
+    expect(narrative.attention).toHaveLength(0);
+    expect(narrative.unclassified).toHaveLength(1);
+    expect(narrative.summary.join(' ')).toContain('não classificado');
+    expect(narrative.summary.join(' ')).not.toContain('dentro da faixa');
   });
 });

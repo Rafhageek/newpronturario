@@ -7,12 +7,14 @@ import { ArrowLeft, Bell, BellOff, CheckCircle2, Send } from 'lucide-react';
 import {
   useTopic, useThreadReplies, useFeedReactions, useSocialMutations,
   useForumMutations, useIsFollowingThread, useRealtimeThread,
-} from '@vidalog/supabase';
-import type { FeedComment } from '@vidalog/core';
-import { CRISIS_NOTICE } from '@vidalog/core';
+} from '@hubpatients/supabase';
+import type { FeedComment } from '@hubpatients/core';
+import { CRISIS_NOTICE } from '@hubpatients/core';
 import { useAuth } from '@/components/auth-provider';
-import { MedicalBadge, ReactionBar } from '@/components/social/bits';
+import { ReactionBar } from '@/components/social/bits';
 import { ThreadReply } from '@/components/social/thread-reply';
+import { UserBadge } from '@/components/community/user-badge';
+import { MarkdownView } from '@/components/community/markdown-view';
 import { timeAgo } from '@/lib/time';
 
 export default function ThreadPage() {
@@ -78,13 +80,20 @@ export default function ThreadPage() {
       {/* Tópico (post original) */}
       <article className="rounded-2xl border border-line bg-surface p-5">
         <h1 className="flex items-center gap-2 text-xl font-bold text-fg" style={{ fontFamily: 'var(--font-display)' }}>
-          {topic.is_solved && <CheckCircle2 className="h-5 w-5 text-emerald-400" />}
+          {topic.is_solved && <CheckCircle2 className="h-5 w-5 text-status-ok-ink" />}
           {topic.title ?? 'Tópico'}
         </h1>
-        <p className="mt-1 flex items-center gap-1.5 text-xs text-muted">
-          {topic.author_display}{topic.author_verified && <MedicalBadge />} · {timeAgo(topic.created_at)} · {topic.reply_count} resposta(s)
+        <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted">
+          <span>{topic.author_display}</span>
+          <UserBadge
+            staffRole={topic.author_staff_role}
+            professionalBadge={topic.author_professional_badge}
+            professionalRegistry={topic.author_professional_registry}
+            memberTier={topic.author_member_tier}
+          />
+          <span>· {timeAgo(topic.created_at)} · {topic.reply_count} resposta(s)</span>
         </p>
-        <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-fg">{topic.content}</p>
+        <MarkdownView content={topic.content} className="mt-3" />
         <div className="mt-4">
           <ReactionBar reactions={reactions ?? []} userId={userId} onReact={(emoji) => social.react.mutate({ postId: topic.id, emoji })} />
         </div>
@@ -100,19 +109,19 @@ export default function ThreadPage() {
             <ThreadReply
               key={r.id}
               reply={r}
-              isBest={topic.best_comment_id === r.id}
-              canMarkBest={canMarkBest}
+              isUseful={topic.best_comment_id === r.id}
+              canMark={canMarkBest}
               onReply={(id) => setReplyTo({ id, who: r.author_display })}
-              onMarkBest={(id) => forum.markBest.mutate(id)}
+              onToggleUseful={(id, mk) => forum.markBest.mutate(mk ? id : null)}
             >
               {(childrenOf.get(r.id) ?? []).map((c) => (
                 <ThreadReply
                   key={c.id}
                   reply={c}
-                  isBest={topic.best_comment_id === c.id}
-                  canMarkBest={canMarkBest}
+                  isUseful={topic.best_comment_id === c.id}
+                  canMark={canMarkBest}
                   onReply={() => setReplyTo({ id: r.id, who: c.author_display })}
-                  onMarkBest={(id) => forum.markBest.mutate(id)}
+                  onToggleUseful={(id, mk) => forum.markBest.mutate(mk ? id : null)}
                 />
               ))}
             </ThreadReply>

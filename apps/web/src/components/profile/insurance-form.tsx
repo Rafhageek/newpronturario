@@ -3,8 +3,8 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { insuranceSchema, type InsuranceInput, type InsurancePlan } from '@vidalog/core';
-import { useUpsertInsurance } from '@vidalog/supabase';
+import { insuranceSchema, type InsuranceInput, type InsurancePlan } from '@hubpatients/core';
+import { useUpsertInsurance } from '@hubpatients/supabase';
 import { Button, Field, Input } from '@/components/ui';
 
 export function InsuranceForm({ patientId, insurance }: { patientId: string; insurance: InsurancePlan | null }) {

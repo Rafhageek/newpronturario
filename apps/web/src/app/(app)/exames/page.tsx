@@ -3,13 +3,16 @@
 import { useState } from 'react';
 import { Camera, FlaskConical, Upload } from 'lucide-react';
 import { toast } from 'sonner';
-import { useExams, useMonthlyUploadCount } from '@vidalog/supabase';
-import { FREE_UPLOAD_LIMIT, EXAM_CATEGORY_LABELS, type ExamCategory } from '@vidalog/core';
+import { useExams, useMonthlyUploadCount, useHasPlusAccess } from '@hubpatients/supabase';
+import { useAuth } from '@/components/auth-provider';
+import { FREE_UPLOAD_LIMIT, EXAM_CATEGORY_LABELS, type ExamCategory } from '@hubpatients/core';
 import { useActiveProfile } from '@/components/profile-context';
 import { ExamCard } from '@/components/exams/exam-card';
 import { ExamDisclaimer } from '@/components/exams/exam-disclaimer';
 import { UploadExamModal } from '@/components/exams/upload-exam-modal';
 import { UpgradeModal, type UpgradeReason } from '@/components/ui/upgrade-modal';
+import { ListSkeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
 
 const PERIODS = [
   { days: 0, label: 'Tudo' },
@@ -19,7 +22,8 @@ const PERIODS = [
 
 export default function ExamesPage() {
   const { patientId } = useActiveProfile();
-  const isPlus = false;
+  const { user } = useAuth();
+  const isPlus = useHasPlusAccess(user?.id).data ?? false;
 
   const [category, setCategory] = useState<ExamCategory | ''>('');
   const [period, setPeriod] = useState(0);
@@ -80,17 +84,25 @@ export default function ExamesPage() {
 
       {/* Lista */}
       {isLoading ? (
-        <p className="text-sm text-muted">Carregando…</p>
+        <ListSkeleton rows={3} />
       ) : exams && exams.length > 0 ? (
         <div className="space-y-3">
           {exams.map((e) => <ExamCard key={e.id} exam={e} />)}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-line py-16 text-center">
-          <FlaskConical className="h-8 w-8 text-faint" />
-          <p className="mt-3 text-sm text-muted">Nenhum exame ainda.</p>
-          <button onClick={handleUpload} className="mt-3 text-sm font-medium text-primary hover:underline">Adicionar o primeiro exame →</button>
-        </div>
+        <EmptyState
+          icon={FlaskConical}
+          title={category || period ? 'Nenhum exame neste filtro' : 'Nenhum exame ainda'}
+          description="Envie seus exames para ler em linguagem simples e acompanhar a evolução dos resultados."
+          action={
+            <button
+              onClick={handleUpload}
+              className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-400 px-4 text-sm font-semibold text-white"
+            >
+              <Upload className="h-4 w-4" /> Adicionar o primeiro exame
+            </button>
+          }
+        />
       )}
 
       <UploadExamModal open={uploadOpen} onClose={() => setUploadOpen(false)} patientId={patientId} />

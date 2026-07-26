@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
-import { useProfile, useAccessibleProfiles } from '@vidalog/supabase';
+import { useProfile, useAccessibleProfiles } from '@hubpatients/supabase';
 import { useAuth } from '@/components/auth-provider';
 
 export interface ActiveProfile {

@@ -8,11 +8,11 @@
 export const DISCLAIMERS = {
   /** Disclaimer permanente e NÃO-dispensável em telas de interpretação de exames. */
   examInterpretation:
-    'Apenas seu médico pode interpretar com seu contexto completo. O VidaLog organiza e explica em linguagem simples, mas não substitui avaliação profissional.',
+    'Apenas seu médico pode interpretar com seu contexto completo. O HubPatients organiza e explica em linguagem simples, mas não substitui avaliação profissional.',
 
   /** Mostrado ao final de qualquer análise de sintoma/exame. */
   notDiagnosis:
-    'O VidaLog não diagnostica nem prescreve. Em caso de dúvida ou sintoma preocupante, procure um profissional de saúde.',
+    'O HubPatients não diagnostica nem prescreve. Em caso de dúvida ou sintoma preocupante, procure um profissional de saúde.',
 
   /** Emergência. */
   emergency:

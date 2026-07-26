@@ -1,26 +1,50 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { Activity, Droplet, HeartPulse, Lock, Scale, Smile } from 'lucide-react';
-import { useVitalsRange, useDiaryRange, useProfile } from '@vidalog/supabase';
+import { useVitalsRange, useDiaryRange, useProfile } from '@hubpatients/supabase';
 import {
   bmiCategory,
   computeBMI,
   computeStats,
   computeTrendPct,
   DISCLAIMERS,
-  glucoseZone,
+  describeGlucoseRange,
   type Vital,
-} from '@vidalog/core';
+} from '@hubpatients/core';
 import { useActiveProfile } from '@/components/profile-context';
 import { ExamDisclaimer } from '@/components/exams/exam-disclaimer';
-import { BloodPressureChart } from '@/components/dashboard/bp-chart';
 import { ChartCard } from '@/components/analise/chart-card';
 import { StatSummary } from '@/components/analise/stat-summary';
-import { GlucoseChart } from '@/components/analise/glucose-chart';
-import { WeightChart } from '@/components/analise/weight-chart';
-import { MoodEnergyChart } from '@/components/analise/mood-energy-chart';
+import { WeightAlertBanner } from '@/components/analise/weight-alert-banner';
 import { UpgradeModal } from '@/components/ui/upgrade-modal';
+
+const chartLoading = () => (
+  <div className="flex h-48 items-center justify-center rounded-xl border border-line bg-surface-2 text-sm text-muted" role="status">
+    Carregando gráfico…
+  </div>
+);
+const BloodPressureChart = dynamic(
+  () => import('@/components/dashboard/bp-chart').then((module) => module.BloodPressureChart),
+  { ssr: false, loading: chartLoading },
+);
+const GlucoseChart = dynamic(
+  () => import('@/components/analise/glucose-chart').then((module) => module.GlucoseChart),
+  { ssr: false, loading: chartLoading },
+);
+const WeightChart = dynamic(
+  () => import('@/components/analise/weight-chart').then((module) => module.WeightChart),
+  { ssr: false, loading: chartLoading },
+);
+const MoodEnergyChart = dynamic(
+  () => import('@/components/analise/mood-energy-chart').then((module) => module.MoodEnergyChart),
+  { ssr: false, loading: chartLoading },
+);
+const MoodYearMap = dynamic(
+  () => import('@/components/analise/mood-year-map').then((module) => module.MoodYearMap),
+  { ssr: false, loading: chartLoading },
+);
 
 const PERIODS = [
   { days: 7, label: '7 dias' },
@@ -110,12 +134,15 @@ export default function AnalisePage() {
       <ChartCard
         icon={Droplet}
         title="Glicemia"
-        ariaLabel={`Gráfico de glicemia nos últimos ${days} dias, com faixas normal, pré-diabetes e diabetes`}
+        ariaLabel={`Gráfico dos registros de glicemia nos últimos ${days} dias`}
         summary={
           <div className="space-y-1">
             <StatSummary stats={glucoseStats} trendPct={computeTrendPct(primary(glucoseRows))} unit="mg/dL" label="glicemia" />
             {glucoseStats && (
-              <p className="text-xs text-muted">Média na faixa: {glucoseZone(glucoseStats.avg).label} (referência, não diagnóstico).</p>
+              <p className="text-xs text-muted">
+                Média registrada: {glucoseStats.avg.toFixed(1)} mg/dL ({describeGlucoseRange(glucoseStats.avg)}).
+                O app não sabe se as medições foram feitas em jejum e não classifica diagnósticos.
+              </p>
             )}
           </div>
         }
@@ -137,7 +164,11 @@ export default function AnalisePage() {
               <p className="text-xs">
                 <span className="text-muted">IMC atual: </span>
                 <span className="font-semibold text-fg">{bmi.toFixed(1)}</span>{' '}
-                <span style={{ color: bmiCat.tone === 'ok' ? '#10B981' : bmiCat.tone === 'attention' ? '#F59E0B' : '#EF4444' }}>· {bmiCat.label}</span>
+                {/* Classificação de IMC é leitura do CORPO: vai em tinta neutra,
+                    não em semáforo (verde/âmbar/vermelho = diagnóstico
+                    disfarçado — e ainda reprovavam em contraste: 2,41 / 2,04 /
+                    3,57:1). O rótulo em palavras já carrega o significado. */}
+                <span className="text-status-neutro-ink">· {bmiCat.label}</span>
               </p>
             ) : (
               <p className="text-xs text-muted">Informe sua altura no Perfil para calcular o IMC.</p>
@@ -147,6 +178,7 @@ export default function AnalisePage() {
         tableColumns={[{ key: 'date', label: 'Data' }, { key: 'value', label: 'kg' }]}
         tableRows={weightRows.map((v) => ({ date: fmtDate(v.measured_at), value: v.value_primary }))}
       >
+        <WeightAlertBanner weights={weightRows.map((v) => ({ date: v.measured_at, kg: v.value_primary }))} />
         <WeightChart vitals={weightRows} />
       </ChartCard>
 
@@ -166,6 +198,8 @@ export default function AnalisePage() {
       >
         <MoodEnergyChart entries={diaryRows} />
       </ChartCard>
+
+      <MoodYearMap patientId={patientId || undefined} />
 
       <p className="text-center text-xs text-muted">{DISCLAIMERS.notDiagnosis}</p>
 

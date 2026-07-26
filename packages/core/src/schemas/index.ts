@@ -8,3 +8,7 @@ export * from './exam';
 export * from './settings';
 export * from './family';
 export * from './social';
+export * from './pregnancy';
+export * from './child';
+export * from './cycle';
+export * from './pain';

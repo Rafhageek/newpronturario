@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
-import { useExam, useExamMetrics } from '@vidalog/supabase';
-import { EXAM_CATEGORY_LABELS } from '@vidalog/core';
+import { useExam, useExamMetrics } from '@hubpatients/supabase';
+import { EXAM_CATEGORY_LABELS } from '@hubpatients/core';
 import { useActiveProfile } from '@/components/profile-context';
 import { ExamReport } from '@/components/exams/exam-report';
 

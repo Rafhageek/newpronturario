@@ -1,8 +1,8 @@
-import type { DiaryEntry, InsertRow } from '@vidalog/core';
-import type { VidaLogClient } from '../types';
+import type { DiaryEntry, InsertRow } from '@hubpatients/core';
+import type { HubPatientsClient } from '../types';
 
 export async function listDiaryEntries(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   patientId: string,
   limit = 30,
 ): Promise<DiaryEntry[]> {
@@ -17,7 +17,7 @@ export async function listDiaryEntries(
 }
 
 export async function createDiaryEntry(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   entry: InsertRow<'diary_entries'>,
 ): Promise<DiaryEntry> {
   const { data, error } = await client

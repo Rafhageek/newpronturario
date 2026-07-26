@@ -1,4 +1,5 @@
 export * from './plans';
+export * from './whats-new';
 export * from './ethics';
 export * from './health';
 export * from './exams';
@@ -8,3 +9,10 @@ export * from './i18n';
 export * from './glossary';
 export * from './family';
 export * from './social';
+export * from './pregnancy';
+export * from './child';
+export * from './cycle';
+export * from './community';
+export * from './ai';
+export * from './notifications';
+export * from './ai-disclosure';

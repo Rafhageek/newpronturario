@@ -1,8 +1,8 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import type { DiaryEntry, Vital } from '@vidalog/core';
-import { formatVital, MOOD_LABELS, VITAL_TYPES } from '@vidalog/core';
+import type { DiaryEntry, Vital } from '@hubpatients/core';
+import { formatVital, MOOD_LABELS, VITAL_TYPES } from '@hubpatients/core';
 
 const MOOD_EMOJI: Record<number, string> = { 1: '😣', 2: '😕', 3: '😐', 4: '🙂', 5: '😄' };
 
@@ -15,8 +15,8 @@ export function TimelineEntry({ entry, vitals }: { entry: DiaryEntry; vitals: Vi
   return (
     <motion.div variants={entryVariant} className="relative pl-8">
       {/* linha + ponto da timeline */}
-      <span className="absolute left-[9px] top-1 h-full w-px bg-white/10" aria-hidden />
-      <span className="absolute left-1 top-1 h-4 w-4 rounded-full border-2 border-sky-400 bg-surface-2" aria-hidden />
+      <span className="absolute left-[9px] top-1 h-full w-px bg-line" aria-hidden />
+      <span className="absolute left-1 top-1 h-4 w-4 rounded-full border-2 border-primary bg-surface-2" aria-hidden />
 
       <div className="rounded-2xl border border-line bg-surface p-4">
         <div className="flex items-center justify-between">
@@ -27,8 +27,12 @@ export function TimelineEntry({ entry, vitals }: { entry: DiaryEntry; vitals: Vi
             {entry.mood != null && (
               <span title={MOOD_LABELS[entry.mood]} className="text-base">{MOOD_EMOJI[entry.mood]}</span>
             )}
-            {entry.energy != null && <Metric label="energia" value={`${entry.energy}/5`} color="#34D399" />}
-            {entry.pain != null && <Metric label="dor" value={`${entry.pain}/10`} color={entry.pain >= 7 ? '#EF4444' : entry.pain >= 4 ? '#F59E0B' : '#10B981'} />}
+            {/* SEM semáforo: energia e dor são o CORPO do paciente, não o
+                sistema. Pintar dor 8 de vermelho é interpretar o dado — e as
+                cores usadas (#EF4444 3,57:1 · #F59E0B 2,04:1 · #10B981 2,41:1)
+                ainda reprovavam em AA. O número fica na tinta do texto. */}
+            {entry.energy != null && <Metric label="energia" value={`${entry.energy}/5`} />}
+            {entry.pain != null && <Metric label="dor" value={`${entry.pain}/10`} />}
           </div>
         </div>
 
@@ -57,11 +61,11 @@ export function TimelineEntry({ entry, vitals }: { entry: DiaryEntry; vitals: Vi
   );
 }
 
-function Metric({ label, value, color }: { label: string; value: string; color: string }) {
+function Metric({ label, value }: { label: string; value: string }) {
   return (
     <span className="inline-flex items-center gap-1">
       <span className="text-muted">{label}</span>
-      <span className="font-semibold" style={{ color }}>{value}</span>
+      <span className="font-semibold text-fg">{value}</span>
     </span>
   );
 }

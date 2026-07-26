@@ -1,4 +1,4 @@
-// Flat config compartilhada do monorepo VidaLog (ESLint 9).
+// Flat config compartilhada do monorepo HubPatients (ESLint 9).
 // Cada app/pacote estende esta base via `import base from '../../eslint.config.mjs'`.
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';

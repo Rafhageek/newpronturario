@@ -2,6 +2,9 @@
 node_modules/
 .pnpm-store/
 
+# arquivos grandes / backups (não versionar)
+*.zip
+
 # builds
 dist/
 build/

@@ -8,10 +8,16 @@ on:
 permissions:
   contents: read
 
+# Cancela runs antigos do mesmo branch/PR (economiza minutos).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   quality:
-    name: Lint · Typecheck · Test
+    name: Qualidade · lint, tipos e testes
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -20,12 +26,87 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Lint + Typecheck + Test
-        run: pnpm check
+      - name: Lint
+        run: pnpm lint
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Testes unitários
+        run: pnpm test
+      # Falha se alguém adicionar biblioteca nativa (ou mudar plugin/permissão/
+      # minSdk) sem subir o runtimeVersion. Sem isso, um `eas update` entregaria
+      # código novo a um APK que não tem o módulo nativo e o app quebraria no
+      # boot em produção. Substitui a policy 'fingerprint', que não funciona
+      # neste monorepo pnpm (ver comentário em apps/mobile/app.config.ts).
+      - name: Guard do runtimeVersion (mudança nativa exige APK novo)
+        run: pnpm --filter @hubpatients/mobile run check:runtime
+
+  dependency-security:
+    name: Segurança · segredos e dependências
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Detectar segredos versionados sem imprimir valores
+        run: pnpm security:secrets
+      - name: Bloquear vulnerabilidades high/critical
+        run: pnpm security:deps
+
+  security-rls:
+    name: Segurança · RLS/escalada (pgTAP)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # Este job é o portão de banco do projeto: roda em TODO push/PR, o que é um
+    # superconjunto de "quando `supabase/**` mudar". É de propósito — mudança em
+    # app/ também quebra expectativa de RLS (ex.: passar a ler uma tabela nova).
+    #
+    # Se um dia os minutos apertarem, dá para restringir a `supabase/**` com o
+    # bloco abaixo (exige o job `changes` + `dorny/paths-filter`):
+    #
+    #   changes:
+    #     runs-on: ubuntu-latest
+    #     outputs:
+    #       supabase: ${{ steps.filtro.outputs.supabase }}
+    #     steps:
+    #       - uses: actions/checkout@v4
+    #       - uses: dorny/paths-filter@v3
+    #         id: filtro
+    #         with:
+    #           filters: |
+    #             supabase:
+    #               - 'supabase/**'
+    #
+    #   security-rls:
+    #     needs: changes
+    #     if: needs.changes.outputs.supabase == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v3
+        with:
+          # Versão estável fixa: evita mudanças inesperadas no runner.
+          version: 2.109.1
+      - name: Subir Supabase local
+        run: supabase start
+      - name: Aplicar todas as migrations (reset)
+        run: supabase db reset --no-seed
+      - name: Listar a suíte pgTAP que será executada
+        run: ls -1 supabase/tests/*.sql
+      - name: Rodar testes pgTAP (RLS, escalada P0 e hardening)
+        run: supabase test db
+      - name: Lint do banco (informativo — não bloqueia)
+        continue-on-error: true
+        run: supabase db lint --level warning
 
   build-web:
     name: Build (web)
+    needs: quality
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -41,3 +122,33 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
         run: pnpm build
+
+  e2e-web:
+    name: E2E (web · Playwright)
+    needs: [quality, build-web]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Instalar navegador do Playwright
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Rodar e2e (o webServer sobe next dev)
+        working-directory: apps/web
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+        run: pnpm test:e2e
+      - name: Guardar relatório do Playwright
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 7

@@ -1,67 +1,279 @@
 @import 'tailwindcss';
 
-/* Design tokens do VidaLog (espelham @vidalog/ui-tokens). */
+/* ============================================================================
+ * Design tokens do HubPatients (espelham @hubpatients/ui-tokens).
+ * REDESIGN "Papel Clínico Quente + Expressivo" — 2026-07-25.
+ * Racional completo e contrastes calculados: docs/REDESIGN-2026-07.md
+ *
+ * Os valores abaixo CORRIGEM violações reais de WCAG que estavam em produção:
+ *   --faint #847e74 = 3,82:1 · semáforo verde 2,41 · âmbar 2,04 · vermelho 3,57
+ *   --line como borda de campo = 1,28:1 · primary #0442bf no escuro = 2,3:1
+ * ==========================================================================*/
 @theme {
   --color-primary-foreground: #ffffff;
-  --color-trust-50: #f0f9ff;
-  --color-trust-100: #e0f2fe;
-  --color-trust-600: #0284c7;
-  --color-trust-700: #0369a1;
-  --color-trust-800: #075985;
+  --color-trust-50: #eef2ff;
+  --color-trust-100: #d9e1ff;
+  --color-trust-600: #0442bf;
+  --color-trust-700: #0537a0;
+  --color-trust-800: #052c80;
+  --color-electric: #0511f2;
+  --color-coral-400: #f56b78;
+  --color-coral-500: #f24b59;
+  --color-coral-600: #d93546;
   --color-health-300: #6ee7b7;
   --color-health-400: #34d399;
   --color-health-500: #10b981;
   --color-health-600: #059669;
-  --color-semaphore-ok: #10b981;
-  --color-semaphore-attention: #f59e0b;
-  --color-semaphore-alert: #ef4444;
+
+  /* Semáforo legado: apontado para os `ink` de status (theme-aware).
+     O #10b981 / #f59e0b / #ef4444 originais reprovavam em texto (2,4 / 2,0 /
+     3,6:1). As classes `text-semaphore-*` continuam existindo — só o VALOR
+     mudou, e agora também funciona no tema escuro. */
+  --color-semaphore-ok: var(--status-ok-ink);
+  --color-semaphore-attention: var(--status-attention-ink);
+  --color-semaphore-alert: var(--status-alert-ink);
 
   /* ── Tokens semânticos (adaptam-se a claro/escuro via :root / .dark) ── */
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
   --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
   --color-fg: var(--fg);
   --color-fg-soft: var(--fg-soft);
   --color-muted: var(--muted);
+  --color-hint: var(--hint);
+  /* Alias legado: `text-faint` continua funcionando, mas agora aponta para o
+     --hint (4,55:1). NÃO remover — há código em produção usando. */
   --color-faint: var(--faint);
   --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
   --color-accent: var(--accent);
 
+  /* ── Status com TRÊS papéis (ink = texto · mark = traço ≥3:1 · tint = fundo)
+     Um âmbar vivo nunca chega a 4,5:1 sobre off-white; separar os papéis é a
+     única forma honesta de ter cor de status acessível. ── */
+  --color-status-info-ink: var(--status-info-ink);
+  --color-status-info-mark: var(--status-info-mark);
+  --color-status-info-tint: var(--status-info-tint);
+  --color-status-ok-ink: var(--status-ok-ink);
+  --color-status-ok-mark: var(--status-ok-mark);
+  --color-status-ok-tint: var(--status-ok-tint);
+  --color-status-attention-ink: var(--status-attention-ink);
+  --color-status-attention-mark: var(--status-attention-mark);
+  --color-status-attention-tint: var(--status-attention-tint);
+  --color-status-alert-ink: var(--status-alert-ink);
+  --color-status-alert-mark: var(--status-alert-mark);
+  --color-status-alert-tint: var(--status-alert-tint);
+  --color-status-neutro-ink: var(--status-neutro-ink);
+  --color-status-neutro-mark: var(--status-neutro-mark);
+  --color-status-neutro-tint: var(--status-neutro-tint);
+
+  /* ── Gráficos: paleta neutra-clínica, sem verde nem vermelho (semáforo em
+     dado clínico é diagnóstico disfarçado). Máx. 4 séries. ── */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-grid: var(--chart-grid);
+  --color-chart-band: var(--chart-band);
+  --color-chart-band-ink: var(--chart-band-ink);
+
+  /* ── Famílias ──
+     sans  = Atkinson Hyperlegible Next  (texto — 1/I/l e 0/O distintos)
+     mono  = Atkinson Hyperlegible Mono  (TODO número clínico)
+     display = Bricolage Grotesque       (só título ≥20px) */
   --font-sans:
-    Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    var(--font-atkinson), 'Atkinson Hyperlegible Next', system-ui, -apple-system,
+    'Segoe UI', Roboto, sans-serif;
+  --font-mono:
+    var(--font-atkinson-mono), 'Atkinson Hyperlegible Mono', ui-monospace,
+    SFMono-Regular, Menlo, monospace;
   --font-display:
     var(--font-bricolage), 'Bricolage Grotesque', system-ui, sans-serif;
+
+  /* ── Escala tipográfica ──
+     REGRA: display e título usam clamp() com `vw` (fluidez é bem-vinda em
+     texto grande). CORPO, LABEL e CAPTION são `rem` PURO, sem vw — porque
+     `html[data-font-scale]` escala `rem` mas NÃO escala `vw`: usar vw aqui
+     desligaria silenciosamente o botão A++ justamente no texto que mais
+     importa para quem tem baixa visão. */
+  --text-caption: 0.8125rem; /* 13px — piso absoluto; 11px é inutilizável */
+  --text-caption--line-height: 1.45;
+  --text-label: 0.9375rem; /* 15px */
+  --text-label--line-height: 1.35;
+  --text-body-sm: 0.9375rem; /* 15px */
+  --text-body-sm--line-height: 1.5;
+  --text-body: 1.0625rem; /* 17px — default do iOS HIG */
+  --text-body--line-height: 1.55; /* SC 1.4.8 pede ≥1,5 */
+  --text-title: clamp(1.5rem, 1.34rem + 0.7vw, 1.875rem);
+  --text-title--line-height: 1.2;
+  --text-display: clamp(1.875rem, 1.55rem + 1.4vw, 2.75rem);
+  --text-display--line-height: 1.1;
+
+  /* ── Sombras TINGIDAS (assinatura do "Papel Clínico Quente") ──
+     Sombra na cor da tinta (#1b1a18), nunca preta neutra: sobre canvas creme
+     o preto puro faz uma borda cinza-suja. Mesma geometria do Tailwind, só a
+     cor muda — todas as classes `shadow-*` continuam valendo. */
+  --shadow-2xs: 0 1px rgb(27 26 24 / 0.05);
+  --shadow-xs: 0 1px 2px 0 rgb(27 26 24 / 0.06);
+  --shadow-sm: 0 1px 3px 0 rgb(27 26 24 / 0.09), 0 1px 2px -1px rgb(27 26 24 / 0.07);
+  --shadow-md: 0 4px 6px -1px rgb(27 26 24 / 0.09), 0 2px 4px -2px rgb(27 26 24 / 0.07);
+  --shadow-lg: 0 10px 15px -3px rgb(27 26 24 / 0.1), 0 4px 6px -4px rgb(27 26 24 / 0.07);
+  --shadow-xl: 0 20px 25px -5px rgb(27 26 24 / 0.11), 0 8px 10px -6px rgb(27 26 24 / 0.07);
+  --shadow-2xl: 0 25px 50px -12px rgb(27 26 24 / 0.22);
+  /* Elevação de card em repouso — a mais usada do sistema. */
+  --shadow-paper: 0 6px 14px rgb(27 26 24 / 0.07), 0 1px 2px rgb(27 26 24 / 0.05);
+  --shadow-paper-lg: 0 14px 32px -10px rgb(27 26 24 / 0.14), 0 2px 6px -2px rgb(27 26 24 / 0.06);
 }
 
 /* ── Tema CLARO (padrão — mais acolhedor e legível, ideal p/ idosos) ── */
 :root {
   color-scheme: light;
-  --bg: #faf9f6; /* off-white morno */
+  --bg: #faf9f6; /* canvas creme quente — branco puro brilha demais em catarata */
   --surface: #ffffff;
   --surface-2: #f3f1ec;
-  --line: #e6e3dc;
-  --fg: #1b1a18; /* quase-preto morno */
-  --fg-soft: #413c36;
-  --muted: #6b665f;
-  --faint: #9b958c;
-  --primary: #0369a1; /* azul com contraste em fundo claro */
-  --accent: #059669;
+  --surface-3: #eae7e0; /* 3º degrau: chip/tabela zebrada sem precisar de sombra */
+  --line: #e6e3dc; /* DECORATIVA (separador) — não serve de borda de campo */
+  --line-strong: #87837c; /* borda de campo/controle — 3,05:1 (SC 1.4.11) */
+
+  --fg: #1b1a18; /* quase-preto morno — 14,08:1 AAA */
+  --fg-soft: #413c36; /* 8,84:1 AAA */
+  --muted: #555149; /* 6,39:1 AAA */
+  --hint: #6c675e; /* 4,55:1 AA — substitui o --faint quebrado (3,82:1) */
+  --faint: var(--hint); /* ALIAS legado: mantido para não quebrar código atual */
+
+  --primary: #0442bf; /* azul royal — 6,70:1 AAA sobre o creme */
+  --primary-hover: #0537a0;
+  --accent: #c4293c; /* 4,56:1 — substitui #d12f3e (falhava sobre surface-3) */
+
+  /* Tinta SOBRE superfície preenchida. No claro o primary é escuro → branco.
+     No escuro ele é azul CLARO (#8ba9ff), e branco por cima dá 2,2:1 — por isso
+     inverte para quase-preto. Ver a regra `.bg-primary` mais abaixo. */
+  --on-primary: #ffffff;
+  --on-accent: #ffffff;
+
+  /* Status (ink / mark / tint) */
+  --status-info-ink: #0442bf;
+  --status-info-mark: #427df5;
+  --status-info-tint: #eff5ff;
+  --status-ok-ink: #007149;
+  --status-ok-mark: #009460;
+  --status-ok-tint: #e4fbee;
+  --status-attention-ink: #895b00;
+  --status-attention-mark: #b17700;
+  --status-attention-tint: #fff2e2;
+  --status-alert-ink: #c1262c;
+  --status-alert-mark: #ea4746;
+  --status-alert-tint: #fff1ef;
+  --status-neutro-ink: #475262;
+  --status-neutro-mark: #768498;
+  --status-neutro-tint: #f0f5fb;
+
+  /* Gráficos */
+  --chart-1: #1043a8;
+  --chart-2: #0d9298;
+  --chart-3: #4c0f6d;
+  --chart-4: #bd8047;
+  --chart-grid: rgba(27, 26, 24, 0.1);
+  --chart-band: #768498; /* traço/hachura da faixa de referência — 3,1:1 */
+  --chart-band-ink: #475262; /* rótulo dentro do gráfico — 7,9:1 */
 }
 
-/* ── Tema ESCURO ── */
+/* ── Tema ESCURO ──
+   Hierarquia por DEGRAU TONAL (sombra não se lê sobre preto) + hairline. */
 .dark {
   color-scheme: dark;
-  --bg: #0a1626;
-  --surface: #0f2034;
-  --surface-2: #16273d;
-  --line: rgba(255, 255, 255, 0.09);
-  --fg: #f1f5f9;
-  --fg-soft: #cbd5e1;
-  --muted: #94a3b8;
-  --faint: #6b7a90;
-  --primary: #38bdf8;
-  --accent: #34d399;
+  --bg: #0d0d0d; /* near-black moderno */
+  --surface: #171717;
+  --surface-2: #212121;
+  --surface-3: #2b2b2b;
+  --line: rgba(255, 255, 255, 0.1);
+  --line-strong: #727578; /* 3,06:1 no pior fundo */
+
+  --fg: #e8eaf0; /* off-white: evita halation (30-60% têm astigmatismo) */
+  --fg-soft: #cfd4dd;
+  --muted: #a7acb2;
+  --hint: #909398; /* 4,59:1 — substitui #7d7d7d */
+  --faint: var(--hint);
+
+  --primary: #8ba9ff; /* 6,21:1 — o royal #0442bf dava 2,3:1 aqui */
+  --primary-hover: #a8bdff;
+  --accent: #fd8a8b;
+
+  /* Invertidas: sobre azul/coral CLAROS, texto branco daria ~2,2:1. */
+  --on-primary: #0d1220;
+  --on-accent: #2a0d0f;
+
+  --status-info-ink: #7caaff;
+  --status-info-mark: #7caaff;
+  --status-info-tint: #18253d;
+  --status-ok-ink: #49c089;
+  --status-ok-mark: #49c089;
+  --status-ok-tint: #0e2c1e;
+  --status-attention-ink: #e09c29;
+  --status-attention-mark: #e09c29;
+  --status-attention-tint: #332105;
+  --status-alert-ink: #ff8a82;
+  --status-alert-mark: #ff8a82;
+  --status-alert-tint: #3a1b19;
+  --status-neutro-ink: #a3acb8;
+  --status-neutro-mark: #a3acb8;
+  --status-neutro-tint: #21262c;
+
+  --chart-1: #73a3fc;
+  --chart-2: #85e3e8;
+  --chart-3: #a474c7;
+  --chart-4: #ffe2c5;
+  --chart-grid: rgba(255, 255, 255, 0.1);
+  --chart-band: #a3acb8;
+  --chart-band-ink: #a3acb8;
+}
+
+/* ── Modo ALTO CONTRASTE (acessibilidade — opcional, via Configurações) ──
+   Só redefine --hint: o --faint é `var(--hint)` e acompanha sozinho. */
+html[data-contrast='high'] {
+  --line: #b7b1a6;
+  --line-strong: #4a463f;
+  --fg: #000000;
+  --fg-soft: #2b2620;
+  --muted: #46413a; /* >7:1 */
+  --hint: #55504a; /* >6:1 */
+  --primary: #052c80;
+  --primary-hover: #041f5c;
+  --accent: #9b1f2f;
+  --status-attention-ink: #6b4700;
+  --status-alert-ink: #a01b22;
+  --status-ok-ink: #005637;
+  --chart-band-ink: #2b3646;
+}
+html.dark[data-contrast='high'] {
+  --line: rgba(255, 255, 255, 0.32);
+  --line-strong: rgba(255, 255, 255, 0.6);
+  --fg: #ffffff;
+  --fg-soft: #ededed;
+  --muted: #cfcfcf;
+  --hint: #b0b0b0;
+  --primary: #9db2ff;
+  --primary-hover: #bccbff;
+  --accent: #ffb3b3;
+  --status-attention-ink: #f2b451;
+  --status-alert-ink: #ffada6;
+  --status-ok-ink: #6fd7a4;
+  --chart-band-ink: #d0d6dd;
+}
+
+/* ── Escala de fonte ajustável (A / A+ / A++) — base em rem escala tudo ──
+   Só funciona porque corpo/label/caption estão em `rem` puro (ver @theme). */
+html {
+  font-size: 100%;
+}
+html[data-font-scale='large'] {
+  font-size: 112.5%; /* ~18px base */
+}
+html[data-font-scale='xlarge'] {
+  font-size: 125%; /* ~20px base */
 }
 
 /* ── Motion do painel de autenticação ───────────────────────────── */
@@ -101,25 +313,81 @@
   }
 }
 
+/* Só opacidade — é o que sobra de qualquer entrada quando o usuário pede
+   menos movimento (P7: "reduced motion" = sem DESLOCAMENTO, não sem animação). */
+@keyframes hp-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 .vl-rise {
   animation: vl-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── Splash de entrada (web) — paridade com o WelcomeOverlay do mobile ── */
+.hp-welcome-splash {
+  background: linear-gradient(135deg, #0442bf 0%, #0511f2 50%, #0455bf 100%);
+  animation: hp-splash-fade 0.3s ease both;
+}
+.hp-welcome-splash[data-phase='out'] {
+  animation: hp-splash-out 0.5s ease both;
+}
+.hp-welcome-tile {
+  animation: hp-splash-pop 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes hp-splash-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes hp-splash-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes hp-splash-pop {
+  0% { opacity: 0; transform: scale(0.7); }
+  60% { opacity: 1; transform: scale(1.06); }
+  100% { transform: scale(1); }
 }
 
 body {
   background-color: var(--bg);
   color: var(--fg);
   font-family: var(--font-sans);
+  /* 17px/1,55 como default do documento. Componentes que declaram `text-sm`
+     etc. continuam mandando neles mesmos — isto é só o piso herdado.
+     O fallback literal existe porque o Tailwind só emite a var do @theme se
+     detectar uso; aqui não dependemos disso. */
+  font-size: var(--text-body, 1.0625rem);
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
+}
+
+/**
+ * Número clínico: mono + largura tabular. Dose, pressão, resultado de exame e
+ * qualquer valor que o usuário compare em coluna. O dígito não pode "dançar"
+ * quando o valor atualiza — e 1/l e 0/O precisam ser inconfundíveis.
+ */
+.hp-num {
+  font-family:
+    var(--font-atkinson-mono), 'Atkinson Hyperlegible Mono', ui-monospace,
+    SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  letter-spacing: 0;
 }
 
 /* Fundo do app: gradiente sutil que se adapta ao tema */
 :root {
   --shell-1: #ffffff;
-  --shell-2: #f6f4ef;
+  --shell-2: #f3f1ec;
 }
 .dark {
-  --shell-1: #0f2942;
-  --shell-2: #0b1b2e;
+  --shell-1: #171717;
+  --shell-2: #0f0f0f;
 }
 .vl-app-shell {
   background: radial-gradient(
@@ -135,4 +403,150 @@ body {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
   border-radius: 6px;
+}
+
+/* ── Toasts (Sonner) — visual moderno: vidro fosco + tokens ── */
+.vl-toast {
+  border-radius: 1rem !important;
+  border: 1px solid var(--line) !important;
+  background: color-mix(in srgb, var(--surface) 85%, transparent) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  backdrop-filter: blur(14px) saturate(180%);
+  /* Sombra tingida (cor da tinta), não preta neutra. */
+  box-shadow:
+    0 12px 32px -12px rgba(27, 26, 24, 0.26),
+    0 2px 6px -2px rgba(27, 26, 24, 0.12) !important;
+  padding: 0.9rem 1rem !important;
+  gap: 0.7rem !important;
+}
+.dark .vl-toast {
+  box-shadow:
+    0 12px 32px -12px rgba(0, 0, 0, 0.6),
+    0 2px 6px -2px rgba(0, 0, 0, 0.4) !important;
+}
+.vl-toast-title {
+  font-weight: 600 !important;
+  font-size: var(--text-label, 0.9375rem) !important;
+  color: var(--fg) !important;
+}
+.vl-toast-desc {
+  font-size: var(--text-caption, 0.8125rem) !important;
+  color: var(--muted) !important;
+}
+.vl-toast-icon {
+  margin-top: 1px;
+}
+.vl-toast-close {
+  border-radius: 9999px !important;
+  border: 1px solid var(--line-strong) !important;
+  background: var(--surface) !important;
+  color: var(--muted) !important;
+}
+
+/* Barra de progresso de navegação (aparece no skeleton de rota loading.tsx) */
+.vl-route-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: 60;
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+  background-size: 40% 100%;
+  background-repeat: no-repeat;
+  /* SC 2.2.2 (Pause, Stop, Hide): nada em loop INDEFINIDO ao lado de conteúdo.
+     4 passadas (~3,6 s) cobrem qualquer navegação real; depois fica estático. */
+  animation: vl-route-sweep 0.9s ease-in-out 4;
+}
+@keyframes vl-route-sweep {
+  from {
+    background-position: -40% 0;
+  }
+  to {
+    background-position: 140% 0;
+  }
+}
+
+/* Skip link — pular navegação direto para o conteúdo (WCAG 2.4.1) */
+.vl-skip-link {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 100;
+  transform: translateY(-150%);
+  border-radius: 0.75rem;
+  background: var(--primary);
+  padding: 0.625rem 1rem;
+  font-size: var(--text-label, 0.9375rem);
+  font-weight: 600;
+  color: #fff;
+  transition: transform 0.18s ease;
+}
+.vl-skip-link:focus {
+  transform: translateY(0);
+}
+
+/* ── Respeita quem pede menos movimento (WCAG 2.3.3) ──────────────────────
+ * "Menos movimento" NÃO é "sem animação": é SEM DESLOCAMENTO. Opacidade e cor
+ * continuam comunicando estado com custo vestibular zero. 35,4% dos adultos
+ * 40+ têm disfunção vestibular (NHANES) — translate/scale/parallax é gatilho.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* Zera qualquer deslocamento residual de entrada. */
+  .vl-rise,
+  .hp-welcome-tile {
+    animation: hp-fade-in 200ms linear both !important;
+    transform: none !important;
+  }
+  /* Loop de progresso vira uma barra estática (nada se move). */
+  .vl-route-bar {
+    animation: none !important;
+    background-size: 100% 100%;
+    opacity: 0.65;
+  }
+}
+
+/* ============================================================================
+   Tinta correta sobre superfície preenchida (corrige contraste no tema ESCURO)
+   ----------------------------------------------------------------------------
+   `bg-primary text-white` funciona no claro (royal escuro + branco = 8,3:1) mas
+   REPROVA no escuro: lá o primary é #8ba9ff (azul claro) e branco por cima dá
+   2,2:1. Como o padrão está espalhado por ~17 arquivos, a correção é aqui, no
+   sistema — o seletor duplo (.bg-primary.text-white) tem especificidade maior
+   que .text-white, então vence independentemente da ordem das camadas.
+   ========================================================================== */
+.bg-primary,
+.bg-primary.text-white {
+  color: var(--on-primary);
+}
+.bg-accent,
+.bg-accent.text-white {
+  color: var(--on-accent);
+}
+
+/* ============================================================================
+   Painel de autenticação (login/cadastro/mfa/recuperação) — fundo BRANCO fixo
+   por design (marca), independente do tema do usuário.
+   ----------------------------------------------------------------------------
+   Bug real: com `enableSystem` ligado, um visitante com o sistema em modo
+   escuro já chega em /login com `.dark` no <html>. Lá `--primary` vira
+   #8ba9ff (azul CLARO, pensado para contrastar com fundo ESCURO) e, sobre
+   este bg-white fixo, cai para ~2,2:1 — falha em `text-primary` e
+   `focus:border-primary` em várias telas do grupo (auth).
+   A resolução de custom property segue a árvore do DOM (o valor mais próximo
+   vence), então travar aqui funciona não importa a ordem das regras no arquivo.
+   ========================================================================== */
+.auth-panel {
+  color-scheme: light;
+  --primary: #0442bf; /* 6,70:1 sobre branco — o mesmo valor do tema claro */
+  --primary-hover: #0537a0;
 }

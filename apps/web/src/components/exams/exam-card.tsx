@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { FlaskConical, HeartPulse, ScanLine, ChevronRight } from 'lucide-react';
-import type { Exam } from '@vidalog/core';
-import { EXAM_CATEGORY_LABELS } from '@vidalog/core';
+import type { Exam } from '@hubpatients/core';
+import { EXAM_CATEGORY_LABELS } from '@hubpatients/core';
 
 const ICONS = { lab: FlaskConical, imaging: ScanLine, cardio: HeartPulse } as const;
 

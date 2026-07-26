@@ -4,8 +4,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Trash2 } from 'lucide-react';
-import { surgerySchema, type SurgeryInput } from '@vidalog/core';
-import { useSurgeries, useSurgeryMutations } from '@vidalog/supabase';
+import { surgerySchema, type SurgeryInput } from '@hubpatients/core';
+import { useSurgeries, useSurgeryMutations } from '@hubpatients/supabase';
 import { Button, Field, Input } from '@/components/ui';
 
 export function SurgeriesSection({ patientId }: { patientId: string }) {
@@ -44,7 +44,7 @@ export function SurgeriesSection({ patientId }: { patientId: string }) {
                   {s.hospital ? ` · ${s.hospital}` : ''}
                 </p>
               </div>
-              <button onClick={() => remove.mutate(s.id)} className="rounded-lg p-1.5 text-muted hover:bg-rose-500/10 hover:text-rose-400" aria-label="Remover">
+              <button onClick={() => remove.mutate(s.id)} className="rounded-lg p-1.5 text-muted hover:bg-rose-500/10 hover:text-status-alert-ink" aria-label="Remover">
                 <Trash2 className="h-4 w-4" />
               </button>
             </li>

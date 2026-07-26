@@ -1,8 +1,8 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CareRelationshipKind, CaregiverInviteRole, Json } from '@vidalog/core';
-import { useVidaLogClient } from './context';
+import type { CareRelationshipKind, CaregiverInviteRole, Json } from '@hubpatients/core';
+import { useHubPatientsClient } from './context';
 import { queryKeys } from './keys';
 import {
   listRelationships,
@@ -16,7 +16,7 @@ import {
 } from '../queries/family';
 
 export function useRelationships(userId: string | undefined) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({
     queryKey: queryKeys.relationships(userId ?? ''),
     queryFn: () => listRelationships(client, userId as string),
@@ -25,7 +25,7 @@ export function useRelationships(userId: string | undefined) {
 }
 
 export function useAccessibleProfiles(userId: string | undefined, selfName: string) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({
     queryKey: queryKeys.accessibleProfiles(userId ?? ''),
     queryFn: () => listAccessibleProfiles(client, userId as string, selfName),
@@ -34,7 +34,7 @@ export function useAccessibleProfiles(userId: string | undefined, selfName: stri
 }
 
 export function useSentInvites(userId: string | undefined) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({
     queryKey: queryKeys.sentInvites(userId ?? ''),
     queryFn: () => listSentInvites(client, userId as string),
@@ -43,7 +43,7 @@ export function useSentInvites(userId: string | undefined) {
 }
 
 export function useInvitesForMe(enabled: boolean) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({
     queryKey: queryKeys.invitesForMe(),
     queryFn: () => listInvitesForMe(client),
@@ -52,7 +52,7 @@ export function useInvitesForMe(enabled: boolean) {
 }
 
 export function useFamilyMutations(userId: string) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   const qc = useQueryClient();
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: queryKeys.relationships(userId) });

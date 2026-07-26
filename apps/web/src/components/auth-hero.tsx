@@ -1,9 +1,20 @@
-import { Activity, HeartPulse, NotebookPen, ShieldCheck, User } from 'lucide-react';
+import { Activity, NotebookPen, ShieldCheck, User } from 'lucide-react';
+import { LOOP_LIMIT } from '@hubpatients/ui-tokens';
 
 /**
  * Painel de marca (lado esquerdo do split-screen de autenticação).
  * Ilustração: coração + linha de ECG, anéis orbitais e nós de funcionalidades.
  * Apenas decorativo — sem PHI.
+ *
+ * MOVIMENTO (WCAG SC 2.2.2 — "Pause, Stop, Hide"): este painel fica LADO A LADO
+ * com o formulário de login, então nada aqui pode se mover indefinidamente. Toda
+ * animação é FINITA e o total de movimento fica abaixo dos 5 s do critério —
+ * assim não é preciso oferecer um botão de pausar. Ver `LOOP_LIMIT` e P6 em
+ * packages/ui-tokens/src/motion.ts.
+ *
+ * O bloco global `@media (prefers-reduced-motion: reduce)` de globals.css já
+ * cobre estas animações (`animation-duration: 0.001ms` + `iteration-count: 1`);
+ * como todas usam `fill-mode: both`, o estado de repouso aparece imediatamente.
  */
 export function AuthHero() {
   return (
@@ -11,7 +22,7 @@ export function AuthHero() {
       className="relative hidden overflow-hidden lg:flex lg:w-1/2 lg:flex-col lg:justify-between lg:p-12 xl:p-14"
       style={{
         background:
-          'radial-gradient(120% 120% at 15% 0%, #0EA5E9 0%, #0369A1 38%, #0C4A6E 72%, #082B45 100%)',
+          'radial-gradient(120% 120% at 15% 0%, #0511F2 0%, #0442BF 38%, #052C80 72%, #071F5C 100%)',
       }}
     >
       {/* textura sutil de grão + glow */}
@@ -26,11 +37,11 @@ export function AuthHero() {
 
       {/* Logo */}
       <div className="vl-rise relative z-10 flex items-center gap-2.5" style={{ animationDelay: '40ms' }}>
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 ring-1 ring-white/25 backdrop-blur">
-          <HeartPulse className="h-5 w-5 text-white" strokeWidth={2.4} />
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white p-1 ring-1 ring-white/25 shadow-sm">
+          <img src="/logo.png" alt="" className="h-full w-full object-contain" />
         </span>
         <span className="text-lg font-bold tracking-tight text-white" style={{ fontFamily: 'var(--font-display)' }}>
-          VidaLog
+          HubPatients
         </span>
       </div>
 
@@ -83,21 +94,27 @@ function FeaturePill({ icon, label }: { icon: React.ReactNode; label: string }) 
 function Illustration() {
   return (
     <div className="relative z-10 mx-auto my-8 flex aspect-square w-full max-w-[360px] items-center justify-center">
-      {/* glow central */}
+      {/* glow central — 4 batidas (LOOP_LIMIT) de 1,2 s = 4,8 s e para.
+          `both` congela no keyframe 100% (opacity .55 / scale 1), que é
+          exatamente o estado de repouso desejado: não para no meio do ciclo. */}
       <div
         aria-hidden
         className="absolute h-40 w-40 rounded-full blur-3xl"
-        style={{ background: 'radial-gradient(circle, rgba(52,211,153,0.45), transparent 70%)', animation: 'vl-pulse-glow 4s ease-in-out infinite' }}
+        style={{
+          background: 'radial-gradient(circle, rgba(52,211,153,0.45), transparent 70%)',
+          animation: `vl-pulse-glow 1.2s ease-in-out ${LOOP_LIMIT} both`,
+        }}
       />
 
-      {/* anéis orbitais */}
+      {/* Anéis orbitais — ESTÁTICOS de propósito.
+          Antes giravam em loop infinito (60 s e 45 s). Mesmo limitados a
+          LOOP_LIMIT seriam 4 min e 3 min de movimento periférico ao lado do
+          formulário — muito além dos 5 s da SC 2.2.2, e movimento periférico é
+          gatilho vestibular (P5). Sendo decoração pura, o giro foi REMOVIDO: um
+          círculo tracejado parado é visualmente idêntico ao girando. */}
       <svg viewBox="0 0 360 360" className="absolute inset-0 h-full w-full" fill="none">
-        <g style={{ transformOrigin: '180px 180px', animation: 'vl-rotate 60s linear infinite' }}>
-          <circle cx="180" cy="180" r="150" stroke="rgba(255,255,255,0.14)" strokeWidth="1" strokeDasharray="2 8" />
-        </g>
-        <g style={{ transformOrigin: '180px 180px', animation: 'vl-rotate-rev 45s linear infinite' }}>
-          <circle cx="180" cy="180" r="112" stroke="rgba(255,255,255,0.18)" strokeWidth="1" strokeDasharray="3 6" />
-        </g>
+        <circle cx="180" cy="180" r="150" stroke="rgba(255,255,255,0.14)" strokeWidth="1" strokeDasharray="2 8" />
+        <circle cx="180" cy="180" r="112" stroke="rgba(255,255,255,0.18)" strokeWidth="1" strokeDasharray="3 6" />
         <circle cx="180" cy="180" r="78" stroke="rgba(255,255,255,0.22)" strokeWidth="1.5" />
       </svg>
 
@@ -110,6 +127,10 @@ function Illustration() {
           strokeWidth="2.5"
           strokeLinejoin="round"
         />
+        {/* Uma única passada de 3,5 s (< 5 s da SC 2.2.2) e para. O traço tem
+            ~207 unidades e o dash é 260/260: no fim (offset −1000 ≡ 40 dentro
+            do período de 520) o segmento aceso cobre a linha inteira, ou seja,
+            o repouso é o ECG COMPLETO — não um traço cortado no meio. */}
         <path
           d="M40 104h28l12-26 18 52 14-34 10 18h38"
           stroke="#6EE7B7"
@@ -117,7 +138,7 @@ function Illustration() {
           strokeLinecap="round"
           strokeLinejoin="round"
           strokeDasharray="260"
-          style={{ animation: 'vl-dash 3.5s linear infinite' }}
+          style={{ animation: 'vl-dash 3.5s linear 1 both' }}
         />
       </svg>
 

@@ -3,12 +3,11 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AnimatePresence, motion } from 'framer-motion';
-import { X } from 'lucide-react';
 import { toast } from 'sonner';
-import { appointmentSchema, type AppointmentInput, APPOINTMENT_KIND_LABELS, REMINDER_OPTIONS } from '@vidalog/core';
-import { useAppointmentMutations } from '@vidalog/supabase';
+import { appointmentSchema, type AppointmentInput, APPOINTMENT_KIND_LABELS, REMINDER_OPTIONS } from '@hubpatients/core';
+import { useAppointmentMutations } from '@hubpatients/supabase';
 import { Button, Field, Input } from '@/components/ui';
+import { Modal } from '@/components/ui/modal';
 
 export function NewAppointmentModal({ open, onClose, patientId }: { open: boolean; onClose: () => void; patientId: string }) {
   const { create } = useAppointmentMutations(patientId);
@@ -48,15 +47,7 @@ export function NewAppointmentModal({ open, onClose, patientId }: { open: boolea
   }
 
   return (
-    <AnimatePresence>
-      {open && (
-        <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-          <motion.div role="dialog" aria-modal="true" className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-line bg-surface p-6 shadow-2xl"
-            initial={{ scale: 0.95, y: 12, opacity: 0 }} animate={{ scale: 1, y: 0, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }} transition={{ type: 'spring', stiffness: 320, damping: 26 }}>
-            <button onClick={onClose} className="absolute right-4 top-4 rounded-lg p-1 text-muted hover:bg-surface-2 hover:text-fg" aria-label="Fechar"><X className="h-4 w-4" /></button>
-            <h2 className="mb-4 text-xl font-bold text-fg" style={{ fontFamily: 'var(--font-display)' }}>Nova consulta</h2>
-
+    <Modal open={open} onClose={onClose} title="Nova consulta" className="max-w-lg">
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Médico" htmlFor="a-doc" error={errors.doctorName?.message}><Input id="a-doc" {...register('doctorName')} placeholder="Dra. Ana" /></Field>
@@ -94,9 +85,6 @@ export function NewAppointmentModal({ open, onClose, patientId }: { open: boolea
                 <Button type="submit" disabled={create.isPending}>{create.isPending ? 'Agendando…' : 'Agendar'}</Button>
               </div>
             </form>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    </Modal>
   );
 }

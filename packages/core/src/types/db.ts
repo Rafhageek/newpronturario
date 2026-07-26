@@ -31,7 +31,7 @@ export type MedicationForm =
 export type MedicationFrequency = 'daily' | 'weekly' | 'as_needed';
 export type IntakeStatus = 'pending' | 'taken' | 'skipped';
 export type ExamStatus = 'uploaded' | 'processing' | 'processed';
-export type MetricFlag = 'ok' | 'attention' | 'alert';
+export type MetricFlag = 'ok' | 'attention' | 'alert' | 'unclassified';
 export type ConditionStatus = 'active' | 'controlled' | 'resolved' | 'suspected';
 export type AllergySeverity = 'mild' | 'moderate' | 'severe';
 export type AppointmentKind = 'in_person' | 'telehealth';
@@ -45,7 +45,14 @@ export type ConsentPurpose =
   | 'data_sharing_doctor'
   | 'data_sharing_lab'
   | 'data_sharing_insurance'
+  | 'data_sharing_pharmacy'
+  | 'data_sharing_hospital'
+  | 'data_sharing_public_health'
+  | 'ai_exam_processing'
   | 'research'
+  | 'research_academic'
+  | 'research_pharma'
+  | 'study_invitations'
   | 'marketing';
 export type AuditAction =
   | 'create'
@@ -55,6 +62,11 @@ export type AuditAction =
   | 'export'
   | 'print'
   | 'share';
+export type PregnancyStatus = 'active' | 'completed' | 'lost' | 'archived';
+export type PregnancyRisk = 'habitual' | 'alto';
+export type ChildSex = 'male' | 'female';
+export type DeliveryType = 'vaginal' | 'cesarean';
+export type MilestoneCategory = 'motor' | 'language' | 'social' | 'cognitive';
 
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
@@ -90,6 +102,9 @@ export interface Database {
           emergency_note: string | null;
           deleted_at: string | null;
           deletion_scheduled_at: string | null;
+          calendar_token: string;
+          calendar_enabled: boolean;
+          calendar_token_rotated_at: string | null;
           created_at: string;
           updated_at: string;
         },
@@ -101,6 +116,9 @@ export interface Database {
         | 'phone'
         | 'cpf'
         | 'address'
+        | 'calendar_token'
+        | 'calendar_enabled'
+        | 'calendar_token_rotated_at'
         | 'height_cm'
         | 'guardian_id'
         | 'emergency_note'
@@ -170,6 +188,15 @@ export interface Database {
           started_at: string | null;
           ended_at: string | null;
           notes: string | null;
+          stock_count: number | null;
+          stock_unit: string;
+          stock_low_threshold_days: number;
+          stock_last_updated_at: string | null;
+          package_size: number | null;
+          last_stock_alert_at: string | null;
+          anvisa_registration: string | null;
+          anvisa_drug_name: string | null;
+          anvisa_last_checked_at: string | null;
           created_at: string;
           updated_at: string;
         },
@@ -184,6 +211,15 @@ export interface Database {
         | 'started_at'
         | 'ended_at'
         | 'notes'
+        | 'stock_count'
+        | 'stock_unit'
+        | 'stock_low_threshold_days'
+        | 'stock_last_updated_at'
+        | 'package_size'
+        | 'last_stock_alert_at'
+        | 'anvisa_registration'
+        | 'anvisa_drug_name'
+        | 'anvisa_last_checked_at'
       >;
       medication_schedules: Table<
         {
@@ -296,10 +332,12 @@ export interface Database {
         {
           id: string;
           patient_id: string;
+          child_id: string | null;
           vaccine_name: string;
           dose_label: string | null;
           applied_at: string | null;
           lot: string | null;
+          manufacturer: string | null;
           location: string | null;
           next_dose_at: string | null;
           notes: string | null;
@@ -307,7 +345,7 @@ export interface Database {
           updated_at: string;
         },
         'id' | 'created_at' | 'updated_at',
-        'dose_label' | 'applied_at' | 'lot' | 'location' | 'next_dose_at' | 'notes'
+        'child_id' | 'dose_label' | 'applied_at' | 'lot' | 'manufacturer' | 'location' | 'next_dose_at' | 'notes'
       >;
       consents: Table<
         {
@@ -328,8 +366,8 @@ export interface Database {
       audit_log: Table<
         {
           id: string;
-          actor_id: string;
-          patient_id: string;
+          actor_id: string | null;
+          patient_id: string | null;
           action: AuditAction;
           resource_type: string;
           resource_id: string | null;
@@ -563,6 +601,10 @@ export interface Database {
           best_comment_id: string | null;
           reply_count: number;
           last_activity_at: string;
+          category_id: string | null;
+          tags: string[];
+          needs_review: boolean;
+          review_reason: string | null;
           created_at: string;
         },
         'id' | 'created_at' | 'reply_count' | 'last_activity_at',
@@ -576,6 +618,10 @@ export interface Database {
         | 'is_locked'
         | 'is_solved'
         | 'best_comment_id'
+        | 'category_id'
+        | 'tags'
+        | 'needs_review'
+        | 'review_reason'
       >;
       post_reactions: Table<
         { id: string; post_id: string; user_id: string; emoji: string; created_at: string },
@@ -591,10 +637,12 @@ export interface Database {
           content: string;
           hidden: boolean;
           parent_comment_id: string | null;
+          needs_review: boolean;
+          review_reason: string | null;
           created_at: string;
         },
         'id' | 'created_at',
-        'is_anonymous' | 'hidden' | 'parent_comment_id'
+        'is_anonymous' | 'hidden' | 'parent_comment_id' | 'needs_review' | 'review_reason'
       >;
       polls: Table<
         { id: string; post_id: string; question: string; options: string[] },
@@ -628,6 +676,421 @@ export interface Database {
         'created_at',
         never
       >;
+      pregnancy_journeys: Table<
+        {
+          id: string;
+          user_id: string;
+          started_at: string;
+          due_date: string | null;
+          lmp_date: string | null;
+          risk_level: PregnancyRisk | null;
+          obstetrician_name: string | null;
+          obstetrician_crm: string | null;
+          obstetrician_phone: string | null;
+          maternity_reference: string | null;
+          maternity_phone: string | null;
+          status: PregnancyStatus;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        'id' | 'created_at' | 'updated_at' | 'started_at',
+        | 'due_date'
+        | 'lmp_date'
+        | 'risk_level'
+        | 'obstetrician_name'
+        | 'obstetrician_crm'
+        | 'obstetrician_phone'
+        | 'maternity_reference'
+        | 'maternity_phone'
+        | 'status'
+        | 'notes'
+      >;
+      pregnancy_weight_log: Table<
+        {
+          id: string;
+          journey_id: string;
+          week: number;
+          weight_kg: number;
+          recorded_at: string;
+        },
+        'id' | 'recorded_at'
+      >;
+      pregnancy_fetal_movements: Table<
+        {
+          id: string;
+          journey_id: string;
+          recorded_at: string;
+          duration_minutes: number | null;
+          movements_count: number | null;
+          notes: string | null;
+        },
+        'id' | 'recorded_at',
+        'duration_minutes' | 'movements_count' | 'notes'
+      >;
+      pregnancy_milestone_catalog: Table<
+        {
+          code: string;
+          label_pt: string;
+          trimester: number;
+          week_min: number;
+          week_max: number;
+          category: string;
+          description_short: string | null;
+          source: string;
+        },
+        never,
+        'category' | 'description_short' | 'source'
+      >;
+      pregnancy_milestones: Table<
+        {
+          id: string;
+          journey_id: string;
+          milestone_code: string;
+          planned_at: string | null;
+          completed_at: string | null;
+          notes: string | null;
+          created_at: string;
+        },
+        'id' | 'created_at',
+        'planned_at' | 'completed_at' | 'notes'
+      >;
+      children: Table<
+        {
+          id: string;
+          parent_profile_id: string;
+          full_name: string;
+          birth_date: string;
+          sex: ChildSex;
+          birth_weight_g: number | null;
+          birth_length_cm: number | null;
+          birth_head_circumference_cm: number | null;
+          gestational_age_weeks_at_birth: number | null;
+          delivery_type: DeliveryType | null;
+          blood_type: BloodType;
+          created_at: string;
+          updated_at: string;
+        },
+        'id' | 'created_at' | 'updated_at',
+        | 'birth_weight_g'
+        | 'birth_length_cm'
+        | 'birth_head_circumference_cm'
+        | 'gestational_age_weeks_at_birth'
+        | 'delivery_type'
+        | 'blood_type'
+      >;
+      child_growth_measurements: Table<
+        {
+          id: string;
+          child_id: string;
+          measured_at: string;
+          age_months_at_measurement: number;
+          weight_kg: number | null;
+          length_or_height_cm: number | null;
+          head_circumference_cm: number | null;
+          bmi: number | null;
+          notes: string | null;
+          created_at: string;
+        },
+        'id' | 'created_at' | 'bmi' | 'measured_at',
+        'weight_kg' | 'length_or_height_cm' | 'head_circumference_cm' | 'notes'
+      >;
+      child_milestone_catalog: Table<
+        {
+          code: string;
+          label_pt: string;
+          category: MilestoneCategory;
+          typical_age_months_min: number;
+          typical_age_months_max: number;
+          description_short: string | null;
+          source: string;
+        },
+        never,
+        'description_short' | 'source'
+      >;
+      child_milestones: Table<
+        {
+          id: string;
+          child_id: string;
+          milestone_code: string;
+          achieved_at: string | null;
+          notes: string | null;
+          created_at: string;
+        },
+        'id' | 'created_at',
+        'achieved_at' | 'notes'
+      >;
+      child_vaccine_schedule: Table<
+        {
+          code: string;
+          label_pt: string;
+          dose_label: string;
+          recommended_age_months: number;
+          source: string;
+        },
+        never,
+        'source'
+      >;
+      who_growth_standards: Table<
+        {
+          indicator: string;
+          sex: ChildSex;
+          x: number;
+          l: number;
+          m: number;
+          s: number;
+          source: string;
+        },
+        never,
+        'source'
+      >;
+      menstrual_cycle_settings: Table<
+        {
+          user_id: string;
+          tracking_enabled: boolean;
+          average_cycle_days: number;
+          average_period_days: number;
+          contraceptive_method: string | null;
+          share_with_caregiver: boolean;
+          share_with_doctor: boolean;
+          share_with_research: boolean;
+          created_at: string;
+          updated_at: string;
+        },
+        'created_at' | 'updated_at',
+        | 'tracking_enabled'
+        | 'average_cycle_days'
+        | 'average_period_days'
+        | 'contraceptive_method'
+        | 'share_with_caregiver'
+        | 'share_with_doctor'
+        | 'share_with_research'
+      >;
+      menstrual_cycle_logs: Table<
+        {
+          id: string;
+          user_id: string;
+          log_date: string;
+          flow_level: number;
+          symptoms: string[];
+          mood: string[];
+          notes: string | null;
+          created_at: string;
+        },
+        'id' | 'created_at',
+        'flow_level' | 'symptoms' | 'mood' | 'notes'
+      >;
+      notification_queue: Table<
+        {
+          id: string;
+          user_id: string;
+          type: string;
+          title: string;
+          body: string;
+          channel: string;
+          resource_type: string | null;
+          resource_id: string | null;
+          created_at: string;
+          sent_at: string | null;
+          read_at: string | null;
+        },
+        'id' | 'created_at',
+        'channel' | 'resource_type' | 'resource_id' | 'sent_at' | 'read_at'
+      >;
+      diary_pain_points: Table<
+        {
+          id: string;
+          diary_entry_id: string;
+          user_id: string;
+          body_region: string;
+          side: string | null;
+          intensity: number;
+          type: string | null;
+          notes: string | null;
+          created_at: string;
+        },
+        'id' | 'created_at',
+        'side' | 'type' | 'notes'
+      >;
+      community_members: Table<
+        {
+          user_id: string;
+          staff_role: string | null;
+          professional_badge: string | null;
+          professional_registry: string | null;
+          professional_verified_at: string | null;
+          member_tier: string;
+          reputation_points: number;
+          community_rules_accepted_at: string | null;
+          suspended_until: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        'created_at' | 'updated_at',
+        | 'staff_role'
+        | 'professional_badge'
+        | 'professional_registry'
+        | 'professional_verified_at'
+        | 'member_tier'
+        | 'reputation_points'
+        | 'community_rules_accepted_at'
+        | 'suspended_until'
+      >;
+      reputation_events: Table<
+        {
+          id: string;
+          user_id: string;
+          event_type: string;
+          points: number;
+          related_post_id: string | null;
+          created_at: string;
+        },
+        'id' | 'created_at',
+        'related_post_id'
+      >;
+      professional_verifications: Table<
+        {
+          id: string;
+          user_id: string;
+          type: string;
+          registry_number: string;
+          registry_state: string;
+          status: string;
+          verify_crm_response: Json | null;
+          document_path: string | null;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          expires_at: string | null;
+          created_at: string;
+        },
+        'id' | 'created_at',
+        | 'type'
+        | 'status'
+        | 'verify_crm_response'
+        | 'document_path'
+        | 'reviewed_by'
+        | 'reviewed_at'
+        | 'expires_at'
+      >;
+      forum_categories: Table<
+        {
+          id: string;
+          slug: string;
+          name: string;
+          description: string | null;
+          icon: string | null;
+          sort: number;
+          kind: string;
+          group_id: string | null;
+          disclaimer: string | null;
+          created_at: string;
+        },
+        'id' | 'created_at',
+        'description' | 'icon' | 'sort' | 'kind' | 'group_id' | 'disclaimer'
+      >;
+      useful_marks: Table<
+        {
+          id: string;
+          topic_id: string;
+          comment_id: string;
+          marked_by: string;
+          created_at: string;
+        },
+        'id' | 'created_at',
+        never
+      >;
+      moderation_actions: Table<
+        {
+          id: string;
+          actor_id: string;
+          action:
+            | 'hide'
+            | 'unhide'
+            | 'pin'
+            | 'unpin'
+            | 'lock'
+            | 'unlock'
+            | 'move'
+            | 'strike'
+            | 'suspend';
+          target_post_id: string | null;
+          target_comment_id: string | null;
+          target_user_id: string | null;
+          reason: string | null;
+          meta: Json | null;
+          created_at: string;
+        },
+        'id' | 'created_at',
+        'target_post_id' | 'target_comment_id' | 'target_user_id' | 'reason' | 'meta'
+      >;
+      user_strikes: Table<
+        {
+          id: string;
+          user_id: string;
+          reason: string;
+          issued_by: string | null;
+          post_id: string | null;
+          created_at: string;
+          expires_at: string;
+        },
+        'id' | 'created_at' | 'expires_at',
+        'issued_by' | 'post_id'
+      >;
+      vouchers: Table<
+        {
+          id: string;
+          code: string;
+          kind: string;
+          duration_days: number;
+          max_uses: number;
+          uses_count: number;
+          created_by: string | null;
+          expires_at: string | null;
+          active: boolean;
+          created_at: string;
+        },
+        'id' | 'created_at' | 'uses_count',
+        'kind' | 'max_uses' | 'created_by' | 'expires_at' | 'active'
+      >;
+      voucher_redemptions: Table<
+        {
+          id: string;
+          voucher_id: string;
+          user_id: string;
+          redeemed_at: string;
+          expires_at: string;
+        },
+        'id' | 'redeemed_at',
+        never
+      >;
+      personal_access_tokens: Table<
+        {
+          id: string;
+          user_id: string;
+          name: string;
+          token_hash: string;
+          token_prefix: string;
+          scopes: string[];
+          last_used_at: string | null;
+          expires_at: string | null;
+          revoked_at: string | null;
+          created_at: string;
+        },
+        'id' | 'created_at',
+        'scopes' | 'last_used_at' | 'expires_at' | 'revoked_at'
+      >;
+      account_deletion_requests: Table<
+        {
+          id: string;
+          user_id: string | null;
+          status: 'requested' | 'in_review' | 'completed' | 'rejected';
+          requested_at: string;
+          updated_at: string;
+          completed_at: string | null;
+        },
+        'id' | 'requested_at' | 'updated_at',
+        'status' | 'completed_at'
+      >;
     };
     Views: {
       feed_posts: {
@@ -649,6 +1112,13 @@ export interface Database {
           is_pinned: boolean;
           best_comment_id: string | null;
           is_locked: boolean;
+          author_staff_role: string | null;
+          author_professional_badge: string | null;
+          author_professional_registry: string | null;
+          author_member_tier: string | null;
+          author_reputation: number | null;
+          category_id: string | null;
+          tags: string[];
         };
         Relationships: [];
       };
@@ -663,11 +1133,42 @@ export interface Database {
           author_display: string;
           parent_comment_id: string | null;
           author_verified: boolean;
+          author_staff_role: string | null;
+          author_professional_badge: string | null;
+          author_professional_registry: string | null;
+          author_member_tier: string | null;
+          author_reputation: number | null;
+        };
+        Relationships: [];
+      };
+      forum_category_stats: {
+        Row: {
+          category_id: string;
+          slug: string;
+          name: string;
+          description: string | null;
+          icon: string | null;
+          sort: number;
+          kind: string;
+          group_id: string | null;
+          topic_count: number;
+          last_activity_at: string | null;
+        };
+        Relationships: [];
+      };
+      forum_trending_tags: {
+        Row: {
+          tag: string;
+          uses: number;
         };
         Relationships: [];
       };
     };
     Functions: {
+      search_forum_topics: {
+        Args: { q: string; lim?: number };
+        Returns: Database['public']['Views']['feed_posts']['Row'][];
+      };
       is_accepted_caregiver: {
         Args: { target_patient: string };
         Returns: boolean;
@@ -683,6 +1184,145 @@ export interface Database {
       accept_caregiver_invite: {
         Args: { invite_token: string };
         Returns: string;
+      };
+      owns_pregnancy_journey: {
+        Args: { p_journey: string };
+        Returns: boolean;
+      };
+      start_pregnancy: {
+        Args: {
+          p_due_date: string | null;
+          p_lmp_date?: string | null;
+          p_risk?: PregnancyRisk | null;
+          p_obstetrician_name?: string | null;
+          p_obstetrician_crm?: string | null;
+          p_obstetrician_phone?: string | null;
+          p_maternity_reference?: string | null;
+          p_maternity_phone?: string | null;
+        };
+        Returns: string;
+      };
+      can_access_child: {
+        Args: { p_child: string };
+        Returns: boolean;
+      };
+      log_child_access: {
+        Args: { p_child: string; p_action: AuditAction };
+        Returns: undefined;
+      };
+      medication_days_remaining: {
+        Args: { p_med: string };
+        Returns: number;
+      };
+      medication_daily_doses: {
+        Args: { p_med: string };
+        Returns: number;
+      };
+      calendar_feed: {
+        Args: { p_token: string };
+        Returns: {
+          id: string;
+          doctor_name: string;
+          specialty: string | null;
+          scheduled_at: string;
+          kind: AppointmentKind;
+          location: string | null;
+        }[];
+      };
+      set_patient_consent: {
+        Args: {
+          p_purpose: ConsentPurpose;
+          p_granted: boolean;
+          p_scope?: Json;
+          p_version?: string;
+        };
+        Returns: Database['public']['Tables']['consents']['Row'];
+      };
+      can_process_exam_with_ai: {
+        Args: Record<string, never>;
+        Returns: boolean;
+      };
+      get_accessible_profile: {
+        Args: { p_profile_id: string };
+        Returns: Json;
+      };
+      request_account_deletion: {
+        Args: Record<string, never>;
+        Returns: Json;
+      };
+      list_related_profile_names: {
+        Args: { p_profile_ids: string[] };
+        Returns: { id: string; full_name: string }[];
+      };
+      owns_child: {
+        Args: { p_child: string };
+        Returns: boolean;
+      };
+      is_suspended: {
+        Args: { uid: string };
+        Returns: boolean;
+      };
+      mod_hide_post: {
+        Args: { p_post_id: string; p_reason: string };
+        Returns: undefined;
+      };
+      mod_unhide_post: {
+        Args: { p_post_id: string };
+        Returns: undefined;
+      };
+      mod_set_pinned: {
+        Args: { p_post_id: string; p_pinned: boolean };
+        Returns: undefined;
+      };
+      mod_set_locked: {
+        Args: { p_post_id: string; p_locked: boolean };
+        Returns: undefined;
+      };
+      mod_move_topic: {
+        Args: { p_post_id: string; p_category_id: string };
+        Returns: undefined;
+      };
+      mod_add_strike: {
+        Args: { p_user_id: string; p_reason: string; p_post_id?: string | null };
+        Returns: undefined;
+      };
+      accept_community_rules: {
+        Args: Record<string, never>;
+        Returns: undefined;
+      };
+      log_self_security_event: {
+        Args: { p_resource_type: string; p_metadata?: Json };
+        Returns: undefined;
+      };
+      log_ai_exam_processing: {
+        Args: { p_exam_id: string };
+        Returns: undefined;
+      };
+      has_plus_access: {
+        Args: { uid?: string };
+        Returns: boolean;
+      };
+      redeem_voucher: {
+        Args: { p_code: string };
+        Returns: string;
+      };
+      create_voucher: {
+        Args: {
+          p_code: string;
+          p_kind: string;
+          p_duration_days: number;
+          p_max_uses: number;
+          p_expires_at?: string | null;
+        };
+        Returns: string;
+      };
+      has_ai_assistant_access: {
+        Args: { uid?: string };
+        Returns: boolean;
+      };
+      api_me_bundle: {
+        Args: { p_token_hash: string };
+        Returns: Json;
       };
     };
     Enums: {
@@ -705,6 +1345,11 @@ export interface Database {
       exam_category: ExamCategory;
       consent_purpose: ConsentPurpose;
       audit_action: AuditAction;
+      pregnancy_status: PregnancyStatus;
+      pregnancy_risk: PregnancyRisk;
+      child_sex: ChildSex;
+      delivery_type: DeliveryType;
+      milestone_category: MilestoneCategory;
     };
     CompositeTypes: { [_ in never]: never };
   };
@@ -748,5 +1393,33 @@ export type PostComment = Row<'post_comments'>;
 export type Poll = Row<'polls'>;
 export type PollVote = Row<'poll_votes'>;
 export type UserConnection = Row<'user_connections'>;
+export type UserReport = Row<'user_reports'>;
 export type FeedPost = Database['public']['Views']['feed_posts']['Row'];
 export type FeedComment = Database['public']['Views']['feed_comments']['Row'];
+export type PregnancyJourney = Row<'pregnancy_journeys'>;
+export type PregnancyWeightLog = Row<'pregnancy_weight_log'>;
+export type PregnancyFetalMovement = Row<'pregnancy_fetal_movements'>;
+export type PregnancyMilestone = Row<'pregnancy_milestones'>;
+export type PregnancyMilestoneCatalog = Row<'pregnancy_milestone_catalog'>;
+export type Child = Row<'children'>;
+export type ChildGrowthMeasurement = Row<'child_growth_measurements'>;
+export type ChildMilestone = Row<'child_milestones'>;
+export type ChildMilestoneCatalog = Row<'child_milestone_catalog'>;
+export type ChildVaccineSchedule = Row<'child_vaccine_schedule'>;
+export type WhoGrowthStandard = Row<'who_growth_standards'>;
+export type MenstrualCycleSettings = Row<'menstrual_cycle_settings'>;
+export type MenstrualCycleLog = Row<'menstrual_cycle_logs'>;
+export type NotificationQueueItem = Row<'notification_queue'>;
+export type DiaryPainPoint = Row<'diary_pain_points'>;
+export type Voucher = Row<'vouchers'>;
+export type VoucherRedemption = Row<'voucher_redemptions'>;
+export type PersonalAccessToken = Row<'personal_access_tokens'>;
+export type CommunityMember = Row<'community_members'>;
+export type ReputationEvent = Row<'reputation_events'>;
+export type ProfessionalVerification = Row<'professional_verifications'>;
+export type ForumCategory = Row<'forum_categories'>;
+export type UsefulMark = Row<'useful_marks'>;
+export type ModerationAction = Row<'moderation_actions'>;
+export type UserStrike = Row<'user_strikes'>;
+export type ForumCategoryStat = Database['public']['Views']['forum_category_stats']['Row'];
+export type ForumTrendingTag = Database['public']['Views']['forum_trending_tags']['Row'];

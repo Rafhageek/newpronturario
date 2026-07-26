@@ -4,8 +4,8 @@ import type {
   CaregiverInviteRole,
   CareRelationshipKind,
   Json,
-} from '@vidalog/core';
-import type { VidaLogClient } from '../types';
+} from '@hubpatients/core';
+import type { HubPatientsClient } from '../types';
 
 export interface RelationshipView {
   relationship: CareRelationship;
@@ -14,16 +14,17 @@ export interface RelationshipView {
   other: { id: string; full_name: string };
 }
 
-async function profileNames(client: VidaLogClient, ids: string[]): Promise<Map<string, string>> {
+async function profileNames(client: HubPatientsClient, ids: string[]): Promise<Map<string, string>> {
   const map = new Map<string, string>();
   if (ids.length === 0) return map;
-  const { data } = await client.from('profiles').select('id, full_name').in('id', ids);
+  const { data, error } = await client.rpc('list_related_profile_names', { p_profile_ids: ids });
+  if (error) throw error;
   (data ?? []).forEach((p) => map.set(p.id, p.full_name));
   return map;
 }
 
 export async function listRelationships(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   userId: string,
 ): Promise<RelationshipView[]> {
   const { data, error } = await client
@@ -48,15 +49,16 @@ export async function listRelationships(
 
 /** Perfis que posso visualizar (eu + dependentes onde sou cuidador aceito). */
 export async function listAccessibleProfiles(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   userId: string,
   selfName: string,
 ): Promise<{ id: string; name: string; isSelf: boolean }[]> {
-  const { data } = await client
+  const { data, error } = await client
     .from('care_relationships')
     .select('patient_id')
     .eq('caregiver_id', userId)
     .eq('status', 'accepted');
+  if (error) throw error;
   const ids = (data ?? []).map((r) => r.patient_id);
   const names = await profileNames(client, ids);
   const dependents = ids.map((id) => ({ id, name: names.get(id) ?? 'Dependente', isSelf: false }));
@@ -64,7 +66,7 @@ export async function listAccessibleProfiles(
 }
 
 export async function createInvite(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   args: {
     inviterId: string;
     inviterName: string;
@@ -96,7 +98,7 @@ export async function createInvite(
   return data;
 }
 
-export async function listSentInvites(client: VidaLogClient, inviterId: string): Promise<CaregiverInvite[]> {
+export async function listSentInvites(client: HubPatientsClient, inviterId: string): Promise<CaregiverInvite[]> {
   const { data, error } = await client
     .from('caregiver_invites')
     .select('*')
@@ -107,7 +109,7 @@ export async function listSentInvites(client: VidaLogClient, inviterId: string):
   return data ?? [];
 }
 
-export async function listInvitesForMe(client: VidaLogClient): Promise<CaregiverInvite[]> {
+export async function listInvitesForMe(client: HubPatientsClient): Promise<CaregiverInvite[]> {
   // RLS restringe ao e-mail do usuário; filtra pendentes não expirados.
   const { data, error } = await client
     .from('caregiver_invites')
@@ -119,12 +121,12 @@ export async function listInvitesForMe(client: VidaLogClient): Promise<Caregiver
   return data ?? [];
 }
 
-export async function acceptInvite(client: VidaLogClient, token: string): Promise<void> {
+export async function acceptInvite(client: HubPatientsClient, token: string): Promise<void> {
   const { error } = await client.rpc('accept_caregiver_invite', { invite_token: token });
   if (error) throw error;
 }
 
-export async function revokeRelationship(client: VidaLogClient, id: string): Promise<void> {
+export async function revokeRelationship(client: HubPatientsClient, id: string): Promise<void> {
   const { error } = await client
     .from('care_relationships')
     .update({ status: 'revoked', revoked_at: new Date().toISOString() })
@@ -133,7 +135,7 @@ export async function revokeRelationship(client: VidaLogClient, id: string): Pro
 }
 
 export async function updateRelationshipPermissions(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   id: string,
   permissions: Json,
 ): Promise<void> {

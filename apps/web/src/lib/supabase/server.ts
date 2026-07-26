@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { createSupabaseServerClient } from '@vidalog/supabase/clients/server';
+import { createSupabaseServerClient } from '@hubpatients/supabase/clients/server';
 import { getSupabaseEnv } from '../env';
 
 /**

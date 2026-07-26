@@ -1,11 +1,12 @@
 'use client';
 
+import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { BadgeCheck, Globe } from 'lucide-react';
-import { socialProfileSchema, type SocialProfileInput, type SocialProfile } from '@vidalog/core';
-import { useUpsertSocialProfile } from '@vidalog/supabase';
+import { Globe, Stethoscope } from 'lucide-react';
+import { socialProfileSchema, type SocialProfileInput, type SocialProfile } from '@hubpatients/core';
+import { useUpsertSocialProfile } from '@hubpatients/supabase';
 import { Button, Field, Input } from '@/components/ui';
 
 export function ProfileEditor({ userId, profile }: { userId: string; profile: SocialProfile | null }) {
@@ -31,7 +32,6 @@ export function ProfileEditor({ userId, profile }: { userId: string; profile: So
         bio: values.bio || null,
         is_public: values.isPublic,
         show_achievements: values.showAchievements,
-        crm: values.crm || null,
       });
       toast.success('Perfil público atualizado.');
     } catch {
@@ -44,22 +44,18 @@ export function ProfileEditor({ userId, profile }: { userId: string; profile: So
       <div className="flex items-center gap-2.5">
         <Globe className="h-5 w-5 text-primary" />
         <h2 className="text-sm font-semibold text-fg">Perfil público</h2>
-        {profile?.verified_crm && <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-300"><BadgeCheck className="h-3 w-3" /> Verificado</span>}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Nome de exibição" htmlFor="sp-name" error={errors.displayName?.message}><Input id="sp-name" {...register('displayName')} placeholder="Como quer aparecer" /></Field>
-        <Field label="CRM (opcional)" htmlFor="sp-crm"><Input id="sp-crm" {...register('crm')} placeholder="Para solicitar selo médico" /></Field>
-      </div>
-      <Field label="Bio" htmlFor="sp-bio" error={errors.bio?.message}><Input id="sp-bio" {...register('bio')} placeholder="Uma frase sobre você" /></Field>
+      <Field label="Nome de exibição" htmlFor="sp-name" error={errors.displayName?.message}><Input id="sp-name" {...register('displayName')} placeholder="Como quer aparecer no fórum" /></Field>
+      <Field label="Bio" htmlFor="sp-bio" error={errors.bio?.message}><Input id="sp-bio" {...register('bio')} placeholder="Uma frase sobre você (sem dados de saúde)" /></Field>
 
       <Row label="Perfil público (LGPD: você escolhe expor)"><Switch on={isPublic} onChange={(v) => setValue('isPublic', v, { shouldDirty: true })} /></Row>
       <Row label="Mostrar conquistas no feed"><Switch on={showAchievements} onChange={(v) => setValue('showAchievements', v, { shouldDirty: true })} /></Row>
 
-      <div className="flex items-center justify-between">
-        <button type="button" onClick={() => toast.info('Verificação de CRM (CFM) entra em produção em breve.')} className="text-xs text-primary hover:underline">
-          Solicitar selo médico
-        </button>
+      <div className="flex items-center justify-between gap-3">
+        <Link href="/configuracoes/verificacao-profissional" className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline">
+          <Stethoscope className="h-3.5 w-3.5" /> Solicitar selo médico
+        </Link>
         <Button type="submit" disabled={upsert.isPending || !isDirty}>{upsert.isPending ? 'Salvando…' : 'Salvar'}</Button>
       </div>
     </form>
@@ -71,7 +67,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 }
 function Switch({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
   return (
-    <button type="button" role="switch" aria-checked={on} onClick={() => onChange(!on)} className={`relative h-6 w-11 shrink-0 rounded-full transition ${on ? 'bg-emerald-500' : 'bg-white/15'}`}>
+    <button type="button" role="switch" aria-checked={on} onClick={() => onChange(!on)} className={`relative h-6 w-11 shrink-0 rounded-full transition ${on ? 'bg-emerald-500' : 'bg-line'}`}>
       <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${on ? 'left-[22px]' : 'left-0.5'}`} />
     </button>
   );

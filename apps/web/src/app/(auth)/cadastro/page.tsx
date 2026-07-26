@@ -7,11 +7,12 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Eye, EyeOff, Lock, Mail, ShieldCheck, User } from 'lucide-react';
-import { signupSchema, type SignupInput, DISCLAIMERS } from '@vidalog/core';
-import { useVidaLogClient } from '@vidalog/supabase';
+import { signupSchema, type SignupInput, DISCLAIMERS } from '@hubpatients/core';
+import { useHubPatientsClient } from '@hubpatients/supabase';
+import { GoogleIcon, AppleButton, SocialButton } from '@/components/auth-social';
 
 export default function CadastroPage() {
-  const supabase = useVidaLogClient();
+  const supabase = useHubPatientsClient();
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -34,10 +35,19 @@ export default function CadastroPage() {
       toast.error('Não foi possível criar a conta. Tente outro e-mail.');
       return;
     }
-    toast.success('Conta criada! Você já pode usar o VidaLog.');
+    toast.success('Conta criada! Você já pode usar o HubPatients.');
     router.replace('/dashboard');
     router.refresh();
   }
+
+  async function signUpWithProvider(provider: 'google' | 'apple', label: string) {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: `${window.location.origin}/auth/callback?next=/dashboard` },
+    });
+    if (error) toast.error(`Não foi possível conectar com o ${label}. Tente novamente.`);
+  }
+  const signUpWithGoogle = () => signUpWithProvider('google', 'Google');
 
   return (
     <div className="vl-rise">
@@ -53,6 +63,16 @@ export default function CadastroPage() {
         </p>
       </div>
 
+      <div className="mb-6 space-y-2.5">
+        <SocialButton icon={<GoogleIcon />} label="Cadastrar com Google" onClick={signUpWithGoogle} />
+        <AppleButton onClick={() => toast.info('Cadastro com Apple chega em breve — estamos implementando! 🍎')} />
+        <div className="my-6 flex items-center gap-3">
+          <span className="h-px flex-1 bg-neutral-200" />
+          <span className="text-xs font-medium uppercase tracking-wider text-neutral-500">ou com e-mail</span>
+          <span className="h-px flex-1 bg-neutral-200" />
+        </div>
+      </div>
+
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
         <Field label="Nome completo" htmlFor="fullName" error={errors.fullName?.message}>
           <IconInput icon={<User className="h-4 w-4" />} id="fullName" autoComplete="name" placeholder="Seu nome" {...register('fullName')} />
@@ -64,19 +84,19 @@ export default function CadastroPage() {
 
         <Field label="Senha" htmlFor="password" error={errors.password?.message}>
           <div className="relative">
-            <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+            <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
             <input
               id="password"
               type={showPassword ? 'text' : 'password'}
               autoComplete="new-password"
               placeholder="Mínimo 8 caracteres"
-              className="h-12 w-full rounded-xl border border-neutral-200 pl-10 pr-10 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-primary focus:ring-4 focus:ring-trust-100"
+              className="h-12 w-full rounded-xl border border-line-strong pl-10 pr-10 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-500 focus:border-primary focus:ring-4 focus:ring-trust-100"
               {...register('password')}
             />
             <button
               type="button"
               onClick={() => setShowPassword((s) => !s)}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-neutral-400 hover:text-neutral-700"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-neutral-500 hover:text-neutral-700"
               aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -96,7 +116,7 @@ export default function CadastroPage() {
         </Field>
 
         <label className="flex items-start gap-2.5 text-sm text-neutral-600">
-          <input type="checkbox" className="mt-0.5 h-4 w-4 rounded border-neutral-300 text-primary" {...register('acceptedTerms')} />
+          <input type="checkbox" className="mt-0.5 h-5 w-5 rounded border-neutral-300 text-primary" {...register('acceptedTerms')} />
           <span>
             Li e aceito os termos de uso e a política de privacidade (LGPD).
             {errors.acceptedTerms ? (
@@ -116,8 +136,8 @@ export default function CadastroPage() {
         </button>
       </form>
 
-      <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-neutral-400">
-        <ShieldCheck className="h-3.5 w-3.5 text-health-500" />
+      <div className="mt-4 flex items-center justify-center gap-1.5 text-xs text-neutral-500">
+        <ShieldCheck className="h-3.5 w-3.5 text-emerald-700" />
         {DISCLAIMERS.dataSharing}
       </div>
 
@@ -163,12 +183,12 @@ const IconInput = forwardRef<
 >(function IconInput({ icon, ...props }, ref) {
   return (
     <div className="relative">
-      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
+      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500">
         {icon}
       </span>
       <input
         ref={ref}
-        className="h-12 w-full rounded-xl border border-neutral-200 pl-10 pr-3 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-primary focus:ring-4 focus:ring-trust-100"
+        className="h-12 w-full rounded-xl border border-line-strong pl-10 pr-3 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-500 focus:border-primary focus:ring-4 focus:ring-trust-100"
         {...props}
       />
     </div>

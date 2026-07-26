@@ -1,3 +1,49 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Cores semânticas como variáveis (R G B) — as classes bg/fg/surface/line/etc.
+   usam rgb(var(--color-x) / <alpha>). Trocam claro↔escuro pela classe .dark,
+   alternada em runtime pelo nativewind colorScheme.set(). Espelha apps/web.
+
+   Redesign "Papel Clínico Quente + Expressivo" (2026-07-25) — os valores abaixo
+   são os mesmos de src/theme.ts (fonte: packages/ui-tokens). Contrastes medidos
+   contra o PIOR fundo de cada tema; detalhe em docs/REDESIGN-2026-07.md.
+
+   ⚠️ `--color-faint` NÃO foi removida: ~40 telas usam a classe `text-faint`. O
+   nome ficou e o VALOR virou o de `--color-hint` (4,55:1 no claro / 4,59:1 no
+   escuro), então todas passam a cumprir WCAG AA sem edição. Em código novo, use
+   `hint`. Idem `line` (decorativa) vs `line-strong` (borda de campo, ≥3:1). */
+@layer base {
+  :root {
+    --color-bg: 250 249 246; /* #faf9f6 — creme quente, não branco puro (catarata) */
+    --color-surface: 255 255 255; /* #ffffff */
+    --color-surface-2: 243 241 236; /* #f3f1ec */
+    --color-surface-3: 234 231 224; /* #eae7e0 — 3º degrau tonal */
+    --color-line: 230 227 220; /* #e6e3dc — DECORATIVA (1,28:1): não usar como borda de campo */
+    --color-line-strong: 135 131 124; /* #87837c — borda de campo, 3,05:1 (SC 1.4.11) */
+    --color-fg: 27 26 24; /* #1b1a18 — 14,08:1 AAA */
+    --color-fg-soft: 65 60 54; /* #413c36 — 8,84:1 AAA */
+    --color-muted: 85 81 73; /* #555149 — 6,39:1 AAA */
+    --color-hint: 108 103 94; /* #6c675e — 4,55:1 AA */
+    --color-faint: 108 103 94; /* alias de hint (era #847e74 = 3,82:1, reprovava) */
+    --color-primary: 4 66 191; /* #0442bf — 6,70:1 AAA */
+    --color-accent: 196 41 60; /* #c4293c — 4,56:1 (era #d12f3e = 4,76, falhava em surface-3) */
+  }
+
+  .dark {
+    --color-bg: 13 13 13; /* #0d0d0d */
+    --color-surface: 23 23 23; /* #171717 */
+    --color-surface-2: 33 33 33; /* #212121 */
+    --color-surface-3: 43 43 43; /* #2b2b2b — hierarquia por degrau tonal (sombra não se lê) */
+    --color-line: 55 55 55; /* ≈ branco a 10% sobre surface-2 — hairline decorativa */
+    --color-line-strong: 114 117 120; /* #727578 — 3,06:1 no pior fundo */
+    --color-fg: 232 234 240; /* #e8eaf0 */
+    --color-fg-soft: 207 212 221; /* #cfd4dd */
+    --color-muted: 167 172 178; /* #a7acb2 */
+    --color-hint: 144 147 152; /* #909398 — 4,59:1 AA */
+    --color-faint: 144 147 152; /* alias de hint (era #7d7d7d) */
+    --color-primary: 139 169 255; /* #8ba9ff — 6,21:1 (o royal #0442bf dava 2,3:1 aqui) */
+    --color-accent: 253 138 139; /* #fd8a8b */
+  }
+}

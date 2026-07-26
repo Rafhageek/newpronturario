@@ -7,11 +7,11 @@ import type {
   PostReaction,
   SocialProfile,
   UpdateRow,
-} from '@vidalog/core';
-import type { VidaLogClient } from '../types';
+} from '@hubpatients/core';
+import type { HubPatientsClient } from '../types';
 
 // ── Grupos ──────────────────────────────────────────────────────────────────
-export async function listGroups(client: VidaLogClient): Promise<CommunityGroup[]> {
+export async function listGroups(client: HubPatientsClient): Promise<CommunityGroup[]> {
   const { data, error } = await client.from('community_groups').select('*').order('name');
   if (error) throw error;
   return data ?? [];
@@ -19,7 +19,7 @@ export async function listGroups(client: VidaLogClient): Promise<CommunityGroup[
 
 // ── Feed (via view feed_posts — autor oculto em anônimos) ────────────────────
 export async function listFeed(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   groupId: string | null,
   limit = 50,
 ): Promise<FeedPost[]> {
@@ -39,7 +39,7 @@ export interface NewPost {
   poll?: { question: string; options: string[] };
 }
 
-export async function createPost(client: VidaLogClient, authorId: string, input: NewPost): Promise<string> {
+export async function createPost(client: HubPatientsClient, authorId: string, input: NewPost): Promise<string> {
   const { data, error } = await client
     .from('posts')
     .insert({
@@ -59,13 +59,13 @@ export async function createPost(client: VidaLogClient, authorId: string, input:
   return data.id;
 }
 
-export async function deletePost(client: VidaLogClient, postId: string): Promise<void> {
+export async function deletePost(client: HubPatientsClient, postId: string): Promise<void> {
   const { error } = await client.from('posts').delete().eq('id', postId);
   if (error) throw error;
 }
 
 // ── Reações ─────────────────────────────────────────────────────────────────
-export async function listReactionsFor(client: VidaLogClient, postIds: string[]): Promise<PostReaction[]> {
+export async function listReactionsFor(client: HubPatientsClient, postIds: string[]): Promise<PostReaction[]> {
   if (postIds.length === 0) return [];
   const { data, error } = await client.from('post_reactions').select('*').in('post_id', postIds);
   if (error) throw error;
@@ -73,7 +73,7 @@ export async function listReactionsFor(client: VidaLogClient, postIds: string[])
 }
 
 export async function toggleReaction(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   postId: string,
   userId: string,
   emoji: string,
@@ -93,7 +93,7 @@ export async function toggleReaction(
 }
 
 // ── Comentários ─────────────────────────────────────────────────────────────
-export async function listComments(client: VidaLogClient, postId: string): Promise<FeedComment[]> {
+export async function listComments(client: HubPatientsClient, postId: string): Promise<FeedComment[]> {
   // Lê da VIEW feed_comments (oculta author_id em comentários anônimos).
   const { data, error } = await client
     .from('feed_comments')
@@ -105,7 +105,7 @@ export async function listComments(client: VidaLogClient, postId: string): Promi
 }
 
 export async function createComment(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   postId: string,
   authorId: string,
   content: string,
@@ -118,14 +118,14 @@ export async function createComment(
 }
 
 // ── Enquetes ────────────────────────────────────────────────────────────────
-export async function getPolls(client: VidaLogClient, postIds: string[]): Promise<Poll[]> {
+export async function getPolls(client: HubPatientsClient, postIds: string[]): Promise<Poll[]> {
   if (postIds.length === 0) return [];
   const { data, error } = await client.from('polls').select('*').in('post_id', postIds);
   if (error) throw error;
   return data ?? [];
 }
 
-export async function listPollVotes(client: VidaLogClient, pollIds: string[]): Promise<PollVote[]> {
+export async function listPollVotes(client: HubPatientsClient, pollIds: string[]): Promise<PollVote[]> {
   if (pollIds.length === 0) return [];
   const { data, error } = await client.from('poll_votes').select('*').in('poll_id', pollIds);
   if (error) throw error;
@@ -133,7 +133,7 @@ export async function listPollVotes(client: VidaLogClient, pollIds: string[]): P
 }
 
 export async function votePoll(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   pollId: string,
   userId: string,
   optionIndex: number,
@@ -145,28 +145,28 @@ export async function votePoll(
 }
 
 // ── Grupos: entrar/sair ─────────────────────────────────────────────────────
-export async function joinGroup(client: VidaLogClient, groupId: string, userId: string): Promise<void> {
+export async function joinGroup(client: HubPatientsClient, groupId: string, userId: string): Promise<void> {
   const { error } = await client.from('group_members').insert({ group_id: groupId, user_id: userId });
   if (error && error.code !== '23505') throw error; // ignora duplicado
 }
-export async function leaveGroup(client: VidaLogClient, groupId: string, userId: string): Promise<void> {
+export async function leaveGroup(client: HubPatientsClient, groupId: string, userId: string): Promise<void> {
   const { error } = await client.from('group_members').delete().eq('group_id', groupId).eq('user_id', userId);
   if (error) throw error;
 }
-export async function listMyGroups(client: VidaLogClient, userId: string): Promise<string[]> {
+export async function listMyGroups(client: HubPatientsClient, userId: string): Promise<string[]> {
   const { data, error } = await client.from('group_members').select('group_id').eq('user_id', userId);
   if (error) throw error;
   return (data ?? []).map((r) => r.group_id);
 }
 
 // ── Perfil social ───────────────────────────────────────────────────────────
-export async function getSocialProfile(client: VidaLogClient, userId: string): Promise<SocialProfile | null> {
+export async function getSocialProfile(client: HubPatientsClient, userId: string): Promise<SocialProfile | null> {
   const { data, error } = await client.from('social_profiles').select('*').eq('user_id', userId).maybeSingle();
   if (error) throw error;
   return data;
 }
 export async function upsertSocialProfile(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   userId: string,
   patch: UpdateRow<'social_profiles'>,
 ): Promise<SocialProfile> {
@@ -180,16 +180,16 @@ export async function upsertSocialProfile(
 }
 
 // ── Conexões ────────────────────────────────────────────────────────────────
-export async function listFollowing(client: VidaLogClient, userId: string): Promise<string[]> {
+export async function listFollowing(client: HubPatientsClient, userId: string): Promise<string[]> {
   const { data, error } = await client.from('user_connections').select('following_id').eq('follower_id', userId);
   if (error) throw error;
   return (data ?? []).map((r) => r.following_id);
 }
-export async function follow(client: VidaLogClient, followerId: string, followingId: string): Promise<void> {
+export async function follow(client: HubPatientsClient, followerId: string, followingId: string): Promise<void> {
   const { error } = await client.from('user_connections').insert({ follower_id: followerId, following_id: followingId });
   if (error && error.code !== '23505') throw error;
 }
-export async function unfollow(client: VidaLogClient, followerId: string, followingId: string): Promise<void> {
+export async function unfollow(client: HubPatientsClient, followerId: string, followingId: string): Promise<void> {
   const { error } = await client
     .from('user_connections')
     .delete()
@@ -200,7 +200,7 @@ export async function unfollow(client: VidaLogClient, followerId: string, follow
 
 // ── Denúncia ────────────────────────────────────────────────────────────────
 export async function reportPost(
-  client: VidaLogClient,
+  client: HubPatientsClient,
   reporterId: string,
   postId: string,
   reason: string,

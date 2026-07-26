@@ -1,16 +1,27 @@
 'use client';
 
+import { useId } from 'react';
 import {
   CartesianGrid,
   Line,
   LineChart,
-  ReferenceArea,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts';
-import type { Vital } from '@vidalog/core';
+import type { Vital } from '@hubpatients/core';
+import {
+  AXIS_TICK_SIZE,
+  bandColors,
+  useChartMotion,
+  useChartPalette,
+} from '@/components/analise/chart-theme';
+import {
+  bandRangeText,
+  referenceBandElements,
+  referenceBandFor,
+} from '@/components/analise/reference-band';
 
 interface Point {
   date: string;
@@ -18,12 +29,40 @@ interface Point {
   dia: number | null;
 }
 
+/**
+ * Pressão arterial (cartão da Home e da Análise).
+ *
+ * Duas correções do redesign "Papel Clínico Quente" foram aplicadas aqui:
+ *
+ * 1. SEMÁFORO REMOVIDO. As três `ReferenceArea` verde/amarelo/vermelho eram um
+ *    julgamento disfarçado ("bom / atenção / ruim") sobre o corpo do paciente —
+ *    e o app exibe e organiza, quem interpreta é o médico. No lugar entra a
+ *    faixa NEUTRA hachurada + rotulada de `analise/reference-band`.
+ * 2. ANIMAÇÃO CONTROLADA. O Recharts 2.15 ignora `prefers-reduced-motion` e usa
+ *    1500 ms com 400 ms de atraso por padrão; `useChartMotion()` corta para
+ *    600 ms sem atraso e desliga por completo quando o sistema pede menos
+ *    movimento (nada se mexe durante a leitura de um valor clínico).
+ *
+ * As cores de série, eixo e grade vêm de `useChartPalette()` (paleta neutra-
+ * clínica dos tokens): o `#38BDF8`/`#22D3EE` anterior era fixo e o eixo
+ * `#64748B` dava 3,9:1 sobre o canvas creme, reprovando em AA.
+ */
 export function BloodPressureChart({ vitals }: { vitals: Vital[] }) {
+  const uid = useId();
+  const palette = useChartPalette();
+  const motionProps = useChartMotion();
+  const sysColor = palette.series[0];
+  const diaColor = palette.series[1];
+  const diaDash = palette.dash[1] ?? '6 3';
+
   const data: Point[] = vitals.map((v) => ({
     date: new Date(v.measured_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
     sys: v.value_primary,
     dia: v.value_secondary,
   }));
+
+  const sysBand = referenceBandFor('pressao_sistolica');
+  const diaBand = referenceBandFor('pressao_diastolica');
 
   if (data.length === 0) {
     return (
@@ -34,21 +73,80 @@ export function BloodPressureChart({ vitals }: { vitals: Vital[] }) {
   }
 
   return (
-    <div className="h-[240px] w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
-          {/* Zonas de referência (não diagnóstico) */}
-          <ReferenceArea y1={40} y2={130} fill="#10B981" fillOpacity={0.06} />
-          <ReferenceArea y1={130} y2={140} fill="#F59E0B" fillOpacity={0.08} />
-          <ReferenceArea y1={140} y2={200} fill="#EF4444" fillOpacity={0.08} />
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-          <XAxis dataKey="date" tick={{ fill: '#64748B', fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={24} />
-          <YAxis domain={[40, 200]} tick={{ fill: '#64748B', fontSize: 11 }} tickLine={false} axisLine={false} width={36} />
-          <Tooltip content={<DarkTooltip />} />
-          <Line type="monotone" dataKey="sys" name="Sistólica" stroke="#38BDF8" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
-          <Line type="monotone" dataKey="dia" name="Diastólica" stroke="#22D3EE" strokeWidth={2} strokeDasharray="4 3" dot={false} />
-        </LineChart>
-      </ResponsiveContainer>
+    <div>
+      <div className="h-[240px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
+            {referenceBandElements(sysBand, uid, {
+              colors: bandColors(palette),
+              labelText: sysBand
+                ? `sistólica — faixa de referência ${bandRangeText(sysBand)}`
+                : undefined,
+            })}
+            {referenceBandElements(diaBand, uid, {
+              colors: bandColors(palette),
+              labelText: diaBand
+                ? `diastólica — faixa de referência ${bandRangeText(diaBand)}`
+                : undefined,
+            })}
+            <CartesianGrid strokeDasharray="3 3" stroke={palette.grid} vertical={false} />
+            <XAxis
+              dataKey="date"
+              tick={{ fill: palette.axis, fontSize: AXIS_TICK_SIZE }}
+              tickLine={false}
+              axisLine={false}
+              minTickGap={24}
+            />
+            <YAxis
+              domain={[40, 200]}
+              tick={{ fill: palette.axis, fontSize: AXIS_TICK_SIZE }}
+              tickLine={false}
+              axisLine={false}
+              width={40}
+            />
+            <Tooltip content={<BpTooltip />} />
+            <Line
+              type="monotone"
+              dataKey="sys"
+              name="Sistólica"
+              stroke={sysColor}
+              strokeWidth={2.5}
+              dot={false}
+              activeDot={{ r: 4 }}
+              {...motionProps}
+            />
+            {/* Tracejado: distingue as séries sem depender de cor (SC 1.4.1). */}
+            <Line
+              type="monotone"
+              dataKey="dia"
+              name="Diastólica"
+              stroke={diaColor}
+              strokeWidth={2}
+              strokeDasharray={diaDash}
+              dot={false}
+              {...motionProps}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Legenda em HTML (não SVG): cor + forma do traço + texto. */}
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-caption text-muted">
+        <span className="inline-flex items-center gap-1.5">
+          <span aria-hidden="true" className="h-0.5 w-5 rounded-full" style={{ background: sysColor }} />
+          Sistólica (linha contínua)
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span
+            aria-hidden="true"
+            className="h-0.5 w-5"
+            style={{
+              backgroundImage: `repeating-linear-gradient(90deg, ${diaColor} 0 4px, transparent 4px 7px)`,
+            }}
+          />
+          Diastólica (linha tracejada)
+        </span>
+      </div>
     </div>
   );
 }
@@ -59,13 +157,20 @@ interface TooltipPayload {
   label?: string;
 }
 
-function DarkTooltip({ active, payload, label }: TooltipPayload) {
+function BpTooltip({ active, payload, label }: TooltipPayload) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border border-line bg-surface px-3 py-2 text-xs shadow-xl">
-      <p className="mb-1 font-medium text-fg-soft">{label}</p>
+    <div className="rounded-xl border border-line-strong bg-surface px-3 py-2 text-caption shadow-paper-lg">
+      <p className="mb-1 font-semibold text-muted">{label}</p>
       {payload.map((p) => (
-        <p key={p.name} style={{ color: p.color }}>
+        // A cor da série vai no marcador, não no texto: nem toda série alcança
+        // 4,5:1 sobre a superfície do card.
+        <p key={p.name} className="flex items-center gap-1.5 text-fg">
+          <span
+            aria-hidden="true"
+            className="h-2 w-2 shrink-0 rounded-full"
+            style={{ background: p.color }}
+          />
           {p.name}: <span className="font-semibold">{p.value} mmHg</span>
         </p>
       ))}

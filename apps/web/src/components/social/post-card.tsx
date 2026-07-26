@@ -2,9 +2,11 @@
 
 import { useState } from 'react';
 import { Flag, MessageCircle, MoreHorizontal, Trash2, Trophy } from 'lucide-react';
-import type { FeedPost, Poll, PollVote, PostReaction } from '@vidalog/core';
-import { REPORT_REASONS } from '@vidalog/core';
-import { MedicalBadge, ReactionBar } from './bits';
+import type { FeedPost, Poll, PollVote, PostReaction } from '@hubpatients/core';
+import { REPORT_REASONS } from '@hubpatients/core';
+import { confirmAction } from '@/lib/confirm';
+import { ReactionBar } from './bits';
+import { UserBadge } from '@/components/community/user-badge';
 import { PollView } from './poll-view';
 import { CommentThread } from './comment-thread';
 
@@ -44,14 +46,19 @@ export function PostCard({
             {post.author_display.charAt(0).toUpperCase()}
           </span>
           <div>
-            <p className="flex items-center gap-1.5 text-sm font-semibold text-fg">
+            <p className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-fg">
               {post.author_display}
-              {post.author_verified && <MedicalBadge />}
+              <UserBadge
+                staffRole={post.author_staff_role}
+                professionalBadge={post.author_professional_badge}
+                professionalRegistry={post.author_professional_registry}
+                memberTier={post.author_member_tier}
+              />
             </p>
             <p className="flex items-center gap-2 text-xs text-muted">
               {new Date(post.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
               {post.flair && <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] text-fg-soft">{post.flair}</span>}
-              {post.is_achievement && <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] text-amber-300"><Trophy className="h-3 w-3" /> Conquista</span>}
+              {post.is_achievement && <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] text-amber-700 dark:text-amber-300"><Trophy className="h-3 w-3" /> Conquista</span>}
             </p>
           </div>
         </div>
@@ -62,7 +69,7 @@ export function PostCard({
               {!reporting ? (
                 <>
                   <button onClick={() => setReporting(true)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-fg-soft hover:bg-surface-2"><Flag className="h-4 w-4" /> Denunciar</button>
-                  {isMine && <button onClick={() => { actions.onDelete(post.id); setMenu(false); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-rose-300 hover:bg-rose-500/10"><Trash2 className="h-4 w-4" /> Apagar</button>}
+                  {isMine && <button onClick={() => { if (confirmAction('Apagar esta publicação?')) { actions.onDelete(post.id); setMenu(false); } }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-rose-700 dark:text-rose-300 hover:bg-rose-500/10"><Trash2 className="h-4 w-4" /> Apagar</button>}
                 </>
               ) : (
                 <div className="px-1">

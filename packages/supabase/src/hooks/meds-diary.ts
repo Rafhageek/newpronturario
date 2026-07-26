@@ -1,9 +1,10 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { DiaryEntryInput, InsertRow } from '@vidalog/core';
-import { findInteractions, VITAL_TYPES } from '@vidalog/core';
-import { useVidaLogClient } from './context';
+import type { DiaryEntryInput, InsertRow } from '@hubpatients/core';
+import { findInteractions, VITAL_TYPES, activityNotification } from '@hubpatients/core';
+import { enqueueNotification } from '../queries/notifications';
+import { useHubPatientsClient } from './context';
 import { queryKeys } from './keys';
 import { listVitalsSinceAll, createVital } from '../queries/vitals';
 import { createDiaryEntry } from '../queries/diary';
@@ -18,7 +19,7 @@ function daysAgoIso(days: number): string {
 
 // ── Vitais (todos os tipos) para a timeline do diário ───────────────────────
 export function useVitalsAllRange(patientId: string | undefined, days = 30) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({
     queryKey: queryKeys.vitalsAll(patientId ?? '', days),
     queryFn: () => listVitalsSinceAll(client, patientId as string, daysAgoIso(days)),
@@ -28,7 +29,7 @@ export function useVitalsAllRange(patientId: string | undefined, days = 30) {
 
 // ── Cria a entrada do diário + vitais opcionais juntos ──────────────────────
 export function useCreateDiaryEntryFull(patientId: string) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: DiaryEntryInput) => {
@@ -72,13 +73,14 @@ export function useCreateDiaryEntryFull(patientId: string) {
       qc.invalidateQueries({ queryKey: queryKeys.diarySummary(patientId) });
       qc.invalidateQueries({ queryKey: queryKeys.vitalsAll(patientId, 30) });
       qc.invalidateQueries({ queryKey: queryKeys.dashboard(patientId) });
+      void enqueueNotification(client, activityNotification.diarySaved());
     },
   });
 }
 
 // ── Tomadas recentes (para a barra de adesão) ───────────────────────────────
 export function useRecentIntakes(patientId: string | undefined) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({
     queryKey: queryKeys.recentIntakes(patientId ?? ''),
     queryFn: () => listRecentIntakes(client, patientId as string, 200),
@@ -88,7 +90,7 @@ export function useRecentIntakes(patientId: string | undefined) {
 
 // ── Checador de interações (Plus) ───────────────────────────────────────────
 export function useDrugInteractions(medicationNames: string[], enabled: boolean) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({
     queryKey: [...queryKeys.interactions(), medicationNames.slice().sort()],
     queryFn: async () => {

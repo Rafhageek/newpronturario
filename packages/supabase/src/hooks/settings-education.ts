@@ -1,12 +1,12 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ConsentPurpose, Json, UpdateRow } from '@vidalog/core';
-import { useVidaLogClient } from './context';
+import type { ConsentPurpose, Json, UpdateRow } from '@hubpatients/core';
+import { useHubPatientsClient } from './context';
 import { queryKeys } from './keys';
 import { listConsents, setConsent, listAuditLog } from '../queries/consent';
 import { getSettings, upsertSettings } from '../queries/settings';
-import { exportUserData, softDeleteAccount } from '../queries/account';
+import { exportUserData, requestAccountDeletion } from '../queries/account';
 import {
   listHealthContent,
   listReadingList,
@@ -16,7 +16,7 @@ import {
 
 // ── Consentimento ───────────────────────────────────────────────────────────
 export function useConsents(patientId: string | undefined) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({
     queryKey: queryKeys.consents(patientId ?? ''),
     queryFn: () => listConsents(client, patientId as string),
@@ -25,11 +25,21 @@ export function useConsents(patientId: string | undefined) {
 }
 
 export function useSetConsent(patientId: string) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ purpose, granted, scope }: { purpose: ConsentPurpose; granted: boolean; scope: Json }) =>
-      setConsent(client, patientId, purpose, granted, scope),
+    mutationFn: ({
+      purpose,
+      granted,
+      scope,
+      version,
+    }: {
+      purpose: ConsentPurpose;
+      granted: boolean;
+      scope: Json;
+      /** Versão do texto lido pelo titular (use `CONSENT_TEXT_VERSION`). */
+      version?: string;
+    }) => setConsent(client, patientId, purpose, granted, scope, version),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.consents(patientId) });
       qc.invalidateQueries({ queryKey: ['audit-log', patientId] });
@@ -39,7 +49,7 @@ export function useSetConsent(patientId: string) {
 
 // ── Log de acessos (auditoria) ──────────────────────────────────────────────
 export function useAuditLog(patientId: string | undefined, page: number, pageSize = 20) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({
     queryKey: queryKeys.auditLog(patientId ?? '', page),
     queryFn: () => listAuditLog(client, patientId as string, page, pageSize),
@@ -49,21 +59,21 @@ export function useAuditLog(patientId: string | undefined, page: number, pageSiz
 
 // ── Exportar / excluir conta ────────────────────────────────────────────────
 export function useExportData(patientId: string) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useMutation({ mutationFn: () => exportUserData(client, patientId) });
 }
 
 export function useDeleteAccount() {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useMutation({
     mutationFn: ({ email, password }: { email: string; password: string }) =>
-      softDeleteAccount(client, email, password),
+      requestAccountDeletion(client, email, password),
   });
 }
 
 // ── Configurações ───────────────────────────────────────────────────────────
 export function useUserSettings(userId: string | undefined) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({
     queryKey: queryKeys.settings(userId ?? ''),
     queryFn: () => getSettings(client, userId as string),
@@ -72,7 +82,7 @@ export function useUserSettings(userId: string | undefined) {
 }
 
 export function useUpdateSettings(userId: string) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (patch: UpdateRow<'user_settings'>) => upsertSettings(client, userId, patch),
@@ -82,7 +92,7 @@ export function useUpdateSettings(userId: string) {
 
 // ── Educação ────────────────────────────────────────────────────────────────
 export function useHealthContent() {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({
     queryKey: queryKeys.healthContent(),
     queryFn: () => listHealthContent(client),
@@ -91,7 +101,7 @@ export function useHealthContent() {
 }
 
 export function useReadingList(userId: string | undefined) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   return useQuery({
     queryKey: queryKeys.readingList(userId ?? ''),
     queryFn: () => listReadingList(client, userId as string),
@@ -100,7 +110,7 @@ export function useReadingList(userId: string | undefined) {
 }
 
 export function useToggleReadingList(userId: string) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ contentId, saved }: { contentId: string; saved: boolean }) =>

@@ -4,8 +4,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Trash2 } from 'lucide-react';
-import { familyHistorySchema, type FamilyHistoryInput, FAMILY_RELATIONSHIP_LABELS } from '@vidalog/core';
-import { useFamilyHistory, useFamilyHistoryMutations } from '@vidalog/supabase';
+import { familyHistorySchema, type FamilyHistoryInput, FAMILY_RELATIONSHIP_LABELS } from '@hubpatients/core';
+import { useFamilyHistory, useFamilyHistoryMutations } from '@hubpatients/supabase';
 import { Button, Field, Input } from '@/components/ui';
 
 export function FamilyHistorySection({ patientId }: { patientId: string }) {
@@ -40,7 +40,7 @@ export function FamilyHistorySection({ patientId }: { patientId: string }) {
               <p className="truncate text-sm text-fg">
                 {f.condition} <span className="text-xs text-muted">· {FAMILY_RELATIONSHIP_LABELS[f.relationship]}</span>
               </p>
-              <button onClick={() => remove.mutate(f.id)} className="rounded-lg p-1.5 text-muted hover:bg-rose-500/10 hover:text-rose-400" aria-label="Remover">
+              <button onClick={() => remove.mutate(f.id)} className="rounded-lg p-1.5 text-muted hover:bg-rose-500/10 hover:text-status-alert-ink" aria-label="Remover">
                 <Trash2 className="h-4 w-4" />
               </button>
             </li>

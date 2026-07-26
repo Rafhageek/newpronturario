@@ -25,7 +25,7 @@ export function getSupabaseEnv(): { url: string; anonKey: string; configured: bo
     if (!warned) {
       warned = true;
       console.warn(
-        '[VidaLog] Supabase não configurado (dev). Defina NEXT_PUBLIC_SUPABASE_URL e ' +
+        '[HubPatients] Supabase não configurado (dev). Defina NEXT_PUBLIC_SUPABASE_URL e ' +
           'NEXT_PUBLIC_SUPABASE_ANON_KEY em apps/web/.env.local para habilitar login e dados.',
       );
     }

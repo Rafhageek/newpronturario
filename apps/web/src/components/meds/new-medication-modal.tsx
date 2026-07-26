@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AnimatePresence, motion } from 'framer-motion';
 import { Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -11,10 +10,13 @@ import {
   type MedicationInput,
   MEDICATION_UNITS,
   MEDICATION_FREQUENCY_LABELS,
-} from '@vidalog/core';
-import { useVidaLogClient, createMedication, queryKeys } from '@vidalog/supabase';
+  findMedicationAllergyNameMatch,
+} from '@hubpatients/core';
+import { useAllergies, useHubPatientsClient, createMedication, queryKeys } from '@hubpatients/supabase';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button, Field, Input } from '@/components/ui';
+import { Modal } from '@/components/ui/modal';
+import { confirmAction } from '@/lib/confirm';
 
 export function NewMedicationModal({
   open,
@@ -25,10 +27,16 @@ export function NewMedicationModal({
   onClose: () => void;
   patientId: string;
 }) {
-  const client = useVidaLogClient();
+  const client = useHubPatientsClient();
   const qc = useQueryClient();
+  const {
+    data: allergies,
+    isLoading: allergiesLoading,
+    isError: allergiesError,
+  } = useAllergies(patientId || undefined);
   const [times, setTimes] = useState<string[]>([]);
   const [newTime, setNewTime] = useState('08:00');
+  const [anvisaReg, setAnvisaReg] = useState('');
   const [saving, setSaving] = useState(false);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<MedicationInput>({
@@ -43,6 +51,27 @@ export function NewMedicationModal({
   }
 
   async function onSubmit(values: MedicationInput) {
+    if (allergiesLoading) {
+      toast.info('Aguarde a verificação das alergias registradas.');
+      return;
+    }
+    if (allergiesError || !allergies) {
+      toast.error('Não foi possível verificar suas alergias. Tente novamente antes de adicionar o medicamento.');
+      return;
+    }
+
+    const matched = findMedicationAllergyNameMatch(values.name, allergies);
+    if (
+      matched &&
+      !confirmAction(
+        `Atenção: há uma alergia registrada a "${matched.substance}". ` +
+          `A verificação compara apenas os nomes cadastrados e não confirma que "${values.name}" é seguro. ` +
+          'Adicionar mesmo assim?',
+      )
+    ) {
+      return;
+    }
+
     setSaving(true);
     try {
       await createMedication(client, {
@@ -57,12 +86,14 @@ export function NewMedicationModal({
         started_at: values.startedAt ? values.startedAt.toISOString().slice(0, 10) : null,
         ended_at: values.endedAt ? values.endedAt.toISOString().slice(0, 10) : null,
         notes: values.notes || null,
+        anvisa_registration: anvisaReg.trim() || null,
         active: true,
       });
       qc.invalidateQueries({ queryKey: queryKeys.medications(patientId) });
       toast.success('Medicamento adicionado.');
       reset();
       setTimes([]);
+      setAnvisaReg('');
       onClose();
     } catch {
       toast.error('Não foi possível adicionar.');
@@ -72,24 +103,7 @@ export function NewMedicationModal({
   }
 
   return (
-    <AnimatePresence>
-      {open && (
-        <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-          <motion.div
-            role="dialog"
-            aria-modal="true"
-            className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-line bg-surface p-6 shadow-2xl"
-            initial={{ scale: 0.95, y: 12, opacity: 0 }}
-            animate={{ scale: 1, y: 0, opacity: 1 }}
-            exit={{ scale: 0.96, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 320, damping: 26 }}
-          >
-            <button onClick={onClose} className="absolute right-4 top-4 rounded-lg p-1 text-muted hover:bg-surface-2 hover:text-fg" aria-label="Fechar">
-              <X className="h-4 w-4" />
-            </button>
-            <h2 className="mb-4 text-xl font-bold text-fg" style={{ fontFamily: 'var(--font-display)' }}>Novo medicamento</h2>
-
+    <Modal open={open} onClose={onClose} title="Novo medicamento" className="max-w-lg">
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
               <Field label="Nome" htmlFor="m-name" error={errors.name?.message}>
                 <Input id="m-name" {...register('name')} placeholder="Ex.: Losartana" />
@@ -136,15 +150,15 @@ export function NewMedicationModal({
                 <Field label="Fim (opcional)" htmlFor="m-end"><Input id="m-end" type="date" {...register('endedAt')} /></Field>
               </div>
               <Field label="Observações" htmlFor="m-notes"><Input id="m-notes" {...register('notes')} /></Field>
+              <Field label="Nº de registro Anvisa (opcional)" htmlFor="m-anvisa">
+                <Input id="m-anvisa" value={anvisaReg} onChange={(e) => setAnvisaReg(e.target.value)} placeholder="1.NNNN.NNNN.NNN-N — leva direto à bula" />
+              </Field>
 
               <div className="flex justify-end gap-2 pt-1">
                 <button type="button" onClick={onClose} className="inline-flex h-11 items-center rounded-xl border border-line px-4 text-sm text-fg-soft hover:bg-surface-2">Cancelar</button>
                 <Button type="submit" disabled={saving}>{saving ? 'Salvando…' : 'Adicionar'}</Button>
               </div>
             </form>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+    </Modal>
   );
 }

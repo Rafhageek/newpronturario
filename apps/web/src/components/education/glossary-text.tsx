@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment, useState } from 'react';
-import { GLOSSARY, lookupGlossary } from '@vidalog/core';
+import { GLOSSARY, lookupGlossary } from '@hubpatients/core';
 
 // Regex com todos os termos do glossário (mais longos primeiro p/ casar melhor).
 const TERMS = Object.keys(GLOSSARY).sort((a, b) => b.length - a.length);

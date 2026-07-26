@@ -14,8 +14,8 @@ import {
   User,
   Users,
 } from 'lucide-react';
-import { useProfile, useInsurance, useAllergies } from '@vidalog/supabase';
-import { calculateAge, DISCLAIMERS } from '@vidalog/core';
+import { useProfile, useInsurance, useAllergies } from '@hubpatients/supabase';
+import { calculateAge, DISCLAIMERS } from '@hubpatients/core';
 import { useActiveProfile } from '@/components/profile-context';
 import { SectionCard } from '@/components/profile/section-card';
 import { PersonalDataForm } from '@/components/profile/personal-data-form';
@@ -97,7 +97,7 @@ export default function PerfilPage() {
         icon={ShieldAlert}
         title="Alergias"
         subtitle="Substâncias e gravidade"
-        badge={severe.length > 0 ? <span className="rounded-full bg-rose-500/20 px-2 py-0.5 text-[10px] font-bold text-rose-300">{severe.length} grave(s)</span> : undefined}
+        badge={severe.length > 0 ? <span className="rounded-full bg-rose-500/20 px-2 py-0.5 text-[10px] font-bold text-rose-700 dark:text-rose-300">{severe.length} grave(s)</span> : undefined}
       >
         <AllergiesSection patientId={patientId} />
       </SectionCard>
@@ -135,7 +135,7 @@ export default function PerfilPage() {
 }
 
 function Tag({ children, tone, icon }: { children: React.ReactNode; tone?: 'alert'; icon?: React.ReactNode }) {
-  const cls = tone === 'alert' ? 'border-rose-500/30 bg-rose-500/10 text-rose-300' : 'border-line bg-surface-2 text-fg-soft';
+  const cls = tone === 'alert' ? 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300' : 'border-line bg-surface-2 text-fg-soft';
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${cls}`}>
       {icon}

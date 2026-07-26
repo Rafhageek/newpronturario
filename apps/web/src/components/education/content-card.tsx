@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Bookmark, BookmarkCheck, ChevronDown, Clock, ExternalLink, Sparkles } from 'lucide-react';
-import type { HealthContent } from '@vidalog/core';
+import type { HealthContent } from '@hubpatients/core';
 import { GlossaryText } from './glossary-text';
 
 export function ContentCard({

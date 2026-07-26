@@ -1,6 +1,6 @@
 import { createServerClient, type CookieMethodsServer } from '@supabase/ssr';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '@vidalog/core';
+import type { Database } from '@hubpatients/core';
 
 /**
  * Client para Server Components / Route Handlers / middleware do Next.js.

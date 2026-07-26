@@ -1,14 +1,38 @@
 'use client';
 
 import { useState } from 'react';
+import dynamic from 'next/dynamic';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
-import type { ExamMetric, ExamMetricExplanation } from '@vidalog/core';
-import { METRIC_FLAG } from '@vidalog/core';
-import { useMetricHistory } from '@vidalog/supabase';
-import { MetricEvolutionChart } from './metric-evolution-chart';
+import type { ExamMetric, ExamMetricExplanation } from '@hubpatients/core';
+import { classifyExamMetric, METRIC_FLAG, UNCLASSIFIED_METRIC } from '@hubpatients/core';
+import { useMetricHistory } from '@hubpatients/supabase';
+import { statusVars, type StatusKind } from '@/components/ui/status-chip';
 
-const TONE_COLOR = { ok: '#10B981', attention: '#F59E0B', alert: '#EF4444' } as const;
+const MetricEvolutionChart = dynamic(
+  () => import('./metric-evolution-chart').then((module) => module.MetricEvolutionChart),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-24 animate-pulse rounded-lg bg-surface" role="status">
+        <span className="sr-only">Carregando evolução da métrica</span>
+      </div>
+    ),
+  },
+);
+
+/**
+ * Tom do laudo → papel de status do sistema. O `#10B981 / #F59E0B / #EF4444`
+ * anterior reprovava em AA (2,41 / 2,04 / 3,57:1 sobre o canvas creme) e não
+ * tinha versão de tema escuro; agora cada tom rende `ink` (texto), `mark`
+ * (marcador) e `tint` (fundo), já theme-aware. Ver `ui/status-chip.tsx`.
+ */
+const TONE_STATUS = {
+  ok: 'ok',
+  attention: 'attention',
+  alert: 'alert',
+  neutral: 'neutro',
+} as const satisfies Record<string, StatusKind>;
 
 export function MetricRow({
   metric,
@@ -22,16 +46,21 @@ export function MetricRow({
   const [open, setOpen] = useState(false);
   const { data: history } = useMetricHistory(open ? patientId : undefined, metric.name, metric.metric_code);
 
-  const meta = METRIC_FLAG[metric.flag];
-  const color = TONE_COLOR[meta.tone];
-  const isHigh = metric.reference_max != null && metric.value != null && metric.value > metric.reference_max;
-  const meaning = isHigh ? explanation?.high_means : explanation?.low_means;
-  const action = isHigh ? explanation?.actions_high : explanation?.actions_low;
+  const classification = classifyExamMetric(metric);
+  const meta = classification === 'unclassified' ? UNCLASSIFIED_METRIC : METRIC_FLAG[classification];
+  const { ink, mark, tint } = statusVars(TONE_STATUS[meta.tone]);
+  // Direção real do desvio: alto e baixo são avaliados de forma independente.
+  // Se não dá para determinar (faltam referências), não arriscamos mostrar a
+  // explicação trocada — preferimos não exibir a interpretação direcional.
+  const isHigh = metric.value != null && metric.reference_max != null && metric.value > metric.reference_max;
+  const isLow = metric.value != null && metric.reference_min != null && metric.value < metric.reference_min;
+  const meaning = isHigh ? explanation?.high_means : isLow ? explanation?.low_means : undefined;
+  const action = isHigh ? explanation?.actions_high : isLow ? explanation?.actions_low : undefined;
 
   return (
     <div className="overflow-hidden rounded-xl border border-line bg-surface-2">
       <button onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-3 px-4 py-3 text-left">
-        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: color }} />
+        <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full" style={{ background: mark }} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-fg">{explanation?.metric_name ?? metric.name}</p>
           <p className="text-xs text-muted">
@@ -41,7 +70,10 @@ export function MetricRow({
             )}
           </p>
         </div>
-        <span className="rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ background: `${color}1f`, color }}>
+        <span
+          className="rounded-full px-2 py-0.5 text-caption font-semibold"
+          style={{ background: tint, color: ink }}
+        >
           {meta.label}
         </span>
         <ChevronDown className={`h-4 w-4 shrink-0 text-muted transition-transform ${open ? 'rotate-180' : ''}`} />

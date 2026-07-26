@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronDown, HeartHandshake, ShieldCheck, UserMinus } from 'lucide-react';
-import type { RelationshipView } from '@vidalog/supabase';
-import { CARE_KIND_LABELS, DEFAULT_CAREGIVER_PERMISSIONS, type CaregiverPermissions } from '@vidalog/core';
+import type { RelationshipView } from '@hubpatients/supabase';
+import { CARE_KIND_LABELS, DEFAULT_CAREGIVER_PERMISSIONS, type CaregiverPermissions } from '@hubpatients/core';
+import { confirmAction } from '@/lib/confirm';
 import { PermissionsEditor } from './permissions-editor';
 
 export function RelationshipCard({
@@ -34,11 +35,11 @@ export function RelationshipCard({
             <p className="truncate text-sm font-semibold text-fg">{view.other.full_name}</p>
             <p className="text-xs text-muted">
               {iCareForThem ? 'Você cuida' : 'Cuida de você'} · {CARE_KIND_LABELS[view.relationship.kind]}
-              {pending && <span className="ml-1.5 rounded-full bg-amber-400/15 px-1.5 py-0.5 text-[10px] text-amber-300">pendente</span>}
+              {pending && <span className="ml-1.5 rounded-full bg-amber-400/15 px-1.5 py-0.5 text-[10px] text-amber-700 dark:text-amber-300">pendente</span>}
             </p>
           </div>
         </div>
-        <span className="flex items-center gap-1 text-xs text-emerald-300">
+        <span className="flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-300">
           {iCareForThem ? <HeartHandshake className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
         </span>
       </div>
@@ -47,7 +48,7 @@ export function RelationshipCard({
         <button onClick={() => setOpen((o) => !o)} className="inline-flex items-center gap-1 text-xs text-muted hover:text-fg">
           Permissões <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-180' : ''}`} />
         </button>
-        <button onClick={onRevoke} className="ml-auto inline-flex items-center gap-1.5 text-xs text-rose-300 hover:underline">
+        <button onClick={() => { if (confirmAction('Remover este vínculo de cuidado? O acesso aos dados será encerrado.')) onRevoke(); }} className="ml-auto inline-flex items-center gap-1.5 text-xs text-rose-700 dark:text-rose-300 hover:underline">
           <UserMinus className="h-3.5 w-3.5" /> Remover vínculo
         </button>
       </div>
