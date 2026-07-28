@@ -1,5 +1,6 @@
 export * from './health';
 export * from './br';
+export * from './cep';
 export * from './exams';
 export * from './stats';
 export * from './education';

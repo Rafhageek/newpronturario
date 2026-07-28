@@ -78,6 +78,15 @@ export const BIOLOGICAL_SEX_LABELS: Record<BiologicalSex, string> = {
   unspecified: 'Não informado',
 };
 
+/**
+ * Opções OFERECIDAS no formulário. `intersex` ficou de fora por decisão do
+ * projeto, mas continua no tipo e no rótulo de propósito: se algum cadastro
+ * antigo já tiver esse valor, a tela precisa saber exibi-lo em vez de mostrar
+ * o código cru ou apagar o dado de alguém. Para voltar a oferecer, basta
+ * incluir 'intersex' nesta lista.
+ */
+export const BIOLOGICAL_SEX_OPTIONS: BiologicalSex[] = ['female', 'male', 'unspecified'];
+
 export const MOOD_LABELS: Record<number, string> = {
   1: 'Muito mal',
   2: 'Mal',

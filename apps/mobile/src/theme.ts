@@ -418,6 +418,74 @@ export function useTabBarStyle(): {
   return { style, setStyle: saveTabBarStyle };
 }
 
+/* ══════════════════ Bloqueio de captura de tela (opcional) ══════════════════
+ * Vinha ligado sempre e impedia print legítimo (mandar exame ao médico, relatar
+ * um problema). Virou opção, DESLIGADA por padrão. Ver `screen-guard.tsx`.
+ * ========================================================================== */
+
+const BLOCK_CAPTURE_KEY = 'hubpatients.block-screen-capture';
+
+let blockCapture = false;
+let blockCaptureLoaded = false;
+let blockCaptureLoading: Promise<void> | null = null;
+const blockCaptureListeners = new Set<() => void>();
+
+function emitBlockCapture(): void {
+  for (const listener of blockCaptureListeners) listener();
+}
+
+export function loadBlockScreenCapture(): Promise<void> {
+  if (blockCaptureLoaded) return Promise.resolve();
+  if (blockCaptureLoading) return blockCaptureLoading;
+  blockCaptureLoading = (async () => {
+    try {
+      blockCapture = (await SecureStore.getItemAsync(BLOCK_CAPTURE_KEY)) === '1';
+    } catch {
+      blockCapture = false;
+    }
+    blockCaptureLoaded = true;
+    blockCaptureLoading = null;
+    emitBlockCapture();
+  })();
+  return blockCaptureLoading;
+}
+
+export function getBlockScreenCapture(): boolean {
+  return blockCapture;
+}
+
+export async function saveBlockScreenCapture(value: boolean): Promise<void> {
+  blockCapture = value;
+  blockCaptureLoaded = true;
+  emitBlockCapture();
+  try {
+    await SecureStore.setItemAsync(BLOCK_CAPTURE_KEY, value ? '1' : '0');
+  } catch {
+    // preferência não-crítica; ignora falha de escrita
+  }
+}
+
+function subscribeBlockCapture(listener: () => void): () => void {
+  blockCaptureListeners.add(listener);
+  void loadBlockScreenCapture();
+  return () => {
+    blockCaptureListeners.delete(listener);
+  };
+}
+
+/** Bloquear print/gravação nas telas com dado de saúde? Padrão: não. */
+export function useBlockScreenCapture(): {
+  blocked: boolean;
+  setBlocked: (value: boolean) => Promise<void>;
+} {
+  const blocked = useSyncExternalStore(
+    subscribeBlockCapture,
+    getBlockScreenCapture,
+    getBlockScreenCapture,
+  );
+  return { blocked, setBlocked: saveBlockScreenCapture };
+}
+
 /* ── Escala de fonte: preferência do sistema × Modo Sênior, com clamp ── */
 
 export type FontScaleInfo = {

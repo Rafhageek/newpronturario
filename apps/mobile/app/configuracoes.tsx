@@ -28,6 +28,7 @@ import {
   useTapTarget,
   tapTarget,
   useTabBarStyle,
+  useBlockScreenCapture,
   type TabBarStyle,
 } from '@/theme';
 import { saveThemePref, loadThemePref, type ThemePref } from '@/lib/theme-pref';
@@ -287,6 +288,7 @@ export default function ConfiguracoesScreen() {
 
         {/* Segurança */}
         <SectionTitle>Segurança</SectionTitle>
+        <ScreenCaptureSection />
         <BiometricSection />
         <SecuritySection lastSignInAt={user?.last_sign_in_at ?? null} />
         <TwoFactorSection />
@@ -370,6 +372,48 @@ function InfoRow({ label, value }: { label: string; value: string }) {
         {value}
       </Text>
     </View>
+  );
+}
+
+/* ──────────────────────── Captura de tela ──────────────────────── */
+
+/**
+ * Antes o app bloqueava print em toda tela com dado de saúde, sem opção. Isso
+ * atrapalhava uso legítimo — mandar o exame para o médico, guardar comprovante,
+ * relatar um problema. O dono do prontuário é o paciente; a escolha é dele.
+ * Padrão: liberado. Quem usa o aparelho em local compartilhado pode ligar.
+ */
+function ScreenCaptureSection() {
+  const colors = useColors();
+  const { blocked, setBlocked } = useBlockScreenCapture();
+
+  return (
+    <Card className="gap-1">
+      <View className="flex-row items-center gap-3 py-1">
+        <View className="flex-1">
+          <Text style={{ fontFamily: fonts.semibold }} className="text-[15px] text-fg">
+            Bloquear print de tela
+          </Text>
+          <Text style={{ fontFamily: fonts.regular }} className="text-[12px] text-muted">
+            Impede capturar ou gravar as telas com seus dados de saúde.
+          </Text>
+        </View>
+        <Switch
+          value={blocked}
+          onValueChange={(v) => void setBlocked(v)}
+          trackColor={{ false: colors.line, true: colors.accent }}
+          thumbColor="#ffffff"
+          accessibilityRole="switch"
+          accessibilityState={{ checked: blocked }}
+          accessibilityLabel="Bloquear print de tela"
+        />
+      </View>
+      <Text style={{ fontFamily: fonts.regular }} className="mt-1 text-[11px] leading-4 text-fg-soft">
+        {blocked
+          ? 'Ligado: você não conseguirá tirar print dentro do aplicativo.'
+          : 'Desligado: você pode tirar print à vontade — útil para enviar ao seu médico.'}
+      </Text>
+    </Card>
   );
 }
 

@@ -5,6 +5,8 @@ export const addressSchema = z.object({
   zip: z.string().trim().max(12).optional().or(z.literal('')),
   street: z.string().trim().max(160).optional().or(z.literal('')),
   number: z.string().trim().max(20).optional().or(z.literal('')),
+  /** Bairro. Cabe sem migração: `profiles.address` é coluna JSON. */
+  neighborhood: z.string().trim().max(120).optional().or(z.literal('')),
   city: z.string().trim().max(120).optional().or(z.literal('')),
   state: z.string().trim().max(40).optional().or(z.literal('')),
 });

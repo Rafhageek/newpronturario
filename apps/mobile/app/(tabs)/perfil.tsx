@@ -16,8 +16,10 @@ import {
 } from '@hubpatients/supabase';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  BIOLOGICAL_SEX_LABELS, ALLERGY_SEVERITY, CONDITION_STATUS_LABELS, FAMILY_RELATIONSHIP_LABELS,
+  BIOLOGICAL_SEX_LABELS, BIOLOGICAL_SEX_OPTIONS, ALLERGY_SEVERITY, CONDITION_STATUS_LABELS,
+  FAMILY_RELATIONSHIP_LABELS,
   calculateAge, DISCLAIMERS, formatCPF, profileSchema,
+  maskCPF, maskCEP, maskDateBR, isValidCEP, isoToDateBR, dateBRToIso, lookupCep,
   type AllergySeverity, type ConditionStatus, type FamilyRelationship, type BloodType,
 } from '@hubpatients/core';
 import { useAuth } from '@/lib/auth';
@@ -358,13 +360,23 @@ function Chips<T extends string>({ value, options, onChange }: { value: T; optio
 }
 
 /* ─────────────── Dados pessoais ─────────────── */
-type Address = { zip?: string; street?: string; number?: string; complement?: string; city?: string; state?: string };
+type Address = {
+  zip?: string;
+  street?: string;
+  number?: string;
+  complement?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+};
 
 function PersonalSection({ profile, userId }: { profile: ReturnType<typeof useProfile>['data']; userId: string }) {
   const update = useUpdateProfile(userId);
   const addr = (profile?.address ?? {}) as Address;
   const [name, setName] = useState(profile?.full_name ?? '');
-  const [dob, setDob] = useState(profile?.date_of_birth ?? '');
+  // A tela trabalha em DD/MM/AAAA; a conversão para ISO acontece no salvar.
+  const [dob, setDob] = useState(isoToDateBR(profile?.date_of_birth));
+  const [dobError, setDobError] = useState<string | undefined>(undefined);
   const [sex, setSex] = useState(profile?.biological_sex ?? 'unspecified');
   const [blood, setBlood] = useState<BloodType>(profile?.blood_type ?? 'unknown');
   const [height, setHeight] = useState(profile?.height_cm ? String(profile.height_cm) : '');
@@ -374,21 +386,52 @@ function PersonalSection({ profile, userId }: { profile: ReturnType<typeof usePr
   const [street, setStreet] = useState(addr.street ?? '');
   const [number, setNumber] = useState(addr.number ?? '');
   const [complement, setComplement] = useState(addr.complement ?? '');
+  const [neighborhood, setNeighborhood] = useState(addr.neighborhood ?? '');
   const [city, setCity] = useState(addr.city ?? '');
   const [state, setState] = useState(addr.state ?? '');
   const [emergencyNote, setEmergencyNote] = useState(profile?.emergency_note ?? '');
   const [cpfError, setCpfError] = useState<string | undefined>(undefined);
+  const [buscandoCep, setBuscandoCep] = useState(false);
+
+  /**
+   * Busca o endereço quando o CEP fica completo. Só preenche campo VAZIO —
+   * se a pessoa já digitou a rua, o serviço não sobrescreve o que ela escreveu.
+   * Falha (CEP inexistente, sem internet) é silenciosa: ela digita à mão.
+   */
+  async function buscarCep(valor: string) {
+    if (!isValidCEP(valor)) return;
+    setBuscandoCep(true);
+    try {
+      const found = await lookupCep(valor);
+      if (!found) return;
+      setStreet((atual) => atual.trim() || found.street);
+      setNeighborhood((atual) => atual.trim() || found.neighborhood);
+      setCity((atual) => atual.trim() || found.city);
+      setState((atual) => atual.trim() || found.state);
+    } finally {
+      setBuscandoCep(false);
+    }
+  }
 
   function save() {
+    // A tela usa DD/MM/AAAA; o banco guarda ISO. Converte aqui, na borda.
+    const dobIso = dob.trim() === '' ? undefined : dateBRToIso(dob);
+    if (dob.trim() !== '' && !dobIso) {
+      setDobError('Data inválida. Use DD/MM/AAAA.');
+      toast.error('Confira a data de nascimento.');
+      return;
+    }
+    setDobError(undefined);
+
     // Validação espelhando o profileSchema da web (sobretudo o CPF com dígitos verificadores).
     const parsed = profileSchema.safeParse({
       fullName: name,
-      dateOfBirth: dob || undefined,
+      dateOfBirth: dobIso,
       biologicalSex: sex,
       bloodType: blood,
       phone: phone || '',
       cpf: cpf || '',
-      address: { zip, street, number, city, state },
+      address: { zip, street, number, neighborhood, city, state },
       heightCm: height || undefined,
       emergencyNote: emergencyNote || '',
     });
@@ -400,10 +443,10 @@ function PersonalSection({ profile, userId }: { profile: ReturnType<typeof usePr
     }
     setCpfError(undefined);
 
-    const address: Address = { zip, street, number, complement, city, state };
+    const address: Address = { zip, street, number, complement, neighborhood, city, state };
     update.mutate({
       full_name: name.trim() || undefined,
-      date_of_birth: dob || null,
+      date_of_birth: dobIso ?? null,
       biological_sex: sex,
       blood_type: blood,
       height_cm: height ? Number(height.replace(',', '.').trim()) : null,
@@ -418,11 +461,21 @@ function PersonalSection({ profile, userId }: { profile: ReturnType<typeof usePr
   return (
     <Section icon={User} title="Dados pessoais" subtitle="Nome, nascimento, CPF, contato e endereço" defaultOpen>
       <Input label="Nome completo" value={name} onChangeText={setName} />
-      <Input label="Nascimento (AAAA-MM-DD)" value={dob} onChangeText={setDob} placeholder="1990-05-14" />
+      {/* Data no padrão brasileiro. A máscara evita a ambiguidade real de
+          "05/03": março para quem digita, maio para o computador. */}
+      <Input
+        label="Nascimento"
+        value={dob}
+        onChangeText={(t) => { setDob(maskDateBR(t)); if (dobError) setDobError(undefined); }}
+        keyboardType="number-pad"
+        placeholder="DD/MM/AAAA"
+        maxLength={10}
+        error={dobError}
+      />
       <Input
         label="CPF"
         value={cpf}
-        onChangeText={(t) => { setCpf(formatCPF(t)); if (cpfError) setCpfError(undefined); }}
+        onChangeText={(t) => { setCpf(maskCPF(t)); if (cpfError) setCpfError(undefined); }}
         keyboardType="number-pad"
         placeholder="000.000.000-00"
         maxLength={14}
@@ -430,7 +483,11 @@ function PersonalSection({ profile, userId }: { profile: ReturnType<typeof usePr
       />
       <View>
         <Text style={{ fontFamily: fonts.medium }} className="mb-1.5 text-[13px] text-fg-soft">Sexo biológico</Text>
-        <Chips value={sex} onChange={setSex} options={(['female', 'male', 'intersex', 'unspecified'] as const).map((v) => ({ v, label: BIOLOGICAL_SEX_LABELS[v] }))} />
+        <Chips
+          value={sex}
+          onChange={setSex}
+          options={BIOLOGICAL_SEX_OPTIONS.map((v) => ({ v, label: BIOLOGICAL_SEX_LABELS[v] }))}
+        />
       </View>
       <View>
         <Text style={{ fontFamily: fonts.medium }} className="mb-1.5 text-[13px] text-fg-soft">Tipo sanguíneo</Text>
@@ -443,10 +500,27 @@ function PersonalSection({ profile, userId }: { profile: ReturnType<typeof usePr
 
       <Text style={{ fontFamily: fonts.semibold }} className="mt-1 text-[11px] uppercase tracking-wider text-muted">Endereço</Text>
       <View className="flex-row gap-3">
-        <View className="flex-1"><Input label="CEP" value={zip} onChangeText={setZip} keyboardType="number-pad" placeholder="00000-000" /></View>
+        <View className="flex-1">
+          <Input
+            label={buscandoCep ? 'CEP (buscando…)' : 'CEP'}
+            value={zip}
+            onChangeText={(t) => {
+              const masked = maskCEP(t);
+              setZip(masked);
+              // Dispara sozinho ao completar os 8 dígitos: no celular quase
+              // ninguém sai do campo de propósito para acionar a busca.
+              if (isValidCEP(masked)) void buscarCep(masked);
+            }}
+            onBlur={() => void buscarCep(zip)}
+            keyboardType="number-pad"
+            placeholder="00000-000"
+            maxLength={9}
+          />
+        </View>
         <View className="flex-1"><Input label="Número" value={number} onChangeText={setNumber} /></View>
       </View>
       <Input label="Rua" value={street} onChangeText={setStreet} />
+      <Input label="Bairro" value={neighborhood} onChangeText={setNeighborhood} />
       <Input label="Complemento" value={complement} onChangeText={setComplement} placeholder="Apto, bloco (opcional)" />
       <View className="flex-row gap-3">
         <View className="flex-1"><Input label="Cidade" value={city} onChangeText={setCity} /></View>
