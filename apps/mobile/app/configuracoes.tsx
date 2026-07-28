@@ -329,6 +329,36 @@ function AboutVersionSection() {
   const embedded = Updates.isEmbeddedLaunch;
   const updateId = Updates.updateId;
   const created = Updates.createdAt;
+  const [buscando, setBuscando] = useState(false);
+
+  /**
+   * Força a busca de atualização agora.
+   *
+   * Existe porque o comportamento padrão confunde: o app baixa a atualização em
+   * SEGUNDO PLANO e só a aplica na abertura SEGUINTE. Quem acabou de receber um
+   * aviso de "já está no ar" abre o app, não vê nada mudar e conclui que não
+   * chegou — foi exatamente o que aconteceu aqui. Este botão tira a adivinhação:
+   * busca, baixa e reabre na hora.
+   */
+  async function buscarAtualizacao() {
+    if (buscando) return;
+    setBuscando(true);
+    try {
+      const resultado = await Updates.checkForUpdateAsync();
+      if (!resultado.isAvailable) {
+        toast.info('Você já está com a versão mais recente.');
+        return;
+      }
+      await Updates.fetchUpdateAsync();
+      toast.success('Atualização baixada. Reabrindo o aplicativo…');
+      await Updates.reloadAsync();
+    } catch {
+      // Sem internet, ou rodando em ambiente sem updates (Expo Go).
+      toast.error('Não foi possível buscar agora. Verifique sua internet.');
+    } finally {
+      setBuscando(false);
+    }
+  }
 
   return (
     <Card className="gap-1">
@@ -345,9 +375,20 @@ function AboutVersionSection() {
       />
       <Text style={{ fontFamily: fonts.regular }} className="mt-1.5 text-[12px] leading-4 text-muted">
         {embedded || !updateId
-          ? 'Você está com o conteúdo que veio junto do aplicativo. Feche e abra o app novamente para buscar atualizações.'
+          ? 'Você está com o conteúdo que veio junto do aplicativo.'
           : 'As atualizações chegam sozinhas ao fechar e abrir o aplicativo — não é preciso reinstalar.'}
       </Text>
+
+      <View className="mt-2">
+        <Button
+          label={buscando ? 'Buscando…' : 'Buscar atualização agora'}
+          icon={RefreshCw}
+          variant="outline"
+          size="sm"
+          loading={buscando}
+          onPress={() => void buscarAtualizacao()}
+        />
+      </View>
     </Card>
   );
 }
