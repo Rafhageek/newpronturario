@@ -95,8 +95,17 @@ function RootNavigator() {
   const colors = useColors();
   const [welcome, setWelcome] = useState(false);
   const prevUid = useRef<string | null | undefined>(undefined);
-  const inAuthGroup = segments[0] === '(auth)';
-  const authRoute = segments[1] as string | undefined;
+  /*
+   * `segments` é lido como `string[]`, não pela tupla tipada do expo-router.
+   * Motivo: o tipo de `useSegments()` vem dos tipos de rota GERADOS
+   * (`.expo/types`). Na máquina de quem roda o app eles existem e o índice [1]
+   * é válido; num clone limpo (CI) não existem, o tipo colapsa para `[string]`
+   * e o typecheck quebra com "tuple of length 1 has no element at index 1".
+   * Ler como array normal vale nos dois casos.
+   */
+  const segs = segments as unknown as string[];
+  const inAuthGroup = segs[0] === '(auth)';
+  const authRoute = segs[1];
   const inPasswordRecovery = inAuthGroup && authRoute === 'redefinir-senha';
   const inMfaChallenge = inAuthGroup && authRoute === 'mfa';
 
