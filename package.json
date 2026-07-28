@@ -5,7 +5,8 @@
   "description": "HubPatients — Prontuário Pessoal de Saúde (PHR) brasileiro, paciente-first (LGPD + CFM)",
   "packageManager": "pnpm@11.5.2",
   "engines": {
-    "node": ">=20"
+    "_comment": "pnpm 11 exige Node >=22.13 (usa node:sqlite, que não existe no 20). Manter alinhado com node-version do .github/workflows/ci.yml.",
+    "node": ">=22.13"
   },
   "pnpm": {
     "overrides": {
