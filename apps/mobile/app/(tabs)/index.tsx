@@ -12,7 +12,6 @@ import {
   FlaskConical,
   CalendarDays,
   ChevronRight,
-  ArrowRight,
   Smile,
   Video,
   AlertTriangle,
@@ -23,10 +22,6 @@ import {
   Brain,
   Lock,
   Sparkles,
-  Rocket,
-  CheckCircle2,
-  Circle,
-  X,
   Stethoscope,
   CreditCard,
   Store,
@@ -63,7 +58,6 @@ import { Card, SectionTitle, IconCircle, EmptyState, ErrorState, Button } from '
 import { useTabBarSpace } from '@/components/tab-bar';
 import { WhatsNewSheet } from '@/components/whats-new-sheet';
 import { ActiveProfileSwitcher } from '@/components/active-profile-switcher';
-import { ConstancyCard } from '@/components/constancy-card';
 import { WaterCard } from '@/components/water-card';
 import { StepsCard } from '@/components/steps-card';
 import { BodyCompositionCard } from '@/components/body-composition-card';
@@ -121,11 +115,8 @@ export default function InicioScreen() {
   const [refreshing, setRefreshing] = useState(false);
   // Qual lembrete está sendo registrado (mostra spinner só na linha tocada).
   const [registeringId, setRegisteringId] = useState<string | null>(null);
-  // Dispensa do checklist de primeiros passos (some até o próximo "puxar p/ atualizar").
-  const [checklistDismissed, setChecklistDismissed] = useState(false);
   const onRefresh = async () => {
     setRefreshing(true);
-    setChecklistDismissed(false);
     try {
       // Invalida só as chaves desta tela (não o cache inteiro do app).
       if (pid) {
@@ -163,20 +154,6 @@ export default function InicioScreen() {
 
   // Nome do medicamento por id (lembretes só trazem medication_id).
   const medNameById = (id: string): string => meds.find((m) => m.id === id)?.name ?? 'Medicação';
-
-  // Primeiros passos (onboarding) — espelha a web; deriva de dados reais e some
-  // sozinho conforme o usuário completa cada etapa.
-  const setupSteps: { label: string; href: string; done: boolean }[] = [
-    {
-      label: 'Complete seu perfil (nascimento e sexo)',
-      href: '/perfil',
-      done: Boolean(profile?.date_of_birth) && profile?.biological_sex !== 'unspecified',
-    },
-    { label: 'Registre suas alergias', href: '/perfil', done: (allergies?.length ?? 0) > 0 },
-    { label: 'Adicione um medicamento', href: '/medicamentos', done: meds.length > 0 },
-  ];
-  const setupDone = setupSteps.filter((s) => s.done).length;
-  const showChecklist = !isViewingDependent && !checklistDismissed && setupDone < setupSteps.length;
 
   const bpStatus =
     bp && bp.value_secondary != null
@@ -337,16 +314,6 @@ export default function InicioScreen() {
                   </View>
                   {!isViewingDependent ? <ChevronRight size={18} color={colors.alert} /> : null}
                 </Pressable>
-              ) : null}
-
-              {/* 2) Primeiros passos (onboarding) — só enquanto há etapas pendentes */}
-              {showChecklist ? (
-                <SetupChecklist
-                  steps={setupSteps}
-                  done={setupDone}
-                  onStep={(href) => router.push(href as never)}
-                  onDismiss={() => setChecklistDismissed(true)}
-                />
               ) : null}
 
               {/* 3) AÇÃO PRINCIPAL: Lembretes de hoje (tomadas pendentes registráveis) */}
@@ -596,7 +563,6 @@ export default function InicioScreen() {
 
               {/* 7) Bem-estar — hábitos reunidos (constância · hidratação · passos) */}
               <SectionTitle>Bem-estar</SectionTitle>
-              <ConstancyCard patientId={pid} />
               <WaterCard patientId={pid} weightKg={latestWeight} age={age} />
               {!isViewingDependent ? <StepsCard /> : null}
               {!isViewingDependent ? <BodyCompositionCard /> : null}
@@ -749,86 +715,6 @@ function MenuTile({ item, onPress, index }: { item: MenuItem; onPress: () => voi
   );
 }
 
-/**
- * Checklist de primeiros passos (onboarding). Espelha a web: deriva de dados
- * reais e some sozinho conforme o usuário completa cada etapa (ou ao dispensar).
- */
-function SetupChecklist({
-  steps,
-  done,
-  onStep,
-  onDismiss,
-}: {
-  steps: { label: string; href: string; done: boolean }[];
-  done: number;
-  onStep: (href: string) => void;
-  onDismiss: () => void;
-}) {
-  const colors = useColors();
-  return (
-    <View
-      style={{ borderCurve: 'continuous' }}
-      className="rounded-3xl border border-trust-100 bg-trust-50 p-4"
-    >
-      <View className="flex-row items-start gap-2.5">
-        <IconCircle icon={Rocket} tone="primary" size={36} />
-        <View className="flex-1">
-          <Text style={{ fontFamily: fonts.semibold }} className="text-[15px] text-fg">
-            Comece por aqui
-          </Text>
-          <Text style={{ fontFamily: fonts.regular }} className="text-[12px] text-muted">
-            {done} de {steps.length} concluídos — leva poucos minutos.
-          </Text>
-        </View>
-        <Pressable
-          onPress={onDismiss}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel="Dispensar primeiros passos"
-          style={{ borderCurve: 'continuous' }}
-          className="h-8 w-8 items-center justify-center rounded-xl active:bg-surface-2"
-        >
-          <X size={16} color={colors.muted} />
-        </Pressable>
-      </View>
-
-      <View className="mt-3 gap-1.5">
-        {steps.map((s) => (
-          <Pressable
-            key={s.href + s.label}
-            onPress={() => onStep(s.href)}
-            accessibilityRole="button"
-            accessibilityLabel={s.label}
-            accessibilityState={{ checked: s.done }}
-            style={{ borderCurve: 'continuous' }}
-            className={`flex-row items-center gap-3 rounded-2xl px-3 py-2.5 ${
-              s.done ? '' : 'bg-surface active:bg-surface-2'
-            }`}
-          >
-            {s.done ? (
-              <CheckCircle2 size={20} color={colors.accent} />
-            ) : (
-              <Circle size={20} color={colors.faint} />
-            )}
-            <Text
-              style={{ fontFamily: s.done ? fonts.regular : fonts.medium }}
-              className={`flex-1 text-[14px] ${s.done ? 'text-muted line-through' : 'text-fg'}`}
-            >
-              {s.label}
-            </Text>
-            {!s.done ? <ArrowRight size={16} color={colors.primary} /> : null}
-          </Pressable>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-/**
- * Insight da semana (recurso Plus). Para assinantes, mostra um resumo curto
- * derivado dos dados já carregados (bem-estar + tendência da pressão). Sem Plus,
- * exibe o card "bloqueado" com convite — no mobile, toast + ▸ /planos (sem modal).
- */
 function WeekInsightCard({
   isPlus,
   wellbeing,

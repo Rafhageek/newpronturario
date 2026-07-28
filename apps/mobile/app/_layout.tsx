@@ -39,7 +39,7 @@ import { HubPatientsClientProvider } from '@hubpatients/supabase';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { ActiveProfileProvider } from '@/lib/active-profile';
 import { supabase } from '@/lib/supabase';
-import { useColors } from '@/theme';
+import { useColors, useBlockScreenCapture } from '@/theme';
 import { loadThemePref, applyThemePref } from '@/lib/theme-pref';
 import { loadBiometricPref, isBiometricSupported } from '@/lib/biometric';
 import { configureNotificationHandler } from '@/lib/notifications';
@@ -182,16 +182,33 @@ function RootNavigator() {
     void configureNotificationHandler();
   }, []);
 
-  // LGPD: bloqueia print/gravação em TODO o app autenticado (Android: FLAG_SECURE
-  // — também oculta no app switcher). Cobre Home, Configurações (segredo 2FA),
-  // medicamentos etc. de uma vez, sem depender de guard tela-a-tela.
+  /*
+   * Bloqueio de print/gravação em TODO o app autenticado (Android: FLAG_SECURE,
+   * que também oculta a tela no app switcher). Cobre Home, Configurações,
+   * medicamentos etc. de uma vez, sem depender de guard tela-a-tela.
+   *
+   * Passou a respeitar a preferência do usuário (Configurações → Segurança),
+   * que vem DESLIGADA. Antes era incondicional, e impedia coisas legítimas:
+   * mandar um exame ao médico pelo WhatsApp, guardar comprovante, relatar um
+   * problema no app. O dono do prontuário é o paciente.
+   *
+   * ATENÇÃO a quem for mexer: este bloqueio é GLOBAL e independente do
+   * `useScreenGuard` das telas. Alterar só um dos dois não muda o comportamento
+   * — foi exatamente esse o erro quando a preferência foi criada: o guard das
+   * telas passou a respeitá-la, mas este aqui continuou bloqueando tudo.
+   */
+  const { blocked: blockCapture } = useBlockScreenCapture();
   useEffect(() => {
-    if (!session) return;
+    if (!session || !blockCapture) {
+      // Desfaz bloqueio herdado de quando a opção estava ligada.
+      void ScreenCapture.allowScreenCaptureAsync('hubpatients.auth').catch(() => undefined);
+      return;
+    }
     void ScreenCapture.preventScreenCaptureAsync('hubpatients.auth').catch(() => undefined);
     return () => {
       void ScreenCapture.allowScreenCaptureAsync('hubpatients.auth').catch(() => undefined);
     };
-  }, [session]);
+  }, [session, blockCapture]);
 
   useEffect(() => {
     if (loading || mfaLoading) return;
