@@ -173,6 +173,22 @@ alter type consent_purpose add value if not exists 'ai_exam_processing';
 -- após o commit desta migration (não é referenciado abaixo).
 alter type metric_flag add value if not exists 'unclassified';
 
+-- TRANSAÇÃO EXPLÍCITA, e só aqui.
+--
+-- O arquivo roda FORA de transação de propósito: `alter type ... add value`
+-- (acima) não é permitido dentro de um bloco transacional. Só que `lock table`
+-- é o oposto — exige transação, e sem ela o PostgreSQL recusa com
+-- "LOCK TABLE can only be used in transaction blocks (25P01)", derrubando a
+-- migração inteira. Era isso que quebrava o `supabase db reset` no CI e o que
+-- impedia aplicar este arquivo pela CLI.
+--
+-- O lock existe para que a deduplicação e a criação do índice único aconteçam
+-- sem escrita concorrente no meio: sem ele, uma linha inserida entre o DELETE e
+-- o CREATE INDEX faria o índice falhar. Então o certo não é remover o lock, e
+-- sim dar a ele a transação que falta — abrangendo exatamente os três passos
+-- que precisam ser atômicos entre si.
+begin;
+
 lock table public.consents in share row exclusive mode;
 
 with ranked as (
@@ -190,6 +206,8 @@ delete from public.consents c
 
 create unique index if not exists consents_patient_purpose_unique
   on public.consents (patient_id, purpose);
+
+commit;
 
 -- Toda escrita passa pelo RPC para que consentimento e auditoria confirmem ou
 -- revertam juntos na mesma transação.
