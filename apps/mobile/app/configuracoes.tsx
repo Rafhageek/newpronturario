@@ -27,9 +27,7 @@ import {
   useType,
   useTapTarget,
   tapTarget,
-  useTabBarStyle,
   useBlockScreenCapture,
-  type TabBarStyle,
 } from '@/theme';
 import { saveThemePref, loadThemePref, type ThemePref } from '@/lib/theme-pref';
 import {
@@ -217,10 +215,6 @@ export default function ConfiguracoesScreen() {
         </Card>
 
         {/* Acessibilidade */}
-        {/* Comparação temporária das duas aparências do menu (ver tab-bar.tsx) */}
-        <SectionTitle>Aparência do menu</SectionTitle>
-        <TabBarStyleSection />
-
         <SectionTitle>Acessibilidade</SectionTitle>
         <SeniorModeSection />
         <Card className="mt-3 gap-0.5">
@@ -413,73 +407,6 @@ function ScreenCaptureSection() {
           ? 'Ligado: você não conseguirá tirar print dentro do aplicativo.'
           : 'Desligado: você pode tirar print à vontade — útil para enviar ao seu médico.'}
       </Text>
-    </Card>
-  );
-}
-
-/* ──────────────────────── Aparência do menu (temporário) ──────────────────────── */
-
-/**
- * Escolha entre as duas aparências do menu inferior, para decidir olhando no
- * aparelho em vez de no papel. É TEMPORÁRIO: quando a decisão sair, a versão
- * perdedora e este bloco saem do código.
- *
- * O aviso sobre o Modo Sênior não é detalhe: com ele ligado a barra fica sólida
- * de qualquer forma, então sem essa frase a pessoa mexeria aqui e concluiria
- * que o app está com defeito.
- */
-function TabBarStyleSection() {
-  const colors = useColors();
-  const { style, setStyle } = useTabBarStyle();
-  const { enabled: senior } = useSeniorMode();
-
-  const OPCOES: { valor: TabBarStyle; titulo: string; descricao: string }[] = [
-    {
-      valor: 'glass',
-      titulo: 'Vidro',
-      descricao: 'Barra flutuante, com desfoque do conteúdo por trás.',
-    },
-    {
-      valor: 'solid',
-      titulo: 'Sólido',
-      descricao: 'Barra encostada na borda, sem transparência.',
-    },
-  ];
-
-  return (
-    <Card className="gap-1">
-      {OPCOES.map((opcao, i) => {
-        const ativo = style === opcao.valor;
-        return (
-          <View key={opcao.valor}>
-            {i > 0 ? <Divider /> : null}
-            <Pressable
-              onPress={() => void setStyle(opcao.valor)}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: ativo }}
-              accessibilityLabel={opcao.titulo}
-              className="flex-row items-center gap-3 py-2.5"
-            >
-              <View className="flex-1">
-                <Text style={{ fontFamily: fonts.semibold }} className="text-[15px] text-fg">
-                  {opcao.titulo}
-                </Text>
-                <Text style={{ fontFamily: fonts.regular }} className="text-[12px] text-muted">
-                  {opcao.descricao}
-                </Text>
-              </View>
-              {ativo ? <Check size={20} color={colors.primary} /> : null}
-            </Pressable>
-          </View>
-        );
-      })}
-
-      {senior ? (
-        <Text style={{ fontFamily: fonts.regular }} className="mt-1.5 text-[11px] leading-4 text-fg-soft">
-          O Modo simples está ligado, então o menu fica sólido de qualquer forma — sobre desfoque
-          não é possível garantir a legibilidade do texto.
-        </Text>
-      ) : null}
     </Card>
   );
 }
