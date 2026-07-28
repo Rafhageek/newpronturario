@@ -24,6 +24,7 @@ import {
 } from '@hubpatients/core';
 import { useAuth } from '@/lib/auth';
 import { AppHeader, Card, Input, Button, IconCircle, Badge, Divider } from '@/components/ui';
+import { DateInputBR } from '@/components/date-input';
 import { useTabBarSpace } from '@/components/tab-bar';
 import { toast } from '@/components/toast';
 import { useScreenGuard } from '@/components/screen-guard';
@@ -561,7 +562,7 @@ function InsuranceSection({ patientId }: { patientId: string }) {
     <Section icon={CreditCard} title="Convênio" subtitle={ins?.operator ?? 'Plano de saúde'}>
       <Input label="Operadora" value={operator} onChangeText={setOperator} placeholder={ins?.operator ?? 'Ex.: Unimed'} />
       <Input label="Número da carteirinha" value={card} onChangeText={setCard} placeholder={ins?.card_number ?? '—'} />
-      <Input label="Validade (AAAA-MM-DD)" value={valid} onChangeText={setValid} placeholder={ins?.valid_until ?? 'opcional'} />
+      <DateInputBR label="Validade" value={valid} onChangeIso={setValid} placeholder="DD/MM/AAAA (opcional)" />
       <Button label="Salvar convênio" loading={upsert.isPending} onPress={save} />
     </Section>
   );
@@ -669,7 +670,7 @@ function SurgeriesSection({ patientId }: { patientId: string }) {
       <Divider />
       <Input label="Procedimento" value={procedure} onChangeText={setProcedure} placeholder="Ex.: Apendicectomia" />
       <View className="flex-row gap-3">
-        <View className="flex-1"><Input label="Data" value={date} onChangeText={setDate} placeholder="AAAA-MM-DD" /></View>
+        <View className="flex-1"><DateInputBR label="Data" value={date} onChangeIso={setDate} /></View>
         <View className="flex-1"><Input label="Hospital" value={hospital} onChangeText={setHospital} /></View>
       </View>
       <Button label="Adicionar cirurgia" size="sm" icon={Plus} onPress={add} />

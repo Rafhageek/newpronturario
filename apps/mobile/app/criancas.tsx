@@ -7,6 +7,7 @@ import { useChildren, useAddChild } from '@hubpatients/supabase';
 import { calculateAge, type ChildSex } from '@hubpatients/core';
 import { useAuth } from '@/lib/auth';
 import { Screen, AppHeader, Card, Input, Button, EmptyState, ErrorState, IconCircle, Badge } from '@/components/ui';
+import { DateInputBR } from '@/components/date-input';
 import { toast } from '@/components/toast';
 import { FadeInItem } from '@/components/motion';
 import { fonts } from '@/theme';
@@ -30,7 +31,7 @@ export default function CriancasScreen() {
 
   async function onAdd() {
     if (!name.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
-      toast.info('Informe o nome e a data no formato AAAA-MM-DD.');
+      toast.info('Informe o nome e a data de nascimento (DD/MM/AAAA).');
       return;
     }
     try {
@@ -53,12 +54,10 @@ export default function CriancasScreen() {
             Adicionar criança
           </Text>
           <Input label="Nome" value={name} onChangeText={setName} placeholder="Nome da criança" />
-          <Input
-            label="Nascimento (AAAA-MM-DD)"
+          <DateInputBR
+            label="Nascimento"
             value={birthDate}
-            onChangeText={setBirthDate}
-            placeholder="2020-05-14"
-            keyboardType="numbers-and-punctuation"
+            onChangeIso={setBirthDate}
           />
           <View className="flex-row gap-2">
             {(['male', 'female'] as ChildSex[]).map((s) => (

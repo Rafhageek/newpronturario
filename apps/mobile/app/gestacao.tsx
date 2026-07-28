@@ -46,6 +46,7 @@ import {
   IconCircle,
   SectionTitle,
 } from '@/components/ui';
+import { DateInputBR } from '@/components/date-input';
 import { toast } from '@/components/toast';
 import { LineChart } from '@/components/charts';
 import { FadeInItem } from '@/components/motion';
@@ -103,7 +104,7 @@ function PregnancyOnboarding({ userId }: { userId: string }) {
   const [matPhone, setMatPhone] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  // Aceita AAAA-MM-DD (formato dos campos das outras telas mobile).
+  // O DateInputBR entrega ISO (AAAA-MM-DD); a pessoa digita DD/MM/AAAA.
   function parseDate(s: string): Date | null {
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s.trim());
     if (!m) return null;
@@ -115,7 +116,7 @@ function PregnancyOnboarding({ userId }: { userId: string }) {
     setError(null);
     const date = parseDate(dateStr);
     if (!date) {
-      setError('Informe a data no formato AAAA-MM-DD.');
+      setError('Informe a data no formato DD/MM/AAAA.');
       return;
     }
     try {
@@ -174,12 +175,10 @@ function PregnancyOnboarding({ userId }: { userId: string }) {
           ))}
         </View>
 
-        <Input
+        <DateInputBR
           label={mode === 'dpp' ? 'Data provável do parto (DPP)' : 'Data da última menstruação (DUM)'}
           value={dateStr}
-          onChangeText={setDateStr}
-          placeholder="AAAA-MM-DD"
-          autoCapitalize="none"
+          onChangeIso={setDateStr}
           error={error ?? undefined}
         />
 

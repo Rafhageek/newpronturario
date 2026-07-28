@@ -17,6 +17,7 @@ import {
 } from '@hubpatients/core';
 import { useAuth } from '@/lib/auth';
 import { Screen, AppHeader, Card, Input, Button, Badge, EmptyState, ErrorState, IconCircle } from '@/components/ui';
+import { DateInputBR } from '@/components/date-input';
 import { AppSheet, type AppSheetHandle } from '@/components/sheet';
 import { ClinicalReportButton } from '@/components/clinical-report-button';
 import { toast } from '@/components/toast';
@@ -122,7 +123,7 @@ export default function ConsultasScreen() {
 
   async function add() {
     if (doctor.trim().length < 2 || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      toast.info('Informe o médico e a data (AAAA-MM-DD).');
+      toast.info('Informe o médico e a data (DD/MM/AAAA).');
       return;
     }
     const iso = new Date(`${date}T${time || '09:00'}:00`).toISOString();
@@ -214,7 +215,7 @@ export default function ConsultasScreen() {
                 <View className="flex-1"><Input label="Especialidade" value={specialty} onChangeText={setSpecialty} placeholder="Cardiologia" /></View>
               </View>
               <View className="flex-row gap-3">
-                <View className="flex-1"><Input label="Data (AAAA-MM-DD)" value={date} onChangeText={setDate} placeholder="2026-07-10" /></View>
+                <View className="flex-1"><DateInputBR label="Data" value={date} onChangeIso={setDate} /></View>
                 <View className="flex-1"><Input label="Hora (HH:MM)" value={time} onChangeText={setTime} placeholder="14:30" /></View>
               </View>
 

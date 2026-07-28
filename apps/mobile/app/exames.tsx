@@ -24,6 +24,7 @@ import {
 } from '@hubpatients/core';
 import { useActiveProfile } from '@/lib/active-profile';
 import { Screen, AppHeader, Card, Input, Button, EmptyState, ErrorState, IconCircle, Badge, SectionTitle } from '@/components/ui';
+import { DateInputBR } from '@/components/date-input';
 import { AppSheet, type AppSheetHandle } from '@/components/sheet';
 import { toast } from '@/components/toast';
 import { FadeInItem } from '@/components/motion';
@@ -343,7 +344,7 @@ export default function ExamesScreen() {
               </View>
               <View className="flex-row gap-3">
                 <View className="flex-1">
-                  <Input label="Data (AAAA-MM-DD)" value={examDate} onChangeText={setExamDate} placeholder="opcional" />
+                  <DateInputBR label="Data" value={examDate} onChangeIso={setExamDate} placeholder="DD/MM/AAAA (opcional)" />
                 </View>
                 <View className="flex-1">
                   <Input label="Laboratório" value={lab} onChangeText={setLab} placeholder="opcional" />

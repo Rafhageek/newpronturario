@@ -48,6 +48,7 @@ import {
 } from '@hubpatients/supabase';
 import { useAuth } from '@/lib/auth';
 import { Card, Input, Button, EmptyState, SectionTitle, Badge } from '@/components/ui';
+import { DateInputBR } from '@/components/date-input';
 import { AppSheet, type AppSheetHandle } from '@/components/sheet';
 import { toast } from '@/components/toast';
 import { FadeInItem } from '@/components/motion';
@@ -354,7 +355,7 @@ function GrowthTab({ child }: { child: Child }) {
         <AppSheet ref={formSheetRef} onClose={() => setOpen(false)} title="Nova medida">
           <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} style={{ flexShrink: 1 }}>
             <View className="gap-3">
-              <Input label="Data (AAAA-MM-DD)" value={date} onChangeText={setDate} placeholder="hoje se vazio" />
+              <DateInputBR label="Data" value={date} onChangeIso={setDate} placeholder="hoje se vazio" />
               <View className="flex-row gap-3">
                 <View className="flex-1">
                   <Input label="Peso (kg)" value={weight} onChangeText={setWeight} keyboardType="decimal-pad" placeholder="8.4" />
@@ -770,7 +771,7 @@ function VaccinesTab({ child }: { child: Child }) {
                   <Input label="Dose (opcional)" value={doseLabel} onChangeText={setDoseLabel} placeholder="Ex.: 1ª dose" />
                 </View>
                 <View className="flex-1">
-                  <Input label="Data (AAAA-MM-DD)" value={appliedAt} onChangeText={setAppliedAt} placeholder="hoje se vazio" />
+                  <DateInputBR label="Data" value={appliedAt} onChangeIso={setAppliedAt} placeholder="hoje se vazio" />
                 </View>
               </View>
               <View className="flex-row gap-3">
