@@ -795,16 +795,20 @@ function MenuTile({
         accessibilityLabel={item.label}
         style={({ pressed }) => [
           {
-            minHeight: 98,
+            minHeight: 102,
             borderCurve: 'continuous',
             borderWidth: 1,
             borderColor: pressed ? colors.primary : colors.line,
             backgroundColor: pressed ? colors.surface2 : colors.surface,
+            shadowColor: colors.bg === '#0d0d0d' ? '#000000' : '#24446f',
+            shadowOpacity: colors.bg === '#0d0d0d' ? 0.48 : 0.16,
+            shadowRadius: 12,
+            shadowOffset: { width: 0, height: 7 },
+            elevation: 6,
             transform: pressed && !reduced ? [{ scale: 0.96 }] : undefined,
           },
-          cardShadow,
         ]}
-        className="items-center justify-center gap-2 rounded-3xl px-1 py-3"
+        className="items-center justify-center gap-2 rounded-2xl px-1 py-3"
       >
         <Icon size={27} color={colors.primary} strokeWidth={2.1} />
         <Text
