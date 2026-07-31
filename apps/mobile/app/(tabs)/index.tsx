@@ -1,8 +1,15 @@
 import { useState, type ReactNode } from 'react';
-import { View, Text, Pressable, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
+import {
+  View,
+  Text,
+  Pressable,
+  ScrollView,
+  ActivityIndicator,
+  RefreshControl,
+  useWindowDimensions,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import {
   Bell,
@@ -13,7 +20,6 @@ import {
   CalendarDays,
   ChevronRight,
   Smile,
-  Video,
   AlertTriangle,
   TrendingUp,
   TrendingDown,
@@ -27,6 +33,8 @@ import {
   Store,
   Building2,
   TestTube,
+  ShieldCheck,
+  UserRound,
   type LucideIcon,
 } from 'lucide-react-native';
 import {
@@ -44,7 +52,6 @@ import {
 } from '@hubpatients/supabase';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  APPOINTMENT_KIND_LABELS,
   classifyBloodPressure,
   DISCLAIMERS,
   formatVital,
@@ -63,7 +70,7 @@ import { StepsCard } from '@/components/steps-card';
 import { BodyCompositionCard } from '@/components/body-composition-card';
 import { toast } from '@/components/toast';
 import { LineChart } from '@/components/charts';
-import { useColors, fonts, gradients, cardShadow } from '@/theme';
+import { useColors, fonts, cardShadow } from '@/theme';
 
 function greeting(): string {
   const h = new Date().getHours();
@@ -94,6 +101,7 @@ const MENU: MenuItem[] = [
 
 export default function InicioScreen() {
   const colors = useColors();
+  const { width } = useWindowDimensions();
   const { patientId, ownId, active, isViewingDependent } = useActiveProfile();
   const pid = patientId || undefined;
   const router = useRouter();
@@ -109,7 +117,9 @@ export default function InicioScreen() {
   const { data: weightVitals } = useVitals(pid, 'weight');
   const isPlus = useHasPlusAccess(pid).data ?? false;
   const registerIntake = useRegisterIntake(pid ?? '');
-  const unreadNotifs = (useNotifications(ownId || undefined).data ?? []).filter((n) => !n.read_at).length;
+  const unreadNotifs = (useNotifications(ownId || undefined).data ?? []).filter(
+    (n) => !n.read_at,
+  ).length;
 
   const qc = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
@@ -151,6 +161,7 @@ export default function InicioScreen() {
   const age = profile?.date_of_birth
     ? Math.floor((Date.now() - new Date(profile.date_of_birth).getTime()) / 31557600000)
     : null;
+  const useCompactWellnessGrid = width >= 430;
 
   // Nome do medicamento por id (lembretes só trazem medication_id).
   const medNameById = (id: string): string => meds.find((m) => m.id === id)?.name ?? 'Medicação';
@@ -216,73 +227,105 @@ export default function InicioScreen() {
           />
         }
       >
-        {/* Hero em gradiente (full-bleed) */}
-        <LinearGradient
-          colors={gradients.hero}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+        {/* Marca, saudação, status do dia e ações pessoais. */}
+        <View
           style={{
             paddingTop: insets.top + 12,
-            paddingHorizontal: 20,
-            paddingBottom: 16,
-            borderBottomLeftRadius: 28,
-            borderBottomRightRadius: 28,
-            borderCurve: 'continuous',
+            paddingHorizontal: 18,
+            paddingBottom: 18,
           }}
+          className="bg-bg"
         >
-          <View className="flex-row items-center justify-between">
-            <View className="flex-1">
-              <View className="flex-row items-center gap-1.5">
-                <HeartPulse size={15} color="rgba(255,255,255,0.9)" />
-                <Text style={{ fontFamily: fonts.medium }} className="text-[12px] text-white/90">
-                  HubPatients
-                </Text>
-              </View>
-              <Text style={{ fontFamily: fonts.bold }} className="mt-0.5 text-[16px] leading-5 text-white" numberOfLines={1}>
-                {isViewingDependent
-                  ? `Cuidado de ${active.name}`
-                  : `${greeting()}${firstName ? `, ${firstName}` : '!'}`}
-              </Text>
-            </View>
-            <Pressable
-              onPress={() => router.push('/notificacoes' as never)}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel={unreadNotifs > 0 ? `Notificações, ${unreadNotifs} não lidas` : 'Notificações'}
-              className="relative h-10 w-10 items-center justify-center rounded-full bg-white/15 active:opacity-80"
-            >
-              <Bell size={20} color="#ffffff" />
-              {unreadNotifs > 0 ? (
-                <View className="absolute -right-0.5 -top-0.5 h-[18px] min-w-[18px] items-center justify-center rounded-full bg-coral-500 px-1">
-                  <Text style={{ fontFamily: fonts.bold }} className="text-[10px] text-white">
-                    {unreadNotifs > 9 ? '9+' : unreadNotifs}
+          <View style={{ width: '100%', maxWidth: 760, alignSelf: 'center' }}>
+            <View className="flex-row items-start justify-between">
+              <View className="min-w-0 flex-1 pr-3">
+                <View className="flex-row items-center gap-2">
+                  <HeartPulse size={23} color={colors.primary} strokeWidth={2.5} />
+                  <Text style={{ fontFamily: fonts.bold }} className="text-[18px] text-primary">
+                    HubPatients
                   </Text>
                 </View>
-              ) : null}
-            </Pressable>
-          </View>
+                <Text
+                  style={{ fontFamily: fonts.displayX }}
+                  className="mt-3 text-[29px] leading-9 text-fg"
+                  numberOfLines={2}
+                >
+                  {isViewingDependent
+                    ? `Cuidado de ${active.name}`
+                    : `${greeting()}${firstName ? `, ${firstName}` : ''} 👋`}
+                </Text>
 
-          {/* Linha de status acionável (substitui os 3 contadores repetidos) */}
-          <View className="mt-2.5 flex-row items-center gap-1.5 self-start rounded-full bg-white/15 px-3 py-1.5">
-            {upcoming.length > 0 ? (
-              <Clock size={13} color="rgba(255,255,255,0.95)" />
-            ) : severeAllergies.length > 0 ? (
-              <AlertTriangle size={13} color="rgba(255,255,255,0.95)" />
-            ) : (
-              <Smile size={13} color="rgba(255,255,255,0.95)" />
-            )}
-            <Text style={{ fontFamily: fonts.medium }} className="text-[12px] text-white/95">
-              {upcoming.length > 0
-                ? `${isViewingDependent ? active.name : 'Você'} tem ${upcoming.length} ${upcoming.length === 1 ? 'tomada pendente' : 'tomadas pendentes'} hoje`
-                : severeAllergies.length > 0
-                  ? 'Atenção às alergias registradas'
-                  : 'Tudo tranquilo por aqui hoje 💙'}
-            </Text>
+                <View
+                  style={{ backgroundColor: 'rgba(13,148,136,0.10)', borderCurve: 'continuous' }}
+                  className="mt-3 flex-row items-center gap-2 self-start rounded-full px-3.5 py-2"
+                >
+                  {upcoming.length > 0 ? (
+                    <Clock size={16} color="#0f766e" />
+                  ) : severeAllergies.length > 0 ? (
+                    <AlertTriangle size={16} color={colors.alert} />
+                  ) : (
+                    <ShieldCheck size={17} color="#0f766e" />
+                  )}
+                  <Text
+                    style={{
+                      fontFamily: fonts.medium,
+                      color: severeAllergies.length > 0 ? colors.alert : '#0f766e',
+                    }}
+                    className="text-[14px]"
+                  >
+                    {upcoming.length > 0
+                      ? `${upcoming.length} ${upcoming.length === 1 ? 'lembrete' : 'lembretes'} para hoje`
+                      : severeAllergies.length > 0
+                        ? 'Atenção às alergias registradas'
+                        : 'Tudo tranquilo por aqui hoje'}
+                  </Text>
+                </View>
+              </View>
+
+              <View className="mt-1 flex-row items-center gap-2">
+                <Pressable
+                  onPress={() => router.push('/notificacoes' as never)}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    unreadNotifs > 0 ? `Notificações, ${unreadNotifs} não lidas` : 'Notificações'
+                  }
+                  style={{ borderCurve: 'continuous' }}
+                  className="relative h-12 w-12 items-center justify-center rounded-full bg-surface active:opacity-75"
+                >
+                  <Bell size={23} color={colors.fg} />
+                  {unreadNotifs > 0 ? (
+                    <View className="absolute right-1 top-1 h-[18px] min-w-[18px] items-center justify-center rounded-full bg-coral-500 px-1">
+                      <Text style={{ fontFamily: fonts.bold }} className="text-[10px] text-white">
+                        {unreadNotifs > 9 ? '9+' : unreadNotifs}
+                      </Text>
+                    </View>
+                  ) : null}
+                </Pressable>
+                <Pressable
+                  onPress={() => router.push('/perfil')}
+                  accessibilityRole="button"
+                  accessibilityLabel="Abrir meu perfil"
+                  style={{ borderCurve: 'continuous' }}
+                  className="h-12 w-12 items-center justify-center rounded-full bg-trust-100 active:opacity-75"
+                >
+                  <UserRound size={23} color={colors.primary} />
+                </Pressable>
+              </View>
+            </View>
           </View>
-        </LinearGradient>
+        </View>
 
         {/* Conteúdo */}
-        <View style={{ padding: 16, gap: 16 }}>
+        <View
+          style={{
+            width: '100%',
+            maxWidth: 760,
+            alignSelf: 'center',
+            paddingHorizontal: 18,
+            gap: 12,
+          }}
+        >
           <ActiveProfileSwitcher />
           {isLoading ? (
             <View className="items-center py-10">
@@ -301,12 +344,18 @@ export default function InicioScreen() {
                 >
                   <AlertTriangle size={20} color={colors.alert} style={{ marginTop: 1 }} />
                   <View className="flex-1">
-                    <Text style={{ fontFamily: fonts.semibold }} className="text-[14px] text-rose-700">
+                    <Text
+                      style={{ fontFamily: fonts.semibold }}
+                      className="text-[14px] text-rose-700"
+                    >
                       {severeAllergies.length === 1
                         ? 'Alergia grave registrada'
                         : `${severeAllergies.length} alergias graves registradas`}
                     </Text>
-                    <Text style={{ fontFamily: fonts.regular }} className="mt-0.5 text-[13px] text-rose-600">
+                    <Text
+                      style={{ fontFamily: fonts.regular }}
+                      className="mt-0.5 text-[13px] text-rose-600"
+                    >
                       {severeAllergies
                         .map((a) => a.substance + (a.reaction ? ` (${a.reaction})` : ''))
                         .join(' · ')}
@@ -323,10 +372,12 @@ export default function InicioScreen() {
                     onPress={() => router.push('/medicamentos')}
                     className="flex-row items-center"
                   >
-                    <Text style={{ fontFamily: fonts.semibold }} className="text-[13px] text-primary">
-                      Medicamentos
+                    <Text
+                      style={{ fontFamily: fonts.semibold }}
+                      className="text-[13px] text-primary"
+                    >
+                      Ver todos
                     </Text>
-                    <ChevronRight size={16} color={colors.primary} />
                   </Pressable>
                 }
               >
@@ -343,7 +394,10 @@ export default function InicioScreen() {
                   }
                 />
               ) : (
-                <Card className="gap-1">
+                <View
+                  style={[{ borderCurve: 'continuous' }, cardShadow]}
+                  className="overflow-hidden rounded-3xl border border-line bg-surface px-4 py-2"
+                >
                   {upcoming.map((intake, i) => {
                     const time = intake.scheduled_for
                       ? new Date(intake.scheduled_for).toLocaleTimeString('pt-BR', {
@@ -351,14 +405,32 @@ export default function InicioScreen() {
                           minute: '2-digit',
                         })
                       : null;
+                    const medication = meds.find((m) => m.id === intake.medication_id);
+                    const dosage = [medication?.dosage, medication?.unit].filter(Boolean).join(' ');
                     const busy = registeringId === intake.id;
                     return (
                       <View
                         key={intake.id}
-                        className={`flex-row items-center gap-3 py-2.5 ${i > 0 ? 'border-t border-line' : ''}`}
+                        className={`flex-row items-center gap-3 py-3.5 ${i > 0 ? 'border-t border-line' : ''}`}
                       >
-                        <IconCircle icon={Pill} tone="primary" size={38} />
-                        <View className="flex-1">
+                        <View
+                          style={{
+                            backgroundColor: 'rgba(13,148,136,0.11)',
+                            borderCurve: 'continuous',
+                          }}
+                          className="h-14 w-14 items-center justify-center rounded-full"
+                        >
+                          <Pill size={27} color="#0f9f8c" strokeWidth={2.2} />
+                        </View>
+                        <View className="min-w-0 flex-1">
+                          {time ? (
+                            <Text
+                              style={{ fontFamily: fonts.bold }}
+                              className="text-[20px] leading-6 text-[#0f9f8c]"
+                            >
+                              {time}
+                            </Text>
+                          ) : null}
                           <Text
                             style={{ fontFamily: fonts.semibold }}
                             className="text-[15px] text-fg"
@@ -366,8 +438,11 @@ export default function InicioScreen() {
                           >
                             {medNameById(intake.medication_id)}
                           </Text>
-                          <Text style={{ fontFamily: fonts.regular }} className="text-[12px] text-muted">
-                            {time ? `Previsto para ${time}` : 'Tomada pendente'}
+                          <Text
+                            style={{ fontFamily: fonts.regular }}
+                            className="text-[12px] text-muted"
+                          >
+                            {dosage || 'Tomada pendente'}
                           </Text>
                         </View>
                         <Pressable
@@ -376,22 +451,29 @@ export default function InicioScreen() {
                           accessibilityRole="button"
                           accessibilityLabel={`Registrar tomada de ${medNameById(intake.medication_id)}`}
                           accessibilityState={{ disabled: busy || registeringId !== null, busy }}
-                          style={{ borderCurve: 'continuous', minHeight: 44 }}
-                          className="flex-row items-center gap-1.5 rounded-xl bg-health-300/30 px-3.5 py-2.5 active:opacity-70"
+                          style={{
+                            borderCurve: 'continuous',
+                            minHeight: 44,
+                            borderColor: colors.primary,
+                          }}
+                          className="flex-row items-center gap-1.5 rounded-full border bg-surface px-3.5 py-2.5 active:opacity-70"
                         >
                           {busy ? (
-                            <ActivityIndicator size="small" color={colors.accent} />
+                            <ActivityIndicator size="small" color={colors.primary} />
                           ) : (
-                            <Check size={14} color={colors.accent} />
+                            <Check size={14} color={colors.primary} />
                           )}
-                          <Text style={{ fontFamily: fonts.semibold }} className="text-[13px] text-health-600">
-                            {busy ? 'Registrando…' : 'Registrar'}
+                          <Text
+                            style={{ fontFamily: fonts.semibold }}
+                            className="text-[13px] text-primary"
+                          >
+                            {busy ? 'Registrando…' : 'Tomei'}
                           </Text>
                         </Pressable>
                       </View>
                     );
                   })}
-                </Card>
+                </View>
               )}
 
               {/* 4) Acesso rápido — é navegação: fica acima dos cartões de leitura
@@ -429,71 +511,72 @@ export default function InicioScreen() {
                 </MetricCard>
 
                 {/* Próxima consulta */}
-                <MetricCard icon={CalendarDays} accent="attention" label="Próxima consulta" index={1}>
+                <MetricCard
+                  icon={CalendarDays}
+                  accent="attention"
+                  label="Próxima consulta"
+                  index={1}
+                >
                   {nextAppt ? (
                     <>
                       <Text
                         style={{ fontFamily: fonts.bold }}
-                        className="mt-1 text-[16px] text-fg"
+                        className="mt-1 text-[14px] leading-[18px] text-fg"
+                        numberOfLines={2}
+                      >
+                        {new Date(nextAppt.scheduled_at).toLocaleString('pt-BR', {
+                          day: '2-digit',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </Text>
+                      <Text
+                        style={{ fontFamily: fonts.regular }}
+                        className="text-[11px] text-muted"
                         numberOfLines={1}
                       >
                         {nextAppt.doctor_name}
                       </Text>
-                      <Text
-                        style={{ fontFamily: fonts.regular }}
-                        className="text-[12px] text-muted"
-                        numberOfLines={1}
-                      >
-                        {nextAppt.specialty ?? 'Consulta'}
-                      </Text>
-                      <View className="mt-1 flex-row items-center gap-1.5">
-                        {nextAppt.kind === 'telehealth' ? (
-                          <Video size={13} color={colors.faint} />
-                        ) : (
-                          <CalendarDays size={13} color={colors.faint} />
-                        )}
-                        <Text
-                          style={{ fontFamily: fonts.regular }}
-                          className="flex-1 text-[12px] text-muted"
-                          numberOfLines={1}
-                        >
-                          {new Date(nextAppt.scheduled_at).toLocaleString('pt-BR', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                          {' · '}
-                          {APPOINTMENT_KIND_LABELS[nextAppt.kind]}
-                        </Text>
-                      </View>
                     </>
                   ) : (
-                    <Text style={{ fontFamily: fonts.regular }} className="mt-2 text-[13px] text-muted">
+                    <Text
+                      style={{ fontFamily: fonts.regular }}
+                      className="mt-2 text-[13px] text-muted"
+                    >
                       Nenhuma agendada.
                     </Text>
                   )}
                 </MetricCard>
 
                 {/* Bem-estar 7 dias */}
-                <MetricCard icon={Smile} accent="accent" label="Bem-estar (7 dias)" index={2}>
+                <MetricCard icon={Smile} accent="accent" label="Bem-estar" index={2}>
                   {wellbeing?.wellbeing != null ? (
                     <>
                       <View className="mt-1 flex-row items-baseline gap-0.5">
                         <Text style={{ fontFamily: fonts.bold }} className="text-[20px] text-fg">
                           {wellbeing.wellbeing.toFixed(1)}
                         </Text>
-                        <Text style={{ fontFamily: fonts.medium }} className="text-[12px] text-muted">
+                        <Text
+                          style={{ fontFamily: fonts.medium }}
+                          className="text-[12px] text-muted"
+                        >
                           /5
                         </Text>
                       </View>
-                      <Text style={{ fontFamily: fonts.regular }} className="text-[12px] text-muted">
+                      <Text
+                        style={{ fontFamily: fonts.regular }}
+                        className="text-[12px] text-muted"
+                      >
                         humor {wellbeing.mood?.toFixed(1) ?? '—'} · energia{' '}
                         {wellbeing.energy?.toFixed(1) ?? '—'}
                       </Text>
                     </>
                   ) : (
-                    <Text style={{ fontFamily: fonts.regular }} className="mt-2 text-[13px] text-muted">
+                    <Text
+                      style={{ fontFamily: fonts.regular }}
+                      className="mt-2 text-[13px] text-muted"
+                    >
                       Registre no Diário.
                     </Text>
                   )}
@@ -503,11 +586,16 @@ export default function InicioScreen() {
               {/* 6) Pressão arterial · 30 dias — evolução, adjacente ao card de pressão */}
               <SectionTitle
                 action={
-                  <Pressable onPress={() => router.push('/analise')} className="flex-row items-center">
-                    <Text style={{ fontFamily: fonts.semibold }} className="text-[13px] text-primary">
-                      Análise
+                  <Pressable
+                    onPress={() => router.push('/analise')}
+                    className="flex-row items-center"
+                  >
+                    <Text
+                      style={{ fontFamily: fonts.semibold }}
+                      className="text-[13px] text-primary"
+                    >
+                      Ver análise
                     </Text>
-                    <ChevronRight size={16} color={colors.primary} />
                   </Pressable>
                 }
               >
@@ -522,7 +610,9 @@ export default function InicioScreen() {
               ) : (
                 <Card className="gap-3">
                   {range.length >= 4 ? (
-                    <View className={`flex-row items-center gap-1.5 self-start rounded-full px-2.5 py-1 ${paDir !== 'flat' ? 'bg-primary/10' : 'bg-surface-2'}`}>
+                    <View
+                      className={`flex-row items-center gap-1.5 self-start rounded-full px-2.5 py-1 ${paDir !== 'flat' ? 'bg-primary/10' : 'bg-surface-2'}`}
+                    >
                       {paDir === 'up' ? (
                         <TrendingUp size={13} color={colors.primary} />
                       ) : paDir === 'down' ? (
@@ -548,14 +638,20 @@ export default function InicioScreen() {
                     ]}
                     series={[
                       { points: ptsOf(range.map((v) => v.value_primary)), color: colors.primary },
-                      { points: ptsOf(range.map((v) => v.value_secondary ?? 0)), color: colors.accent },
+                      {
+                        points: ptsOf(range.map((v) => v.value_secondary ?? 0)),
+                        color: colors.accent,
+                      },
                     ]}
                   />
                   <View className="flex-row gap-4">
                     <LegendDot color={colors.primary} label="Sistólica" />
                     <LegendDot color={colors.accent} label="Diastólica" />
                   </View>
-                  <Text style={{ fontFamily: fonts.regular }} className="text-[11px] leading-4 text-faint">
+                  <Text
+                    style={{ fontFamily: fonts.regular }}
+                    className="text-[11px] leading-4 text-faint"
+                  >
                     {DISCLAIMERS.examInterpretation}
                   </Text>
                 </Card>
@@ -563,8 +659,15 @@ export default function InicioScreen() {
 
               {/* 7) Bem-estar — hábitos reunidos (constância · hidratação · passos) */}
               <SectionTitle>Bem-estar</SectionTitle>
-              <WaterCard patientId={pid} weightKg={latestWeight} age={age} />
-              {!isViewingDependent ? <StepsCard /> : null}
+              <View className={useCompactWellnessGrid ? 'flex-row gap-3' : 'gap-3'}>
+                <WaterCard
+                  patientId={pid}
+                  weightKg={latestWeight}
+                  age={age}
+                  compact={useCompactWellnessGrid}
+                />
+                {!isViewingDependent ? <StepsCard compact={useCompactWellnessGrid} /> : null}
+              </View>
               {!isViewingDependent ? <BodyCompositionCard /> : null}
 
               {/* 8) Insight da semana (recurso Plus) */}
@@ -607,15 +710,19 @@ function MetricCard({
   return (
     <Animated.View
       entering={reduced ? undefined : FadeInDown.duration(340).delay(index * 60)}
-      style={{ width: '47%' }}
+      style={{ width: '30.5%' }}
     >
       <View
-        style={{ borderCurve: 'continuous' }}
-        className="rounded-3xl border border-line bg-surface p-3.5"
+        style={[{ borderCurve: 'continuous', minHeight: 124 }, cardShadow]}
+        className="rounded-3xl border border-line bg-surface p-3"
       >
-        <View className="flex-row items-center gap-2">
+        <View className="flex-row items-center gap-1.5">
           <IconCircle icon={Icon} tone={accent} size={30} />
-          <Text style={{ fontFamily: fonts.medium }} className="flex-1 text-[12px] text-muted" numberOfLines={1}>
+          <Text
+            style={{ fontFamily: fonts.medium }}
+            className="flex-1 text-[11px] text-muted"
+            numberOfLines={2}
+          >
             {label}
           </Text>
         </View>
@@ -664,8 +771,16 @@ function MenuGrid({ items, onPick }: { items: MenuItem[]; onPick: (m: MenuItem) 
   );
 }
 
-/** Tile da grade "Acesso rápido" (ícone num quadrado + rótulo). 4 por linha. */
-function MenuTile({ item, onPress, index }: { item: MenuItem; onPress: () => void; index: number }) {
+/** Tile da grade "Acesso rápido": um cartão inteiro por destino, como na referência. */
+function MenuTile({
+  item,
+  onPress,
+  index,
+}: {
+  item: MenuItem;
+  onPress: () => void;
+  index: number;
+}) {
   const colors = useColors();
   const reduced = useReducedMotion();
   const Icon = item.icon;
@@ -678,38 +793,28 @@ function MenuTile({ item, onPress, index }: { item: MenuItem; onPress: () => voi
         onPress={onPress}
         accessibilityRole="button"
         accessibilityLabel={item.label}
-        className="items-center gap-1.5"
+        style={({ pressed }) => [
+          {
+            minHeight: 98,
+            borderCurve: 'continuous',
+            borderWidth: 1,
+            borderColor: pressed ? colors.primary : colors.line,
+            backgroundColor: pressed ? colors.surface2 : colors.surface,
+            transform: pressed && !reduced ? [{ scale: 0.96 }] : undefined,
+          },
+          cardShadow,
+        ]}
+        className="items-center justify-center gap-2 rounded-3xl px-1 py-3"
       >
-        {({ pressed }) => (
-          <>
-            <View
-              style={[
-                { borderCurve: 'continuous' },
-                cardShadow,
-                // O quadrado inteiro acende no toque (fundo + borda), em vez de só
-                // esmaecer: num alvo pequeno, quem tem mão trêmula precisa
-                // confirmar QUAL tile recebeu o toque. A escala é enfeite e só
-                // entra para quem não pediu "reduzir movimento".
-                pressed && {
-                  backgroundColor: colors.surface2,
-                  borderColor: colors.primary,
-                  transform: reduced ? undefined : [{ scale: 0.94 }],
-                },
-              ]}
-              className="h-[58px] w-[58px] items-center justify-center rounded-2xl border border-line bg-surface"
-            >
-              <Icon size={24} color={colors.primary} />
-            </View>
-            <Text
-              maxFontSizeMultiplier={1.3}
-              style={{ fontFamily: fonts.medium, lineHeight: 15 }}
-              className="text-center text-[12px] text-fg-soft"
-              numberOfLines={2}
-            >
-              {item.label}
-            </Text>
-          </>
-        )}
+        <Icon size={27} color={colors.primary} strokeWidth={2.1} />
+        <Text
+          maxFontSizeMultiplier={1.3}
+          style={{ fontFamily: fonts.semibold, lineHeight: 16 }}
+          className="text-center text-[12px] text-fg-soft"
+          numberOfLines={2}
+        >
+          {item.label}
+        </Text>
       </Pressable>
     </Animated.View>
   );
@@ -751,11 +856,21 @@ function WeekInsightCard({
           >
             <Lock size={20} color={colors.primary} />
           </View>
-          <Text style={{ fontFamily: fonts.regular }} className="text-center text-[13px] text-fg-soft">
-            Esse recurso faz parte do <Text style={{ fontFamily: fonts.semibold }}>HubPatients Plus</Text>.
+          <Text
+            style={{ fontFamily: fonts.regular }}
+            className="text-center text-[13px] text-fg-soft"
+          >
+            Esse recurso faz parte do{' '}
+            <Text style={{ fontFamily: fonts.semibold }}>HubPatients Plus</Text>.
           </Text>
         </View>
-        <Button label="Desbloquear no Plus" icon={Sparkles} variant="primary" size="sm" onPress={onUpgrade} />
+        <Button
+          label="Desbloquear no Plus"
+          icon={Sparkles}
+          variant="primary"
+          size="sm"
+          onPress={onUpgrade}
+        />
       </Card>
     );
   }
@@ -786,28 +901,45 @@ function WeekInsightCard({
   }
 
   return (
-    <Card className="gap-3">
-      <View className="flex-row items-center gap-3">
-        <IconCircle icon={Brain} tone="primary" size={36} />
+    <View
+      style={[
+        {
+          borderCurve: 'continuous',
+          backgroundColor: colors.bg === '#0d0d0d' ? colors.surface2 : '#eff5ff',
+          borderColor: colors.bg === '#0d0d0d' ? colors.lineStrong : '#b8d0ff',
+        },
+        cardShadow,
+      ]}
+      className="relative overflow-hidden rounded-3xl border p-4"
+    >
+      <Brain
+        size={90}
+        color={colors.primary}
+        opacity={0.08}
+        style={{ position: 'absolute', right: -8, bottom: -14 }}
+        accessible={false}
+      />
+      <View className="flex-row items-start gap-3 pr-8">
+        <IconCircle icon={Brain} tone="primary" size={40} />
         <View className="flex-1">
-          <Text style={{ fontFamily: fonts.semibold }} className="text-[15px] text-fg">
-            Insight da semana
+          <Text style={{ fontFamily: fonts.bold }} className="text-[15px] text-fg">
+            Ótimo trabalho nesta semana
           </Text>
-          <Text style={{ fontFamily: fonts.regular }} className="text-[12px] text-muted">
-            Um resumo inteligente da sua saúde, atualizado toda semana.
-          </Text>
+          <View className="mt-1 gap-1">
+            {lines.map((line) => (
+              <View key={line} className="flex-row gap-1.5">
+                <Sparkles size={13} color={colors.primary} style={{ marginTop: 3 }} />
+                <Text
+                  style={{ fontFamily: fonts.regular }}
+                  className="flex-1 text-[13px] leading-[18px] text-fg-soft"
+                >
+                  {line}
+                </Text>
+              </View>
+            ))}
+          </View>
         </View>
       </View>
-      <View className="gap-2">
-        {lines.map((line) => (
-          <View key={line} className="flex-row gap-2">
-            <Sparkles size={14} color={colors.primary} style={{ marginTop: 3 }} />
-            <Text style={{ fontFamily: fonts.regular }} className="flex-1 text-[13px] leading-5 text-fg-soft">
-              {line}
-            </Text>
-          </View>
-        ))}
-      </View>
-    </Card>
+    </View>
   );
 }

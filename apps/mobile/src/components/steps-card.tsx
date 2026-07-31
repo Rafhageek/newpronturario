@@ -49,7 +49,7 @@ async function readTodaySteps(): Promise<number> {
  * Blindado: se o Health Connect não estiver disponível ou algo falhar, o card
  * simplesmente não aparece (nunca derruba o app). Feature de bem-estar (grátis).
  */
-export function StepsCard() {
+export function StepsCard({ compact = false }: { compact?: boolean }) {
   const [state, setState] = useState<State>({ kind: 'checking' });
   const [connecting, setConnecting] = useState(false);
 
@@ -106,8 +106,10 @@ export function StepsCard() {
     return null;
   }
 
+  const stepPct = state.kind === 'ready' ? Math.min(1, state.steps / 10_000) : 0;
+
   return (
-    <Card className="gap-3">
+    <Card className={`gap-3 ${compact ? 'flex-1' : ''}`}>
       <View className="flex-row items-center gap-3">
         <View
           style={{ backgroundColor: 'rgba(34,197,94,0.12)', borderCurve: 'continuous' }}
@@ -132,6 +134,20 @@ export function StepsCard() {
         ) : null}
       </View>
 
+      {state.kind === 'ready' ? (
+        <View
+          accessibilityRole="progressbar"
+          accessibilityLabel="Progresso de passos em relação à referência de dez mil passos"
+          accessibilityValue={{ min: 0, max: 100, now: Math.round(stepPct * 100) }}
+          className="h-2.5 overflow-hidden rounded-full bg-surface-2"
+        >
+          <View
+            style={{ width: `${stepPct * 100}%`, backgroundColor: STEP }}
+            className="h-full rounded-full"
+          />
+        </View>
+      ) : null}
+
       {state.kind === 'needs-permission' ? (
         <Pressable
           onPress={connect}
@@ -139,16 +155,21 @@ export function StepsCard() {
           accessibilityRole="button"
           accessibilityLabel="Conectar Health Connect para ler seus passos"
           accessibilityState={{ disabled: connecting, busy: connecting }}
-          style={{ backgroundColor: STEP, borderCurve: 'continuous', minHeight: 44 }}
-          className="flex-row items-center justify-center gap-1.5 rounded-xl px-3 py-3 active:opacity-80"
+          style={{
+            backgroundColor: 'rgba(34,197,94,0.08)',
+            borderColor: 'rgba(34,197,94,0.42)',
+            borderCurve: 'continuous',
+            minHeight: 44,
+          }}
+          className="flex-row items-center justify-center gap-1.5 rounded-xl border px-3 py-3 active:opacity-80"
         >
           {connecting ? (
-            <ActivityIndicator size="small" color="#ffffff" />
+            <ActivityIndicator size="small" color={STEP} />
           ) : (
-            <Footprints size={16} color="#ffffff" />
+            <Footprints size={16} color={STEP} />
           )}
-          <Text style={{ fontFamily: fonts.semibold }} className="text-[13px] text-white">
-            {connecting ? 'Conectando…' : 'Conectar Health Connect'}
+          <Text style={{ fontFamily: fonts.semibold, color: STEP }} className="text-[13px]">
+            {connecting ? 'Conectando…' : compact ? 'Conectar' : 'Conectar Health Connect'}
           </Text>
         </Pressable>
       ) : null}

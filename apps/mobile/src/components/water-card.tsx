@@ -22,10 +22,12 @@ export function WaterCard({
   patientId,
   weightKg,
   age,
+  compact = false,
 }: {
   patientId: string | undefined;
   weightKg: number | null;
   age: number | null;
+  compact?: boolean;
 }) {
   const { data: todayMl, isLoading, isError } = useTodayWater(patientId);
   const logWater = useLogWater(patientId);
@@ -60,7 +62,7 @@ export function WaterCard({
       : `${glasses} ${glasses === 1 ? 'copo' : 'copos'} · meta estimada ${goalGlasses} (${oneDecimalL(goal)} L)`;
 
   return (
-    <Card className="gap-3">
+    <Card className={`gap-3 ${compact ? 'flex-1' : ''}`}>
       <View className="flex-row items-center gap-3">
         <View
           style={{ backgroundColor: 'rgba(14,165,233,0.12)', borderCurve: 'continuous' }}
@@ -83,10 +85,17 @@ export function WaterCard({
 
       <View
         accessibilityRole="progressbar"
-        accessibilityValue={{ min: 0, max: 100, now: isError || isLoading ? 0 : Math.round(pct * 100) }}
+        accessibilityValue={{
+          min: 0,
+          max: 100,
+          now: isError || isLoading ? 0 : Math.round(pct * 100),
+        }}
         className="h-2.5 overflow-hidden rounded-full bg-surface-2"
       >
-        <View style={{ width: `${pct * 100}%`, backgroundColor: WATER }} className="h-full rounded-full" />
+        <View
+          style={{ width: `${pct * 100}%`, backgroundColor: WATER }}
+          className="h-full rounded-full"
+        />
       </View>
 
       {reached && !isError && !isLoading ? (
@@ -101,20 +110,25 @@ export function WaterCard({
         accessibilityRole="button"
         accessibilityLabel="Bebi um copo de água (250 ml)"
         accessibilityState={{ disabled: busy, busy }}
-        style={{ backgroundColor: WATER, borderCurve: 'continuous', minHeight: 44 }}
-        className="flex-row items-center justify-center gap-1.5 rounded-xl px-3 py-3 active:opacity-80"
+        style={{
+          backgroundColor: 'rgba(14,165,233,0.08)',
+          borderColor: 'rgba(14,165,233,0.42)',
+          borderCurve: 'continuous',
+          minHeight: 44,
+        }}
+        className="flex-row items-center justify-center gap-1.5 rounded-xl border px-3 py-3 active:opacity-80"
       >
-        {busy ? (
-          <ActivityIndicator size="small" color="#ffffff" />
-        ) : (
-          <Plus size={16} color="#ffffff" />
-        )}
-        <Text style={{ fontFamily: fonts.semibold }} className="text-[13px] text-white">
-          Bebi um copo (250 ml)
+        {busy ? <ActivityIndicator size="small" color={WATER} /> : <Plus size={16} color={WATER} />}
+        <Text style={{ fontFamily: fonts.semibold, color: WATER }} className="text-[13px]">
+          {compact ? 'Beber água' : 'Bebi um copo (250 ml)'}
         </Text>
       </Pressable>
 
-      <Text style={{ fontFamily: fonts.regular }} className="text-[11px] leading-4 text-muted">
+      <Text
+        style={{ fontFamily: fonts.regular }}
+        className="text-[11px] leading-4 text-muted"
+        numberOfLines={compact ? 3 : undefined}
+      >
         {WATER_CAP_NOTE}
       </Text>
     </Card>
