@@ -17,12 +17,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* "O que mudou" — uma vez por versão, some sozinho depois. */}
       <WhatsNewModal />
       <a href="#conteudo" className="vl-skip-link">Pular para o conteúdo</a>
-      <div className="vl-app-shell flex h-screen overflow-hidden bg-bg text-fg">
+      <div className="hp-clinical-shell vl-app-shell flex h-screen overflow-hidden bg-bg text-fg">
         <AppSidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
         <div className="flex min-w-0 flex-1 flex-col">
           <AppTopbar onMenuClick={() => setMobileOpen(true)} />
           <CaregiverBanner />
-          <main id="conteudo" className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">{children}</main>
+          <main id="conteudo" className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-7 xl:px-8">{children}</main>
         </div>
       </div>
     </ProfileProvider>

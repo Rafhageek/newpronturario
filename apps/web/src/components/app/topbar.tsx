@@ -4,29 +4,23 @@ import { useRouter } from 'next/navigation';
 import { Menu } from 'lucide-react';
 import { useProfile } from '@hubpatients/supabase';
 import { useAuth } from '@/components/auth-provider';
+import { AppSearch } from '@/components/app/app-search';
 import { ProfileSwitcher } from '@/components/app/profile-switcher';
-import { ThemeMenu, LanguageMenu, NotificationsMenu, UserMenu } from '@/components/app/topbar-menus';
-
-function greeting(hour: number): string {
-  if (hour < 12) return 'Bom dia';
-  if (hour < 18) return 'Boa tarde';
-  return 'Boa noite';
-}
+import {
+  LanguageMenu,
+  NotificationsMenu,
+  ThemeMenu,
+  UserMenu,
+} from '@/components/app/topbar-menus';
 
 export function AppTopbar({ onMenuClick }: { onMenuClick?: () => void }) {
   const router = useRouter();
   const { user, signOut } = useAuth();
   const { data: profile } = useProfile(user?.id);
 
-  const now = new Date();
   const firstName =
     profile?.full_name?.split(' ')[0] ?? user?.email?.split('@')[0] ?? 'Paciente';
   const initial = firstName.charAt(0).toUpperCase();
-  const dateLabel = now.toLocaleDateString('pt-BR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  });
 
   async function handleSignOut() {
     await signOut();
@@ -35,23 +29,20 @@ export function AppTopbar({ onMenuClick }: { onMenuClick?: () => void }) {
   }
 
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-line px-4 sm:px-6">
-      <div className="flex min-w-0 items-center gap-2">
-        {/* Menu (mobile) */}
+    <header className="flex h-[72px] shrink-0 items-center justify-between gap-3 border-b border-line bg-surface px-4 sm:px-6">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         <button
+          type="button"
           onClick={onMenuClick}
           aria-label="Abrir menu"
-          className="-ml-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-fg-soft transition hover:bg-surface-2 lg:hidden"
+          className="-ml-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-fg-soft transition hover:bg-surface-2 lg:hidden"
         >
-          <Menu className="h-5 w-5" />
+          <Menu className="h-5 w-5" aria-hidden />
         </button>
-        <div className="min-w-0">
-          <h1 className="truncate text-sm font-semibold text-fg sm:text-base">
-            {greeting(now.getHours())}, {firstName} <span aria-hidden>👋</span>
-          </h1>
-          <p className="hidden truncate text-xs capitalize text-muted sm:block">
-            {dateLabel} · aqui está o resumo da sua saúde hoje.
-          </p>
+        <AppSearch />
+        <div className="min-w-0 md:hidden">
+          <p className="truncate text-sm font-bold text-fg">HubPatients</p>
+          <p className="truncate text-xs text-muted">Seu prontuário de saúde</p>
         </div>
       </div>
 

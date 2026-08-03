@@ -550,3 +550,41 @@ body {
   --primary: #0442bf; /* 6,70:1 sobre branco — o mesmo valor do tema claro */
   --primary-hover: #0537a0;
 }
+
+/* ============================================================================
+   CONCEITO WEB — "central clínica pessoal"
+   ----------------------------------------------------------------------------
+   O app autenticado usa um canvas frio e silencioso para aproximar a leitura de
+   um prontuário organizado: navegação branca fixa, área de trabalho azul-neutra
+   e cartões bem separados. O escopo evita alterar login, cadastro e páginas
+   públicas. Os status clínicos continuam usando os tokens semânticos auditados.
+   ========================================================================== */
+.hp-clinical-shell {
+  --bg: #f5f7fb;
+  --surface: #ffffff;
+  --surface-2: #f7f8fc;
+  --surface-3: #edf1f7;
+  --line: #e2e7f0;
+  --line-strong: #8994a7;
+  --fg: #151b2b;
+  --fg-soft: #354056;
+  --muted: #58657a;
+  --hint: #67748a;
+  --faint: var(--hint);
+  --shadow-paper: 0 8px 24px rgb(35 53 84 / 0.08), 0 1px 2px rgb(35 53 84 / 0.05);
+  --shadow-paper-lg: 0 18px 42px -12px rgb(35 53 84 / 0.18), 0 2px 7px rgb(35 53 84 / 0.06);
+}
+
+.dark .hp-clinical-shell {
+  --bg: #0d0d0d;
+  --surface: #171717;
+  --surface-2: #212121;
+  --surface-3: #2b2b2b;
+  --line: rgb(255 255 255 / 0.1);
+  --line-strong: #727578;
+  --fg: #e8eaf0;
+  --fg-soft: #cfd4dd;
+  --muted: #a7acb2;
+  --hint: #909398;
+  --faint: var(--hint);
+}

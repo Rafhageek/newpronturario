@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChevronDown, ChevronLeft, Search, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, X } from 'lucide-react';
 import { useProfile, useActivePregnancy, useCommunityMember } from '@hubpatients/supabase';
 import { calculateAge } from '@hubpatients/core';
 import { useAuth } from '@/components/auth-provider';
@@ -16,10 +16,6 @@ import {
   type NavSection,
 } from './nav';
 
-/** minúsculas + sem acento, para busca tolerante (ex.: "gestacao" acha "Gestação"). */
-const norm = (s: string) =>
-  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
-
 export function AppSidebar({
   mobileOpen = false,
   onClose,
@@ -29,7 +25,6 @@ export function AppSidebar({
 }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
-  const [query, setQuery] = useState('');
   const [expandedSections, setExpandedSections] = useState<NavSection[]>([]);
   const asideRef = useRef<HTMLElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
@@ -103,12 +98,6 @@ export function AppSidebar({
     [showPregnancy, showCycle, isStaff],
   );
 
-  const searching = query.trim().length > 0;
-  const filtered = useMemo(
-    () => (searching ? items.filter((i) => norm(i.label).includes(norm(query))) : items),
-    [items, query, searching],
-  );
-
   function toggleSection(section: NavSection) {
     setExpandedSections((current) =>
       current.includes(section)
@@ -127,15 +116,12 @@ export function AppSidebar({
         onClick={onClose}
         title={collapsed ? item.label : undefined}
         aria-current={active ? 'page' : undefined}
-        className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
+        className={`group relative flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
           active
             ? 'bg-primary/10 font-semibold text-primary'
             : 'font-medium text-muted hover:bg-surface-2 hover:text-fg'
         }`}
       >
-        {active && !collapsed && (
-          <span className="absolute inset-y-1.5 left-0 w-1 rounded-full bg-coral-500" aria-hidden />
-        )}
         <Icon className={`h-[18px] w-[18px] shrink-0 ${active ? 'text-primary' : ''}`} />
         {!collapsed && (
           <>
@@ -174,11 +160,18 @@ export function AppSidebar({
         aria-label={mobileOpen ? 'Menu principal' : undefined}
         className={`fixed inset-y-0 left-0 z-40 flex w-[264px] shrink-0 flex-col overscroll-contain border-r border-line bg-surface transition-transform duration-300 lg:static lg:z-20 lg:translate-x-0 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
-        } ${collapsed ? 'lg:w-[76px]' : 'lg:w-[244px]'}`}
+        } ${collapsed ? 'lg:w-[76px]' : 'lg:w-[256px]'}`}
       >
         {/* Logo */}
-        <div className="flex h-16 items-center gap-2.5 px-5">
-          <img src="/logo.png" alt="HubPatients" width={36} height={36} className="h-9 w-9 shrink-0" />
+        <div className="flex h-[72px] items-center gap-2.5 border-b border-line px-5">
+          <img
+            src="/logo.png"
+            alt={collapsed ? 'HubPatients' : ''}
+            aria-hidden={collapsed ? undefined : true}
+            width={36}
+            height={36}
+            className="h-9 w-9 shrink-0"
+          />
           {!collapsed && (
             <span className="text-lg font-bold tracking-tight text-fg" style={{ fontFamily: 'var(--font-display)' }}>
               Hub<span className="text-primary">Patients</span>
@@ -186,48 +179,28 @@ export function AppSidebar({
           )}
           <button
             onClick={() => setCollapsed((c) => !c)}
-            className="ml-auto hidden rounded-lg p-1 text-muted hover:bg-surface-2 hover:text-fg-soft lg:block"
+            className="ml-auto hidden h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-fg-soft lg:flex"
             aria-label="Recolher menu"
           >
             <ChevronLeft className={`h-4 w-4 transition-transform ${collapsed ? 'rotate-180' : ''}`} />
           </button>
           <button
             onClick={onClose}
-            className="ml-auto rounded-lg p-1 text-muted hover:bg-surface-2 hover:text-fg-soft lg:hidden"
+            className="ml-auto flex h-11 w-11 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-fg-soft lg:hidden"
             aria-label="Fechar menu"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Busca */}
-        {!collapsed && (
-          <div className="px-3 pb-1">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
-              <input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Buscar no menu…"
-                aria-label="Buscar no menu"
-                className="h-10 w-full rounded-xl border border-line bg-surface-2 pl-9 pr-3 text-sm text-fg placeholder:text-faint focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-              />
-            </div>
-          </div>
-        )}
-
         {/* Navegação */}
-        <nav aria-label="Navegação principal" className="flex-1 overflow-y-auto px-3 py-2">
-          {collapsed || searching ? (
-            // recolhido ou buscando → lista plana
+        <nav aria-label="Navegação principal" className="flex-1 overflow-y-auto px-3 py-4">
+          {collapsed ? (
+            // recolhido → lista plana
             <div className="space-y-0.5">
-              {filtered.map((item) => (
+              {items.map((item) => (
                 <ItemLink key={item.href} item={item} />
               ))}
-              {searching && filtered.length === 0 && (
-                <p className="px-3 py-6 text-center text-xs text-muted">Nada encontrado.</p>
-              )}
             </div>
           ) : (
             // padrão → agrupado por seção
@@ -253,7 +226,7 @@ export function AppSidebar({
                       onClick={() => toggleSection(section)}
                       aria-expanded={isExpanded}
                       aria-controls={sectionId}
-                      className="flex h-9 w-full items-center justify-between rounded-lg px-3 text-left text-[10px] font-semibold uppercase tracking-wider text-faint transition hover:bg-surface-2 hover:text-fg-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                      className="flex min-h-11 w-full items-center justify-between rounded-lg px-3 text-left text-[10px] font-semibold uppercase tracking-wider text-faint transition hover:bg-surface-2 hover:text-fg-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                     >
                       <span>{section}</span>
                       <ChevronDown

@@ -1,48 +1,62 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
 import {
   AlertTriangle,
-  Brain,
+  ArrowRight,
+  Building2,
   CalendarDays,
   Check,
-  Clock,
+  ChevronRight,
+  Droplets,
+  FileHeart,
+  FlaskConical,
   HeartPulse,
-  Lock,
+  History,
+  Hospital,
   Pill,
+  Scale,
+  Send,
+  Share2,
   ShieldCheck,
   Smile,
   Sparkles,
-  Video,
+  Stethoscope,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import {
-  useDashboard,
-  useProfile,
-  useVitalsRange,
-  useNextAppointment,
-  useDiarySummary,
   useAllergies,
+  useAppointments,
+  useClinicalTimeline,
+  useConditions,
+  useDashboard,
+  useDiarySummary,
+  useNextAppointment,
+  useProfile,
   useRegisterIntake,
+  useVitals,
+  useVitalsRange,
 } from '@hubpatients/supabase';
 import {
   APPOINTMENT_KIND_LABELS,
+  MEDICATION_FORM_LABELS,
+  MEDICATION_FREQUENCY_LABELS,
   classifyBloodPressure,
+  computeBMI,
   DISCLAIMERS,
   formatVital,
 } from '@hubpatients/core';
 import { useActiveProfile } from '@/components/profile-context';
-import { AnimatedCounter } from '@/components/ui/animated-counter';
 import { ConstancyCard } from '@/components/dashboard/constancy-card';
 import { WaterCard } from '@/components/dashboard/water-card';
 import { TrendChip } from '@/components/dashboard/trend-chip';
-import { UpgradeModal } from '@/components/ui/upgrade-modal';
-import { container, MetricCard, StatusChip, Trend } from '@/components/dashboard/metric-cards';
 import { SetupChecklist } from '@/components/dashboard/setup-checklist';
 import { Spinner } from '@/components/ui/spinner';
 import { ErrorState } from '@/components/ui/error-state';
+import { StatusChip, Trend } from '@/components/dashboard/metric-cards';
 import { toast } from 'sonner';
 
 const BloodPressureChart = dynamic(
@@ -57,10 +71,47 @@ const BloodPressureChart = dynamic(
   },
 );
 
-function greeting(hour: number): string {
-  if (hour < 12) return 'Bom dia';
-  if (hour < 18) return 'Boa tarde';
-  return 'Boa noite';
+const overviewContainer = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.05, delayChildren: 0.04 } },
+};
+
+const overviewItem = {
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.28, ease: 'easeOut' } },
+};
+
+const TIMELINE_ICONS = {
+  appointment: CalendarDays,
+  exam: FlaskConical,
+  surgery: Hospital,
+} satisfies Partial<Record<string, LucideIcon>>;
+
+const TIMELINE_STATUS: Record<string, string> = {
+  scheduled: 'Agendada',
+  completed: 'Concluído',
+  cancelled: 'Cancelada',
+  processed: 'Concluído',
+  processing: 'Em análise',
+  error: 'Requer atenção',
+  active: 'Ativo',
+  resolved: 'Resolvido',
+};
+
+function formatDate(value: string, withTime = false): string {
+  return new Date(value).toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+    ...(withTime ? { hour: '2-digit', minute: '2-digit' } : {}),
+  });
+}
+
+function formatTime(value: string | null): string | null {
+  if (!value) return null;
+  return new Date(value).toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 export default function DashboardPage() {
@@ -68,30 +119,30 @@ export default function DashboardPage() {
   const profileQuery = useProfile(patientId || undefined);
   const dashboardQuery = useDashboard(patientId || undefined);
   const bpQuery = useVitalsRange(patientId || undefined, 'blood_pressure', 30);
+  const weightQuery = useVitals(patientId || undefined, 'weight');
   const appointmentQuery = useNextAppointment(patientId || undefined);
+  const appointmentsQuery = useAppointments(patientId || undefined);
   const wellbeingQuery = useDiarySummary(patientId || undefined);
   const allergiesQuery = useAllergies(patientId || undefined);
-  const { data: profile } = profileQuery;
-  const { data } = dashboardQuery;
-  const { data: bpRange } = bpQuery;
-  const { data: nextAppt } = appointmentQuery;
-  const { data: wellbeing } = wellbeingQuery;
-  const { data: allergies } = allergiesQuery;
+  const conditionsQuery = useConditions(patientId || undefined);
+  const timelineQuery = useClinicalTimeline(patientId || undefined, 12);
   const registerIntake = useRegisterIntake(patientId);
-
-  const [upgrade, setUpgrade] = useState(false);
-  // Qual lembrete está sendo registrado (spinner só na linha tocada).
   const [registeringId, setRegisteringId] = useState<string | null>(null);
 
   const dashboardQueries = [
     profileQuery,
     dashboardQuery,
     bpQuery,
+    weightQuery,
     appointmentQuery,
+    appointmentsQuery,
     wellbeingQuery,
     allergiesQuery,
+    conditionsQuery,
+    timelineQuery,
   ];
-  const isInitialLoading = Boolean(patientId) && dashboardQueries.some((query) => query.isLoading);
+  const isInitialLoading =
+    Boolean(patientId) && dashboardQueries.some((query) => query.isLoading);
   const hasLoadError = dashboardQueries.some((query) => query.isError);
 
   if (isInitialLoading) {
@@ -119,31 +170,51 @@ export default function DashboardPage() {
   }
 
   const now = new Date();
-  const firstName = profile?.full_name?.split(' ')[0] ?? 'Paciente';
-  const dateLabel = now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
-
+  const dateLabel = now.toLocaleDateString('pt-BR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+  const profile = profileQuery.data;
+  const data = dashboardQuery.data;
   const bp = data?.latestBloodPressure ?? null;
   const meds = data?.activeMedications ?? [];
   const upcoming = data?.upcomingIntakes ?? [];
-  const severeAllergies = (allergies ?? []).filter((a) => a.severity === 'severe');
-  // Nome do medicamento por id (lembretes só trazem medication_id).
-  const medNameById = (id: string): string => meds.find((m) => m.id === id)?.name ?? 'Medicação';
+  const allergies = allergiesQuery.data ?? [];
+  const activeConditions = (conditionsQuery.data ?? []).filter(
+    (condition) => condition.status !== 'resolved',
+  );
+  const range = bpQuery.data ?? [];
+  const nextAppt = appointmentQuery.data;
+  const wellbeing = wellbeingQuery.data;
+  const latestWeight =
+    (weightQuery.data ?? [])
+      .slice()
+      .sort(
+        (a, b) =>
+          new Date(b.measured_at).getTime() - new Date(a.measured_at).getTime(),
+      )[0] ?? null;
+  const bmi = computeBMI(latestWeight?.value_primary ?? null, profile?.height_cm ?? null);
+  const timelineEvents = (timelineQuery.data?.pages ?? [])
+    .flatMap((page) => page.events)
+    .filter((event) => ['appointment', 'exam', 'surgery'].includes(event.eventType))
+    .slice(0, 3);
+  const previousAppointments = (appointmentsQuery.data ?? [])
+    .filter((appointment) => appointment.status === 'completed')
+    .slice(-2)
+    .reverse();
 
   const bpStatus =
     bp && bp.value_secondary != null
       ? classifyBloodPressure(bp.value_primary, bp.value_secondary)
       : null;
-
-  // mini-tendência (sistólica)
-  const range = bpRange ?? [];
   const trend: 'up' | 'down' | 'flat' = (() => {
     if (range.length < 2) return 'flat';
-    const a = range[range.length - 2]!.value_primary;
-    const b = range[range.length - 1]!.value_primary;
-    return b > a ? 'up' : b < a ? 'down' : 'flat';
+    const previous = range[range.length - 2]!.value_primary;
+    const current = range[range.length - 1]!.value_primary;
+    return current > previous ? 'up' : current < previous ? 'down' : 'flat';
   })();
 
-  // Registra uma tomada pendente específica (com schedule_id/scheduled_for).
   async function handleRegisterPending(intake: (typeof upcoming)[number]) {
     if (registeringId) return;
     setRegisteringId(intake.id);
@@ -156,7 +227,7 @@ export default function DashboardPage() {
         status: 'taken',
         taken_at: new Date().toISOString(),
       });
-      toast.success('Tomada registrada. 👏');
+      toast.success('Tomada registrada.');
     } catch {
       toast.error('Não foi possível registrar.');
     } finally {
@@ -168,262 +239,610 @@ export default function DashboardPage() {
     {
       label: 'Complete seu perfil (nascimento e sexo)',
       href: '/perfil',
-      done: Boolean(profile?.date_of_birth) && profile?.biological_sex !== 'unspecified',
+      done:
+        Boolean(profile?.date_of_birth) && profile?.biological_sex !== 'unspecified',
     },
-    { label: 'Registre suas alergias', href: '/perfil', done: (allergies?.length ?? 0) > 0 },
-    { label: 'Adicione um medicamento', href: '/medicamentos', done: meds.length > 0 },
+    {
+      label: 'Registre suas alergias',
+      href: '/perfil',
+      done: allergies.length > 0,
+    },
+    {
+      label: 'Adicione um medicamento',
+      href: '/medicamentos',
+      done: meds.length > 0,
+    },
   ];
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5">
+    <div className="mx-auto max-w-[1440px] space-y-5 pb-10">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-sm capitalize text-muted">{dateLabel}</p>
+          <h1
+            className="mt-0.5 text-3xl font-bold tracking-tight text-fg"
+            style={{ fontFamily: 'var(--font-display)' }}
+          >
+            Seu prontuário
+          </h1>
+          <p className="mt-1 text-sm text-muted">
+            Aqui está seu resumo de saúde, organizado para uma leitura rápida.
+          </p>
+        </div>
+        <Link
+          href="/consentimento"
+          className="inline-flex min-h-11 w-fit items-center gap-2 rounded-full bg-status-ok-tint px-4 text-sm font-semibold text-status-ok-ink transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+        >
+          <ShieldCheck className="h-4 w-4" aria-hidden />
+          Dados protegidos · LGPD
+        </Link>
+      </header>
+
+      <motion.section
+        aria-label="Resumo clínico"
+        variants={overviewContainer}
+        initial="hidden"
+        animate="show"
+        className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5"
+      >
+        <OverviewCard
+          icon={HeartPulse}
+          iconTone="rose"
+          label="Pressão arterial"
+          href="/analise"
+          value={
+            bp ? (
+              <span className="inline-flex items-center gap-2">
+                <ClinicalNumber>{formatVital(bp)}</ClinicalNumber>
+                <Trend direction={trend} />
+              </span>
+            ) : (
+              'Sem registro'
+            )
+          }
+          detail={
+            bpStatus ? (
+              <StatusChip tone={bpStatus.zone} label={bpStatus.label} />
+            ) : (
+              'Toque para registrar'
+            )
+          }
+        />
+        <OverviewCard
+          icon={Scale}
+          iconTone="blue"
+          label="Peso / altura"
+          href="/composicao-corporal"
+          value={
+            latestWeight || profile?.height_cm ? (
+              <span className="flex flex-wrap items-baseline gap-x-2">
+                {latestWeight ? (
+                  <ClinicalNumber>{latestWeight.value_primary} kg</ClinicalNumber>
+                ) : (
+                  <span className="text-base">Peso não informado</span>
+                )}
+                {profile?.height_cm ? (
+                  <span className="text-sm font-semibold text-fg-soft">
+                    {`${(profile.height_cm / 100).toFixed(2).replace('.', ',')} m`}
+                  </span>
+                ) : null}
+              </span>
+            ) : (
+              'Não informado'
+            )
+          }
+          detail={bmi ? `IMC ${bmi.toFixed(1).replace('.', ',')}` : 'Complete seus dados'}
+        />
+        <OverviewCard
+          icon={Droplets}
+          iconTone="teal"
+          label="Tipo sanguíneo"
+          href="/perfil"
+          value={
+            profile?.blood_type && profile.blood_type !== 'unknown'
+              ? <ClinicalNumber>{profile.blood_type}</ClinicalNumber>
+              : 'Não informado'
+          }
+          detail="Informado por você"
+        />
+        <OverviewCard
+          icon={FileHeart}
+          iconTone="amber"
+          label="Condições de saúde"
+          href="/perfil"
+          value={
+            activeConditions.length > 0
+              ? activeConditions
+                  .slice(0, 2)
+                  .map((condition) => condition.name)
+                  .join(', ')
+              : 'Nenhuma registrada'
+          }
+          detail={
+            activeConditions.length > 0
+              ? `${activeConditions.length} ${activeConditions.length === 1 ? 'registro ativo' : 'registros ativos'}`
+              : 'Gerencie no perfil'
+          }
+        />
+        <OverviewCard
+          icon={AlertTriangle}
+          iconTone="rose"
+          label="Alergias"
+          href="/perfil"
+          value={
+            allergies.length > 0
+              ? allergies
+                  .slice(0, 2)
+                  .map((allergy) => allergy.substance)
+                  .join(', ')
+              : 'Nenhuma registrada'
+          }
+          detail={
+            allergies.some((allergy) => allergy.severity === 'severe')
+              ? 'Contém alergia marcada como grave'
+              : 'Informado por você'
+          }
+        />
+      </motion.section>
+
+      <div className="grid gap-5 xl:grid-cols-12">
+        <div className="space-y-5 xl:col-span-8">
+          <DashboardSection
+            icon={Pill}
+            title="Medicamentos de hoje"
+            actionLabel="Ver todos"
+            actionHref="/medicamentos"
+          >
+            {meds.length === 0 ? (
+              <EmptySummary
+                icon={Pill}
+                title="Nenhum medicamento ativo"
+                description="Cadastre seus medicamentos para acompanhar horários e tomadas."
+                href="/medicamentos"
+                action="Adicionar medicamento"
+              />
+            ) : (
+              <>
+                <ul className="divide-y divide-line">
+                  {meds.slice(0, 4).map((medication, index) => {
+                    const intake = upcoming.find(
+                      (candidate) => candidate.medication_id === medication.id,
+                    );
+                    const scheduledTime =
+                      formatTime(intake?.scheduled_for ?? null) ??
+                      medication.times[index % Math.max(medication.times.length, 1)] ??
+                      null;
+                    const busy = intake ? registeringId === intake.id : false;
+                    return (
+                      <li
+                        key={medication.id}
+                        className="flex min-h-[66px] items-center gap-3 py-3"
+                      >
+                        <span
+                          className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+                            intake ? 'bg-primary' : 'bg-status-neutro-mark'
+                          }`}
+                          aria-hidden
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-bold text-fg">
+                            {medication.name}
+                            {medication.dosage ? ` · ${medication.dosage}` : ''}
+                          </p>
+                          <p className="mt-0.5 truncate text-xs text-muted">
+                            {MEDICATION_FORM_LABELS[medication.form]} ·{' '}
+                            {MEDICATION_FREQUENCY_LABELS[medication.frequency]}
+                          </p>
+                        </div>
+                        {intake ? (
+                          <button
+                            type="button"
+                            onClick={() => handleRegisterPending(intake)}
+                            disabled={busy || registeringId !== null}
+                            aria-busy={busy || undefined}
+                            className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl bg-primary px-3 text-xs font-bold text-primary-foreground transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {busy ? (
+                              <Spinner className="h-4 w-4" />
+                            ) : (
+                              <Check className="h-4 w-4" aria-hidden />
+                            )}
+                            <span className="hidden sm:inline">
+                              {busy ? 'Registrando…' : 'Registrar'}
+                            </span>
+                            {scheduledTime ? (
+                              <span className="font-mono">{scheduledTime}</span>
+                            ) : null}
+                          </button>
+                        ) : (
+                          <span className="shrink-0 rounded-full bg-surface-2 px-3 py-1.5 font-mono text-xs font-bold text-muted">
+                            {scheduledTime ?? 'Sem horário'}
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+                <DashedLink href="/medicamentos">
+                  Adicionar ou atualizar medicamento
+                </DashedLink>
+              </>
+            )}
+          </DashboardSection>
+
+          <DashboardSection
+            icon={CalendarDays}
+            title="Consultas, exames e procedimentos"
+            actionLabel="Linha do tempo"
+            actionHref="/linha-do-tempo"
+          >
+            {timelineEvents.length === 0 && !nextAppt && previousAppointments.length === 0 ? (
+              <EmptySummary
+                icon={History}
+                title="Sua linha do tempo começa aqui"
+                description="Registre consultas, exames e procedimentos para encontrá-los em ordem cronológica."
+                href="/consultas"
+                action="Registrar consulta"
+              />
+            ) : (
+              <>
+                <ul className="divide-y divide-line">
+                  {nextAppt ? (
+                    <TimelineRow
+                      icon={CalendarDays}
+                      title={`${nextAppt.specialty ?? 'Consulta'} · ${nextAppt.doctor_name}`}
+                      description={`${formatDate(nextAppt.scheduled_at, true)} · ${APPOINTMENT_KIND_LABELS[nextAppt.kind]}`}
+                      status="Próxima"
+                      tone="attention"
+                    />
+                  ) : null}
+                  {timelineEvents
+                    .filter(
+                      (event) =>
+                        !nextAppt ||
+                        event.eventId !== nextAppt.id ||
+                        event.eventType !== 'appointment',
+                    )
+                    .slice(0, nextAppt ? 2 : 3)
+                    .map((event) => (
+                      <TimelineRow
+                        key={event.eventKey}
+                        icon={
+                          TIMELINE_ICONS[
+                            event.eventType as keyof typeof TIMELINE_ICONS
+                          ] ?? History
+                        }
+                        title={event.title}
+                        description={`${formatDate(event.occurredAt, !event.dateOnly)}${event.summary ? ` · ${event.summary}` : ''}`}
+                        status={
+                          event.status
+                            ? TIMELINE_STATUS[event.status] ?? event.status
+                            : 'Registrado'
+                        }
+                        tone={event.status === 'error' ? 'alert' : 'ok'}
+                      />
+                    ))}
+                  {timelineEvents.length === 0
+                    ? previousAppointments.slice(0, nextAppt ? 2 : 3).map((appointment) => (
+                        <TimelineRow
+                          key={appointment.id}
+                          icon={Stethoscope}
+                          title={`${appointment.specialty ?? 'Consulta'} · ${appointment.doctor_name}`}
+                          description={`${formatDate(appointment.scheduled_at, true)} · ${APPOINTMENT_KIND_LABELS[appointment.kind]}`}
+                          status="Realizada"
+                          tone="ok"
+                        />
+                      ))
+                    : null}
+                </ul>
+                <DashedLink href="/consultas">
+                  Agendar ou registrar consulta
+                </DashedLink>
+              </>
+            )}
+          </DashboardSection>
+        </div>
+
+        <aside className="space-y-5 xl:col-span-4" aria-label="Ações e bem-estar">
+          <DashboardSection icon={Share2} title="Compartilhar dados">
+            <p className="mb-4 text-sm leading-relaxed text-muted">
+              Você escolhe o que compartilhar, com quem e por quanto tempo.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+              <ShareOption
+                icon={Stethoscope}
+                title="Profissional de saúde"
+                description="Resumo para uma consulta"
+              />
+              <ShareOption
+                icon={Building2}
+                title="Hospital ou laboratório"
+                description="Acesso temporário"
+              />
+            </div>
+            <Link
+              href="/compartilhar"
+              className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-line-strong bg-surface text-sm font-bold text-fg transition hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            >
+              <Send className="h-4 w-4" aria-hidden />
+              Criar compartilhamento seguro
+            </Link>
+          </DashboardSection>
+
+          <DashboardSection icon={Smile} title="Bem-estar · 7 dias">
+            {wellbeing?.wellbeing != null ? (
+              <div className="flex items-center gap-4 rounded-xl bg-status-info-tint p-4">
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-surface text-status-info-ink">
+                  <Smile className="h-5 w-5" aria-hidden />
+                </span>
+                <div>
+                  <p className="font-mono text-xl font-bold text-fg">
+                    {wellbeing.wellbeing.toFixed(1).replace('.', ',')}
+                    <span className="text-sm text-muted">/5</span>
+                  </p>
+                  <p className="text-xs text-muted">
+                    Humor {wellbeing.mood?.toFixed(1).replace('.', ',') ?? '—'} ·
+                    energia {wellbeing.energy?.toFixed(1).replace('.', ',') ?? '—'}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <Link
+                href="/diario/novo"
+                className="flex min-h-[76px] items-center gap-3 rounded-xl bg-status-info-tint p-4 transition hover:brightness-95"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface text-status-info-ink">
+                  <Smile className="h-5 w-5" aria-hidden />
+                </span>
+                <span className="min-w-0 flex-1 text-sm text-muted">
+                  Sem registros nesta semana. Conte como está se sentindo.
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+              </Link>
+            )}
+          </DashboardSection>
+        </aside>
+      </div>
+
       <SetupChecklist steps={setupSteps} />
 
-      {/* Hero */}
-      <section className="vl-rise relative overflow-hidden rounded-2xl border border-line bg-surface p-7">
-        <div className="relative z-10 flex items-start justify-between gap-4">
+      <section aria-labelledby="acompanhamento-title">
+        <div className="mb-3 flex items-end justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary/70">{dateLabel}</p>
-            <h2 className="mt-2 text-3xl font-bold tracking-tight text-fg" style={{ fontFamily: 'var(--font-display)' }}>
-              {greeting(now.getHours())},{' '}
-              {/* Era degradê sky→cyan em bg-clip-text: 2,1:1 sobre o canvas
-                  creme, e o nome do usuário é conteúdo, não enfeite. */}
-              <span className="text-primary">{firstName}</span>
-            </h2>
-            <p className="mt-2 max-w-md text-sm leading-relaxed text-muted">
-              Sua saúde, registrada com cuidado e clareza. Tudo o que importa, num só lugar.
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">
+              Acompanhamento
             </p>
-            <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-3 py-1.5 text-xs font-medium text-fg-soft">
-              {severeAllergies.length === 0 && upcoming.length === 0 ? (
-                <><Smile className="h-3.5 w-3.5 text-status-ok-ink" /> Tudo tranquilo por aqui hoje 💙</>
-              ) : (
-                <>
-                  <Clock className="h-3.5 w-3.5 text-primary" />
-                  {upcoming.length > 0 && `${upcoming.length} ${upcoming.length === 1 ? 'tomada' : 'tomadas'} pendente${upcoming.length === 1 ? '' : 's'}`}
-                  {upcoming.length > 0 && severeAllergies.length > 0 && ' · '}
-                  {severeAllergies.length > 0 && `${severeAllergies.length} alerta${severeAllergies.length === 1 ? '' : 's'}`}
-                </>
-              )}
-            </p>
-          </div>
-          <div className="hidden shrink-0 items-center gap-2.5 rounded-xl border border-status-ok-mark bg-status-ok-tint px-4 py-3 sm:flex">
-            <ShieldCheck className="h-5 w-5 text-status-ok-ink" />
-            <div>
-              <p className="text-sm font-semibold text-fg">Dados protegidos</p>
-              <p className="text-xs text-status-ok-ink">Conforme a LGPD</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className={isViewingDependent ? 'lg:col-span-3' : 'lg:col-span-2'}>
-          <ConstancyCard patientId={patientId || undefined} />
-        </div>
-        {/* Hidratação é bem-estar OWNER-ONLY (RLS user_id = auth.uid()): usa o próprio
-            id (ownId) e só aparece no seu perfil — nunca no de um dependente. */}
-        {!isViewingDependent && (
-          <WaterCard patientId={ownId} dateOfBirth={profile?.date_of_birth} />
-        )}
-      </div>
-
-      {/* Resumo de hoje — 3 cartões de leitura (pressão · consulta · bem-estar) */}
-      <motion.div variants={container} initial="hidden" animate="show" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {/* Última PA */}
-        {/* Acentos vêm da paleta neutra-clínica (`--chart-*`): eram rosa/âmbar/
-            verde crus, que além de fora do sistema sugeriam semáforo. */}
-        <MetricCard icon={HeartPulse} accent="var(--chart-1)" label="Última pressão">
-          <div className="flex items-center gap-2">
-            <p className="text-2xl font-bold text-fg">{bp ? formatVital(bp) : '—'}</p>
-            {bp && <Trend direction={trend} />}
-          </div>
-          {bpStatus ? (
-            <div className="mt-1.5">
-              <StatusChip tone={bpStatus.zone} label={bpStatus.label} />
-            </div>
-          ) : (
-            <p className="text-xs text-muted">Sem registros</p>
-          )}
-        </MetricCard>
-
-        {/* Próxima consulta */}
-        <MetricCard icon={CalendarDays} accent="var(--chart-4)" label="Próxima consulta">
-          {nextAppt ? (
-            <>
-              <p className="truncate text-lg font-bold text-fg">{nextAppt.doctor_name}</p>
-              <p className="truncate text-xs text-muted">{nextAppt.specialty ?? 'Consulta'}</p>
-              <p className="mt-1 flex items-center gap-1.5 text-xs text-muted">
-                {nextAppt.kind === 'telehealth' ? <Video className="h-3.5 w-3.5" /> : <CalendarDays className="h-3.5 w-3.5" />}
-                {new Date(nextAppt.scheduled_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                {' · '}
-                {APPOINTMENT_KIND_LABELS[nextAppt.kind]}
-              </p>
-            </>
-          ) : (
-            <p className="text-sm text-muted">Nenhuma agendada</p>
-          )}
-        </MetricCard>
-
-        {/* Bem-estar */}
-        <MetricCard icon={Smile} accent="var(--chart-2)" label="Bem-estar (7 dias)">
-          {wellbeing?.wellbeing != null ? (
-            <>
-              <p className="text-2xl font-bold text-fg">
-                <AnimatedCounter value={wellbeing.wellbeing} decimals={1} />
-                <span className="text-sm font-medium text-muted">/5</span>
-              </p>
-              <p className="text-xs text-muted">
-                humor {wellbeing.mood?.toFixed(1) ?? '—'} · energia {wellbeing.energy?.toFixed(1) ?? '—'}
-              </p>
-            </>
-          ) : (
-            <p className="text-sm text-muted">Registre no Diário</p>
-          )}
-        </MetricCard>
-      </motion.div>
-
-      {/* Bento: gráfico (2/3) + coluna de lembretes/alertas (1/3) */}
-      <div className="grid gap-5 lg:grid-cols-3">
-      {/* Gráfico de PA 30 dias */}
-      <section className="vl-rise rounded-2xl border border-line bg-surface p-5 lg:col-span-2">
-        <div className="mb-3 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <HeartPulse className="h-5 w-5 text-primary" />
-            <h3 className="text-sm font-semibold text-fg">Pressão arterial · 30 dias</h3>
-          </div>
-          {/* O gráfico deixou de pintar zonas verde/amarelo/vermelho (semáforo
-              sobre o corpo do paciente = diagnóstico disfarçado). Sobrou UMA
-              faixa neutra, hachurada e rotulada dentro do próprio gráfico. */}
-          <div className="flex items-center gap-3 text-caption text-muted">
-            <Legend color="var(--chart-band)" label="faixa de referência" />
-          </div>
-        </div>
-        <div className="mb-2">
-          <TrendChip values={range.map((v) => v.value_primary)} label="Sistólica" />
-        </div>
-        <BloodPressureChart vitals={range} />
-        <p className="mt-2 text-[11px] text-muted">{DISCLAIMERS.examInterpretation}</p>
-      </section>
-
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-1">
-        {/* Lembretes de hoje */}
-        <section className="vl-rise rounded-2xl border border-line bg-surface p-5">
-          <div className="mb-3 flex items-center gap-2.5">
-            <Clock className="h-5 w-5 text-primary" />
-            <h3 className="text-sm font-semibold text-fg">Lembretes de hoje</h3>
-          </div>
-          {upcoming.length === 0 ? (
-            <p className="text-sm text-muted">
-              {meds.length === 0 ? 'Cadastre medicamentos para receber lembretes.' : 'Sem tomadas pendentes. Tudo em dia 🎉'}
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {upcoming.map((intake) => {
-                const time = intake.scheduled_for
-                  ? new Date(intake.scheduled_for).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-                  : null;
-                const busy = registeringId === intake.id;
-                return (
-                  <li
-                    key={intake.id}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface-2 px-3 py-2.5"
-                  >
-                    <div className="flex min-w-0 items-center gap-2.5">
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-status-info-tint text-status-info-ink">
-                        <Pill className="h-4 w-4" />
-                      </span>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-fg">{medNameById(intake.medication_id)}</p>
-                        <p className="text-xs text-muted">{time ? `Previsto para ${time}` : 'Tomada pendente'}</p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleRegisterPending(intake)}
-                      disabled={busy || registeringId !== null}
-                      aria-busy={busy || undefined}
-                      className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-status-ok-tint px-3 text-xs font-semibold text-status-ok-ink transition hover:brightness-95 disabled:opacity-60"
-                    >
-                      {busy ? <Spinner className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
-                      {busy ? 'Registrando…' : 'Registrar'}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
-
-        {/* Alertas */}
-        <section className="vl-rise rounded-2xl border border-line bg-surface p-5">
-          <div className="mb-3 flex items-center gap-2.5">
-            <AlertTriangle className="h-5 w-5 text-status-attention-ink" />
-            <h3 className="text-sm font-semibold text-fg">Alertas</h3>
-          </div>
-          {severeAllergies.length === 0 ? (
-            <p className="text-sm text-muted">Nenhum alerta no momento.</p>
-          ) : (
-            <ul className="space-y-2">
-              {severeAllergies.map((a) => (
-                <li key={a.id} className="flex items-center gap-2.5 rounded-xl border border-status-alert-mark bg-status-alert-tint px-3 py-2">
-                  <AlertTriangle className="h-4 w-4 shrink-0 text-status-alert-ink" />
-                  <span className="text-sm text-status-alert-ink">
-                    Alergia grave: <span className="font-semibold">{a.substance}</span>
-                    {a.reaction ? ` · ${a.reaction}` : ''}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-          <Link href="/perfil" className="mt-3 inline-block text-xs font-medium text-primary hover:underline">
-            Gerenciar alergias no Perfil →
-          </Link>
-        </section>
-      </div>
-      </div>
-
-      {/* Insight da semana (Plus) */}
-      <section className="vl-rise relative overflow-hidden rounded-2xl border border-line bg-surface p-6">
-        <div className="flex items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-status-info-tint text-status-info-ink">
-            <Brain className="h-5 w-5" />
-          </span>
-          <div>
-            <h3 className="text-sm font-semibold text-fg">Insight da semana</h3>
-            <p className="text-xs text-muted">Um resumo inteligente da sua saúde, atualizado toda semana.</p>
-          </div>
-        </div>
-        <div className="relative mt-4">
-          <div className="space-y-2 blur-sm select-none" aria-hidden>
-            <div className="h-3 w-3/4 rounded bg-line" />
-            <div className="h-3 w-2/3 rounded bg-line" />
-            <div className="h-3 w-5/6 rounded bg-line" />
-          </div>
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-status-info-tint text-status-info-ink ring-1 ring-status-info-mark">
-              <Lock className="h-5 w-5" />
-            </span>
-            <p className="text-center text-sm text-fg-soft">
-              Esse recurso faz parte do <span className="font-semibold text-fg">HubPatients Plus</span>.
-            </p>
-            <button
-              onClick={() => setUpgrade(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-paper transition hover:bg-primary-hover"
+            <h2
+              id="acompanhamento-title"
+              className="mt-1 text-xl font-bold text-fg"
+              style={{ fontFamily: 'var(--font-display)' }}
             >
-              <Sparkles className="h-4 w-4" /> Desbloquear no Plus
-            </button>
+              Seus hábitos e indicadores
+            </h2>
           </div>
+          <Link
+            href="/analise"
+            className="hidden min-h-11 items-center gap-1 text-sm font-bold text-primary hover:underline sm:inline-flex"
+          >
+            Ver indicadores <ArrowRight className="h-4 w-4" aria-hidden />
+          </Link>
         </div>
-      </section>
 
-      <UpgradeModal open={upgrade} reason="insight" onClose={() => setUpgrade(false)} />
+        <div className="grid gap-5 lg:grid-cols-3">
+          <div className={isViewingDependent ? 'lg:col-span-3' : 'lg:col-span-2'}>
+            <ConstancyCard patientId={patientId || undefined} />
+          </div>
+          {!isViewingDependent ? (
+            <WaterCard patientId={ownId} dateOfBirth={profile?.date_of_birth} />
+          ) : null}
+        </div>
+
+        <section className="vl-rise mt-5 rounded-2xl border border-line bg-surface p-5 shadow-xs">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-status-info-tint text-status-info-ink">
+                <HeartPulse className="h-5 w-5" aria-hidden />
+              </span>
+              <div>
+                <h3 className="text-sm font-bold text-fg">Pressão arterial · 30 dias</h3>
+                <p className="text-xs text-muted">Histórico informado por você</p>
+              </div>
+            </div>
+            <TrendChip
+              values={range.map((vital) => vital.value_primary)}
+              label="Sistólica"
+            />
+          </div>
+          <BloodPressureChart vitals={range} />
+          <p className="mt-2 text-xs leading-relaxed text-muted">
+            {DISCLAIMERS.examInterpretation}
+          </p>
+        </section>
+      </section>
     </div>
   );
 }
 
-function Legend({ color, label }: { color: string; label: string }) {
+function ClinicalNumber({ children }: { children: ReactNode }) {
+  return <span className="font-mono text-xl font-bold text-fg">{children}</span>;
+}
+
+function OverviewCard({
+  icon: Icon,
+  iconTone,
+  label,
+  value,
+  detail,
+  href,
+}: {
+  icon: LucideIcon;
+  iconTone: 'rose' | 'blue' | 'teal' | 'amber';
+  label: string;
+  value: ReactNode;
+  detail: ReactNode;
+  href: string;
+}) {
+  const tone = {
+    rose: 'bg-status-alert-tint text-status-alert-ink',
+    blue: 'bg-status-info-tint text-status-info-ink',
+    teal: 'bg-[color-mix(in_srgb,var(--chart-2)_12%,transparent)] text-[var(--chart-2)]',
+    amber: 'bg-status-attention-tint text-status-attention-ink',
+  }[iconTone];
+
   return (
-    <span className="flex items-center gap-1.5">
-      <span className="h-2 w-2 rounded-sm" style={{ background: color }} />
-      {label}
-    </span>
+    <motion.article
+      variants={overviewItem}
+      className="group relative min-h-[136px] overflow-hidden rounded-2xl border border-line bg-surface p-4 shadow-xs transition last:col-span-2 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-paper lg:last:col-span-1"
+    >
+      <Link
+        href={href}
+        className="absolute inset-0 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-inset"
+        aria-label={`${label}: abrir detalhes`}
+      />
+      <div className="relative pointer-events-none">
+        <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${tone}`}>
+          <Icon className="h-[18px] w-[18px]" aria-hidden />
+        </span>
+        <p className="mt-3 text-xs font-semibold text-muted">{label}</p>
+        <div className="mt-0.5 line-clamp-2 text-sm font-bold leading-snug text-fg">
+          {value}
+        </div>
+        <div className="mt-1 line-clamp-1 text-xs text-muted">{detail}</div>
+      </div>
+    </motion.article>
+  );
+}
+
+function DashboardSection({
+  icon: Icon,
+  title,
+  actionLabel,
+  actionHref,
+  children,
+}: {
+  icon: LucideIcon;
+  title: string;
+  actionLabel?: string;
+  actionHref?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="vl-rise rounded-2xl border border-line bg-surface p-5 shadow-xs">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-status-info-tint text-status-info-ink">
+            <Icon className="h-[18px] w-[18px]" aria-hidden />
+          </span>
+          <h2 className="truncate text-base font-bold text-fg">{title}</h2>
+        </div>
+        {actionLabel && actionHref ? (
+          <Link
+            href={actionHref}
+            aria-label={actionLabel}
+            className="inline-flex min-h-11 shrink-0 items-center gap-1 text-sm font-bold text-primary hover:underline"
+          >
+            <span className="hidden sm:inline">{actionLabel}</span>
+            <ChevronRight className="h-4 w-4" aria-hidden />
+          </Link>
+        ) : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function DashedLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className="mt-3 flex min-h-11 items-center justify-center rounded-xl border border-dashed border-line-strong px-4 text-sm font-semibold text-muted transition hover:border-primary hover:bg-status-info-tint hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+    >
+      <Sparkles className="mr-2 h-4 w-4" aria-hidden />
+      {children}
+    </Link>
+  );
+}
+
+function TimelineRow({
+  icon: Icon,
+  title,
+  description,
+  status,
+  tone,
+}: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  status: string;
+  tone: 'ok' | 'attention' | 'alert';
+}) {
+  return (
+    <li className="flex min-h-[66px] items-center gap-3 py-3">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-primary">
+        <Icon className="h-[18px] w-[18px]" aria-hidden />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-bold text-fg">{title}</p>
+        <p className="mt-0.5 truncate text-xs text-muted">{description}</p>
+      </div>
+      <StatusChip tone={tone} label={status} />
+    </li>
+  );
+}
+
+function ShareOption({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+}) {
+  return (
+    <Link
+      href="/compartilhar"
+      className="group flex min-h-[88px] items-start gap-3 rounded-xl border border-line bg-surface-2 p-3 transition hover:border-primary/40 hover:bg-status-info-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+    >
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface text-primary">
+        <Icon className="h-[18px] w-[18px]" aria-hidden />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-sm font-bold text-fg">{title}</span>
+        <span className="mt-0.5 block text-xs leading-snug text-muted">{description}</span>
+      </span>
+      <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-muted transition group-hover:translate-x-0.5 group-hover:text-primary" aria-hidden />
+    </Link>
+  );
+}
+
+function EmptySummary({
+  icon: Icon,
+  title,
+  description,
+  href,
+  action,
+}: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  href: string;
+  action: string;
+}) {
+  return (
+    <div className="flex flex-col items-center rounded-xl bg-surface-2 px-5 py-7 text-center">
+      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-surface text-muted">
+        <Icon className="h-5 w-5" aria-hidden />
+      </span>
+      <p className="mt-3 text-sm font-bold text-fg">{title}</p>
+      <p className="mt-1 max-w-md text-sm leading-relaxed text-muted">{description}</p>
+      <Link
+        href={href}
+        className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground transition hover:bg-primary-hover"
+      >
+        {action}
+        <ArrowRight className="h-4 w-4" aria-hidden />
+      </Link>
+    </div>
   );
 }
