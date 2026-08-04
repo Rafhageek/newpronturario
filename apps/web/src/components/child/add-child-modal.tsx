@@ -60,6 +60,13 @@ export function AddChildModal({ open, onClose }: { open: boolean; onClose: () =>
       setError(parsed.error.issues[0]?.message ?? 'Confira os dados.');
       return;
     }
+    // Guarda contra o `?? ''`: sem usuário carregado, o app mandaria um
+    // responsável vazio e o banco recusaria — com uma mensagem que não ajuda
+    // ninguém. Melhor dizer a verdade e não gastar a tentativa.
+    if (!user?.id) {
+      setError('Sua sessão ainda está carregando. Aguarde um instante e tente de novo.');
+      return;
+    }
     try {
       await add.mutateAsync({
         fullName: parsed.data.fullName,
@@ -75,8 +82,20 @@ export function AddChildModal({ open, onClose }: { open: boolean; onClose: () =>
       toast.success('Criança adicionada. 👶');
       reset();
       onClose();
-    } catch {
-      setError('Não foi possível adicionar. Tente novamente.');
+    } catch (err) {
+      /*
+       * Mostra o motivo REAL. A mensagem genérica escondia um 403 de política
+       * de segurança do banco e custou horas de investigação às cegas — num
+       * app de saúde, erro que não se explica é erro que não se corrige.
+       * `code` e `message` vêm do PostgREST; 42501 é violação de RLS.
+       */
+      const e = err as { message?: string; code?: string; hint?: string } | null;
+      const detalhe = [e?.code, e?.message].filter(Boolean).join(' · ');
+      setError(
+        detalhe
+          ? `Não foi possível adicionar: ${detalhe}`
+          : 'Não foi possível adicionar. Tente novamente.',
+      );
     }
   }
 
