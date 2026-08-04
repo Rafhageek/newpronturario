@@ -46,11 +46,20 @@ await square(ICON, join(WEB_PUB, 'logo.png'), 256, CLEAR, 0.9); // /logo.png (s�
 
 // ── Wordmark horizontal — a partir de img/Logo.png (preserva a proporção) ────
 {
-  const meta = await sharp(LOGO).metadata();
+  // `trim()` corta a margem vazia em volta da arte ANTES de redimensionar.
+  // Sem isso, o arquivo exportado do editor costuma vir com sobra transparente,
+  // e a logo aparece pequena dentro da própria caixa — o desenho ocupa menos
+  // pixels do que parece. Cortando primeiro, a marca preenche o espaço que a
+  // tela reserva para ela.
+  const base = sharp(LOGO).trim();
+  const meta = await base.toBuffer({ resolveWithObject: true });
   const w = 1024;
-  const h = Math.round(((meta.height ?? 1) / (meta.width ?? 1)) * w);
-  await sharp(LOGO).resize(w, h, { fit: 'inside', background: CLEAR }).png().toFile(join(WEB_PUB, 'wordmark.png'));
-  console.log('•', join(WEB_PUB, 'wordmark.png').replace(ROOT, '.'));
+  const h = Math.round((meta.info.height / meta.info.width) * w);
+  await sharp(meta.data)
+    .resize(w, h, { fit: 'inside', background: CLEAR })
+    .png()
+    .toFile(join(WEB_PUB, 'wordmark.png'));
+  console.log('•', join(WEB_PUB, 'wordmark.png').replace(ROOT, '.'), `(${w}x${h}, margem cortada)`);
 }
 
 console.log('OK — ícone gerado de img/icon.png; wordmark de img/Logo.png');

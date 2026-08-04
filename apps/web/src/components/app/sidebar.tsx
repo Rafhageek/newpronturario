@@ -181,10 +181,16 @@ export function AppSidebar({
               className="h-9 w-9 shrink-0"
             />
           ) : (
+            /*
+              56px de altura num cabeçalho de 72px — o máximo que respira sem
+              encostar na borda. A altura do cabeçalho NÃO pode crescer: ela
+              casa com os 72px da topbar, e a linha divisória das duas ficaria
+              desalinhada.
+            */
             <img
               src="/wordmark.png"
               alt="HubPatients"
-              className="h-9 w-auto max-w-[168px] shrink-0 object-contain"
+              className="h-14 w-auto max-w-[170px] shrink-0 object-contain"
             />
           )}
           <button
