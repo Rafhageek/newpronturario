@@ -164,18 +164,28 @@ export function AppSidebar({
       >
         {/* Logo */}
         <div className="flex h-[72px] items-center gap-2.5 border-b border-line px-5">
-          <img
-            src="/logo.png"
-            alt={collapsed ? 'HubPatients' : ''}
-            aria-hidden={collapsed ? undefined : true}
-            width={36}
-            height={36}
-            className="h-9 w-9 shrink-0"
-          />
-          {!collapsed && (
-            <span className="text-lg font-bold tracking-tight text-fg" style={{ fontFamily: 'var(--font-display)' }}>
-              Hub<span className="text-primary">Patients</span>
-            </span>
+          {/*
+            Expandida usa a LOGO COMPLETA (símbolo + escrita, `wordmark.png`,
+            gerada de img/Logo.png). Recolhida cai no símbolo quadrado
+            (`logo.png`, gerado de img/icon.png), que é o único que cabe em
+            76px sem esmagar a escrita.
+            O nome deixou de ser texto HTML ao lado do símbolo: com a logo
+            completa, escrever "HubPatients" de novo duplicaria a marca.
+          */}
+          {collapsed ? (
+            <img
+              src="/logo.png"
+              alt="HubPatients"
+              width={36}
+              height={36}
+              className="h-9 w-9 shrink-0"
+            />
+          ) : (
+            <img
+              src="/wordmark.png"
+              alt="HubPatients"
+              className="h-9 w-auto max-w-[168px] shrink-0 object-contain"
+            />
           )}
           <button
             onClick={() => setCollapsed((c) => !c)}
