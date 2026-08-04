@@ -35,6 +35,21 @@ export function Modal({
   const titleId = useId();
   const descId = useId();
 
+  /*
+   * `onClose` fica num ref, e o efeito depende SÓ de `open`.
+   *
+   * Sem isso, digitar num campo dentro do modal quebrava o formulário: quase
+   * todo pai passa `onClose={() => ...}` inline, então a função é recriada a
+   * cada render; cada tecla digitada re-renderiza, o efeito abaixo rodava de
+   * novo e reposicionava o foco no PRIMEIRO elemento focável — o botão X.
+   * Na prática, a pessoa digitava uma letra e o cursor pulava para o "fechar".
+   *
+   * O ref mantém o handler sempre atual para o Escape, sem fazer o efeito
+   * (que também é quem dá o foco inicial) depender da identidade da função.
+   */
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     if (!open) return;
 
@@ -50,7 +65,7 @@ export function Modal({
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key !== 'Tab' || !panel) return;
@@ -80,7 +95,7 @@ export function Modal({
       document.body.style.overflow = overflow;
       previouslyFocused?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   return (
     <AnimatePresence>
