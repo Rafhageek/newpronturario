@@ -15,7 +15,7 @@ export function SocialButton({
     <button
       type="button"
       onClick={onClick}
-      className="flex h-12 w-full items-center justify-center gap-2.5 rounded-xl border border-neutral-200 bg-white text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 hover:shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-300"
+      className="flex h-[54px] w-full items-center justify-center gap-3 rounded-xl border border-neutral-300 bg-white text-[15px] font-semibold text-neutral-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-neutral-400 hover:bg-neutral-50 hover:shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
     >
       {icon}
       {label}
@@ -37,7 +37,7 @@ export function AppleButton({ onClick }: { onClick: () => void }) {
       type="button"
       onClick={onClick}
       aria-label="Continuar com Apple — em breve"
-      className="flex h-12 w-full items-center justify-center gap-2.5 rounded-xl bg-black text-sm font-semibold text-white shadow-sm transition hover:bg-neutral-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-400"
+      className="flex h-[54px] w-full items-center justify-center gap-3 rounded-xl bg-black text-[15px] font-semibold text-white shadow-sm transition hover:bg-neutral-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-500"
     >
       <AppleIcon />
       Continuar com Apple

@@ -456,11 +456,62 @@ export interface Database {
           card_number: string | null;
           valid_until: string | null;
           is_primary: boolean;
+          plan_name: string | null;
+          accommodation: string | null;
+          support_phone: string | null;
+          /** Atalho para o portal da operadora — NÃO é integração (migração 0044). */
+          portal_url: string | null;
+          ans_code: string | null;
           created_at: string;
           updated_at: string;
         },
         'id' | 'created_at' | 'updated_at',
-        'card_number' | 'valid_until' | 'is_primary'
+        | 'card_number'
+        | 'valid_until'
+        | 'is_primary'
+        | 'plan_name'
+        | 'accommodation'
+        | 'support_phone'
+        | 'portal_url'
+        | 'ans_code'
+      >;
+      insurance_payments: Table<
+        {
+          id: string;
+          patient_id: string;
+          plan_id: string | null;
+          reference_month: string | null;
+          due_date: string;
+          paid_at: string | null;
+          amount_cents: number;
+          method: 'boleto' | 'pix' | 'debito' | 'cartao' | 'outro' | null;
+          notes: string | null;
+          receipt_path: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        'id' | 'created_at' | 'updated_at',
+        'plan_id' | 'reference_month' | 'paid_at' | 'method' | 'notes' | 'receipt_path'
+      >;
+      insurance_claims: Table<
+        {
+          id: string;
+          patient_id: string;
+          plan_id: string | null;
+          kind: 'reembolso' | 'autorizacao' | 'outro';
+          protocol: string | null;
+          title: string;
+          requested_at: string;
+          status: 'aberto' | 'em_analise' | 'aprovado' | 'negado' | 'pago';
+          status_at: string | null;
+          amount_cents: number | null;
+          notes: string | null;
+          document_path: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        'id' | 'created_at' | 'updated_at' | 'status',
+        'plan_id' | 'protocol' | 'status_at' | 'amount_cents' | 'notes' | 'document_path'
       >;
       drug_interactions: Table<
         {

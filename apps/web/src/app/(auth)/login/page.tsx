@@ -13,7 +13,7 @@ import { GoogleIcon, AppleButton, SocialButton } from '@/components/auth-social'
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="h-96 animate-pulse rounded-2xl bg-neutral-100" />}>
+    <Suspense fallback={<div className="h-[620px] animate-pulse rounded-2xl bg-neutral-100" />}>
       <LoginForm />
     </Suspense>
   );
@@ -72,17 +72,22 @@ function LoginForm() {
 
   return (
     <div className="vl-rise">
-      <div className="mb-7">
+      <div className="mb-8 text-center">
+        <span className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-trust-50 text-primary ring-1 ring-trust-100">
+          <Lock className="h-5 w-5" aria-hidden />
+        </span>
         <h1
-          className="text-3xl font-bold tracking-tight text-neutral-900"
+          className="text-[2rem] font-bold tracking-[-0.035em] text-neutral-950 sm:text-4xl"
           style={{ fontFamily: 'var(--font-display)' }}
         >
           Bem-vindo de volta
         </h1>
-        <p className="mt-1.5 text-sm text-neutral-500">Acesse seu prontuário com segurança.</p>
+        <p className="mt-2 text-[15px] text-neutral-500">
+          Acesse seu prontuário com segurança.
+        </p>
       </div>
 
-      <div className="space-y-2.5">
+      <div className="space-y-3">
         <SocialButton icon={<GoogleIcon />} label="Continuar com Google" onClick={signInWithGoogle} />
         <AppleButton onClick={() => toast.info('Login com Apple chega em breve — estamos implementando! 🍎')} />
       </div>
@@ -93,16 +98,19 @@ function LoginForm() {
         <span className="h-px flex-1 bg-neutral-200" />
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
         <Field label="E-mail" htmlFor="email" error={errors.email?.message}>
           <div className="relative">
-            <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
+            <Mail className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-neutral-500" aria-hidden />
             <input
               id="email"
               type="email"
               autoComplete="email"
-              placeholder="voce@email.com"
-              className="h-12 w-full rounded-xl border border-line-strong pl-10 pr-3 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-500 focus:border-primary focus:ring-4 focus:ring-trust-100"
+              aria-required="true"
+              aria-invalid={Boolean(errors.email)}
+              aria-describedby={errors.email ? 'email-error' : undefined}
+              placeholder="você@email.com"
+              className="h-[54px] w-full rounded-xl border border-neutral-300 bg-white pl-12 pr-4 text-[15px] text-neutral-950 outline-none transition placeholder:text-neutral-400 hover:border-neutral-400 focus:border-primary focus:ring-4 focus:ring-trust-100"
               {...register('email')}
             />
           </div>
@@ -122,22 +130,25 @@ function LoginForm() {
           }
         >
           <div className="relative">
-            <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
+            <Lock className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-neutral-500" aria-hidden />
             <input
               id="password"
               type={showPassword ? 'text' : 'password'}
               autoComplete="current-password"
+              aria-required="true"
+              aria-invalid={Boolean(errors.password)}
+              aria-describedby={errors.password ? 'password-error' : undefined}
               placeholder="••••••••"
-              className="h-12 w-full rounded-xl border border-line-strong pl-10 pr-10 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-500 focus:border-primary focus:ring-4 focus:ring-trust-100"
+              className="h-[54px] w-full rounded-xl border border-neutral-300 bg-white pl-12 pr-14 text-[15px] text-neutral-950 outline-none transition placeholder:text-neutral-400 hover:border-neutral-400 focus:border-primary focus:ring-4 focus:ring-trust-100"
               {...register('password')}
             />
             <button
               type="button"
               onClick={() => setShowPassword((s) => !s)}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-neutral-500 hover:text-neutral-700"
-              aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+              className="absolute right-1.5 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
+              aria-label={showPassword ? 'Ocultar caracteres digitados' : 'Exibir caracteres digitados'}
             >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              {showPassword ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
             </button>
           </div>
         </Field>
@@ -145,7 +156,8 @@ function LoginForm() {
         <button
           type="submit"
           disabled={submitting}
-          className="h-12 w-full rounded-xl bg-primary text-sm font-semibold text-white shadow-sm transition hover:bg-trust-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60"
+          aria-busy={submitting || undefined}
+          className="h-[54px] w-full rounded-xl bg-primary text-[15px] font-bold text-white shadow-[0_8px_20px_-8px_rgba(4,66,191,0.75)] transition hover:bg-trust-700 hover:shadow-[0_10px_24px_-8px_rgba(4,66,191,0.8)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60"
         >
           {submitting ? (
             <span className="inline-flex items-center gap-2">
@@ -157,9 +169,9 @@ function LoginForm() {
         </button>
       </form>
 
-      <div className="mt-5 flex items-center justify-center gap-1.5 text-xs text-neutral-500">
-        <ShieldCheck className="h-3.5 w-3.5 text-emerald-700" />
-        Criptografado · Conformidade LGPD
+      <div className="mt-5 flex items-center justify-center gap-2 text-xs font-medium text-neutral-500">
+        <ShieldCheck className="h-4 w-4 text-emerald-700" aria-hidden />
+        Acesso protegido · Privacidade conforme a LGPD
       </div>
 
       <p className="mt-6 text-center text-sm text-neutral-500">
@@ -188,14 +200,14 @@ function Field({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <label htmlFor={htmlFor} className="block text-sm font-medium text-neutral-700">
+        <label htmlFor={htmlFor} className="block text-sm font-semibold text-neutral-700">
           {label}
         </label>
         {aside}
       </div>
       {children}
       {error ? (
-        <p className="text-xs text-semaphore-alert" role="alert">
+        <p id={`${htmlFor}-error`} className="text-xs font-medium text-semaphore-alert" role="alert">
           {error}
         </p>
       ) : null}

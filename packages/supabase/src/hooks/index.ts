@@ -28,3 +28,4 @@ export * from './timeline';
 export * from './sharing';
 export * from './doses';
 export * from './dose-guardian';
+export * from './insurance-finance';

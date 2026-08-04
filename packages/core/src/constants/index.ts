@@ -1,5 +1,6 @@
 export * from './plans';
 export * from './whats-new';
+export * from './insurance';
 export * from './ethics';
 export * from './health';
 export * from './exams';

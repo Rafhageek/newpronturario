@@ -12,6 +12,7 @@ import {
   UsersRound,
   GraduationCap,
   ShieldCheck,
+  CreditCard,
   Settings,
   Baby,
   Blocks,
@@ -66,6 +67,7 @@ export const NAV: NavItem[] = [
   // Meu prontuário: tarefas clínicas mais frequentes ficam sempre visíveis.
   { href: '/dashboard', label: 'Visão geral', icon: LayoutDashboard, section: 'Meu prontuário', status: 'stable' },
   { href: '/linha-do-tempo', label: 'Linha do tempo', icon: History, section: 'Meu prontuário', status: 'stable' },
+  { href: '/plano-saude', label: 'Plano de saúde', icon: CreditCard, section: 'Meu prontuário', status: 'stable' },
   { href: '/diario', label: 'Diário clínico', icon: NotebookPen, section: 'Meu prontuário', status: 'stable' },
   { href: '/medicamentos', label: 'Medicamentos', icon: Pill, section: 'Meu prontuário', status: 'stable' },
   { href: '/exames', label: 'Exames', icon: FlaskConical, section: 'Meu prontuário', status: 'stable' },

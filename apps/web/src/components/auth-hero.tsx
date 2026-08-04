@@ -1,162 +1,228 @@
-import { Activity, NotebookPen, ShieldCheck, User } from 'lucide-react';
-import { LOOP_LIMIT } from '@hubpatients/ui-tokens';
+import type { LucideIcon } from 'lucide-react';
+import {
+  BarChart3,
+  Check,
+  FileHeart,
+  HeartPulse,
+  LockKeyhole,
+  NotebookPen,
+  ShieldCheck,
+} from 'lucide-react';
 
 /**
- * Painel de marca (lado esquerdo do split-screen de autenticação).
- * Ilustração: coração + linha de ECG, anéis orbitais e nós de funcionalidades.
- * Apenas decorativo — sem PHI.
+ * Painel institucional da autenticação.
  *
- * MOVIMENTO (WCAG SC 2.2.2 — "Pause, Stop, Hide"): este painel fica LADO A LADO
- * com o formulário de login, então nada aqui pode se mover indefinidamente. Toda
- * animação é FINITA e o total de movimento fica abaixo dos 5 s do critério —
- * assim não é preciso oferecer um botão de pausar. Ver `LOOP_LIMIT` e P6 em
- * packages/ui-tokens/src/motion.ts.
- *
- * O bloco global `@media (prefers-reduced-motion: reduce)` de globals.css já
- * cobre estas animações (`animation-duration: 0.001ms` + `iteration-count: 1`);
- * como todas usam `fill-mode: both`, o estado de repouso aparece imediatamente.
+ * A ilustração é vetorial, decorativa e não contém PHI. Não há movimento em
+ * loop: as únicas entradas vêm de `vl-rise`, que já respeita redução de
+ * movimento no sistema global.
  */
 export function AuthHero() {
   return (
-    <div
-      className="relative hidden overflow-hidden lg:flex lg:w-1/2 lg:flex-col lg:justify-between lg:p-12 xl:p-14"
+    <aside
+      aria-label="HubPatients — prontuário pessoal de saúde"
+      className="relative hidden min-h-screen overflow-hidden lg:flex lg:w-[54%] lg:min-w-[540px] lg:flex-col lg:justify-between lg:px-10 lg:py-9 xl:px-14 xl:py-10 2xl:px-16"
       style={{
         background:
-          'radial-gradient(120% 120% at 15% 0%, #0511F2 0%, #0442BF 38%, #052C80 72%, #071F5C 100%)',
+          'radial-gradient(75% 55% at 12% 12%, #0b4ff0 0%, transparent 68%), radial-gradient(55% 60% at 88% 38%, rgba(24,98,236,0.55), transparent 72%), linear-gradient(145deg, #0619d5 0%, #062f9f 48%, #061d64 100%)',
       }}
     >
-      {/* textura sutil de grão + glow */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-[0.06]"
-        style={{
-          backgroundImage:
-            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
-        }}
-      />
+      <HeroAtmosphere />
 
-      {/* Logo */}
-      <div className="vl-rise relative z-10 flex items-center gap-2.5" style={{ animationDelay: '40ms' }}>
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white p-1 ring-1 ring-white/25 shadow-sm">
-          <img src="/logo.png" alt="" className="h-full w-full object-contain" />
+      <div
+        className="vl-rise relative z-10 flex items-center gap-3"
+        style={{ animationDelay: '40ms' }}
+      >
+        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white p-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.2)] ring-1 ring-white/40">
+          <img src="/logo.png" alt="" aria-hidden className="h-full w-full object-contain" />
         </span>
-        <span className="text-lg font-bold tracking-tight text-white" style={{ fontFamily: 'var(--font-display)' }}>
+        <span
+          className="text-2xl font-bold tracking-tight text-white"
+          style={{ fontFamily: 'var(--font-display)' }}
+        >
           HubPatients
         </span>
       </div>
 
-      {/* Ilustração orbital */}
-      <Illustration />
+      <ClinicalVaultIllustration />
 
-      {/* Conteúdo */}
-      <div className="relative z-10">
+      <div className="relative z-10 max-w-[620px]">
         <span
-          className="vl-rise inline-block rounded-full bg-white/10 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-trust-100 ring-1 ring-white/15 backdrop-blur"
+          className="vl-rise inline-flex items-center gap-2 rounded-full border border-cyan-200/25 bg-cyan-300/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-cyan-100 backdrop-blur-sm"
           style={{ animationDelay: '120ms' }}
         >
-          Prontuário eletrônico colaborativo
+          <ShieldCheck className="h-4 w-4 text-health-300" aria-hidden />
+          Prontuário pessoal de saúde
         </span>
+
         <h1
-          className="vl-rise mt-5 text-5xl font-extrabold leading-[1.04] tracking-tight text-white xl:text-6xl"
-          style={{ fontFamily: 'var(--font-display)', animationDelay: '200ms' }}
+          className="vl-rise mt-5 text-[clamp(2.75rem,4.2vw,4.5rem)] font-extrabold leading-[0.98] tracking-[-0.045em] text-white"
+          style={{ fontFamily: 'var(--font-display)', animationDelay: '180ms' }}
         >
           Sua saúde,
           <br />
           seu controle,
           <br />
-          <span className="text-health-400">seus dados.</span>
+          <span className="text-health-300">seus dados.</span>
         </h1>
+
         <p
-          className="vl-rise mt-5 max-w-sm text-[15px] leading-relaxed text-trust-100/80"
-          style={{ animationDelay: '280ms' }}
+          className="vl-rise mt-5 max-w-lg text-base leading-relaxed text-blue-100/85"
+          style={{ animationDelay: '240ms' }}
         >
-          Registre sua jornada de saúde e compartilhe com quem você escolher, na medida que quiser.
+          Organize sua jornada de saúde e compartilhe informações somente com quem
+          você escolher, com segurança e privacidade.
         </p>
 
-        <div className="vl-rise mt-8 flex flex-wrap gap-3" style={{ animationDelay: '360ms' }}>
-          <FeaturePill icon={<NotebookPen className="h-4 w-4" />} label="Diário clínico" />
-          <FeaturePill icon={<Activity className="h-4 w-4" />} label="Análise de dados" />
+        <div
+          className="vl-rise mt-7 flex flex-wrap gap-3"
+          style={{ animationDelay: '300ms' }}
+        >
+          <FeaturePill icon={NotebookPen} label="Diário clínico" />
+          <FeaturePill icon={BarChart3} label="Análise de dados" />
         </div>
       </div>
-    </div>
+    </aside>
   );
 }
 
-function FeaturePill({ icon, label }: { icon: React.ReactNode; label: string }) {
+function HeroAtmosphere() {
   return (
-    <div className="flex items-center gap-2.5 rounded-xl bg-white/10 px-4 py-3 text-sm font-medium text-white ring-1 ring-white/15 backdrop-blur transition hover:bg-white/15">
-      <span className="text-health-300">{icon}</span>
-      {label}
-    </div>
-  );
-}
-
-function Illustration() {
-  return (
-    <div className="relative z-10 mx-auto my-8 flex aspect-square w-full max-w-[360px] items-center justify-center">
-      {/* glow central — 4 batidas (LOOP_LIMIT) de 1,2 s = 4,8 s e para.
-          `both` congela no keyframe 100% (opacity .55 / scale 1), que é
-          exatamente o estado de repouso desejado: não para no meio do ciclo. */}
+    <>
       <div
         aria-hidden
-        className="absolute h-40 w-40 rounded-full blur-3xl"
+        className="pointer-events-none absolute inset-0 opacity-[0.075]"
         style={{
-          background: 'radial-gradient(circle, rgba(52,211,153,0.45), transparent 70%)',
-          animation: `vl-pulse-glow 1.2s ease-in-out ${LOOP_LIMIT} both`,
+          backgroundImage:
+            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='130' height='130'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
         }}
       />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute right-[8%] top-[14%] h-52 w-52 opacity-20"
+        style={{
+          backgroundImage: 'radial-gradient(circle, white 1px, transparent 1.5px)',
+          backgroundSize: '14px 14px',
+          maskImage: 'radial-gradient(circle, black, transparent 72%)',
+        }}
+      />
+      <svg
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-[190px] w-full opacity-25"
+        viewBox="0 0 900 190"
+        preserveAspectRatio="none"
+        fill="none"
+      >
+        {Array.from({ length: 9 }, (_, index) => (
+          <path
+            key={index}
+            d={`M-40 ${178 - index * 7} C 170 ${92 - index * 4}, 320 ${235 - index * 10}, 520 ${128 - index * 6} S 760 ${65 + index * 4}, 950 ${120 - index * 5}`}
+            stroke={index % 2 === 0 ? '#45E3C1' : '#5E9BFF'}
+            strokeWidth="1.2"
+          />
+        ))}
+      </svg>
+    </>
+  );
+}
 
-      {/* Anéis orbitais — ESTÁTICOS de propósito.
-          Antes giravam em loop infinito (60 s e 45 s). Mesmo limitados a
-          LOOP_LIMIT seriam 4 min e 3 min de movimento periférico ao lado do
-          formulário — muito além dos 5 s da SC 2.2.2, e movimento periférico é
-          gatilho vestibular (P5). Sendo decoração pura, o giro foi REMOVIDO: um
-          círculo tracejado parado é visualmente idêntico ao girando. */}
-      <svg viewBox="0 0 360 360" className="absolute inset-0 h-full w-full" fill="none">
-        <circle cx="180" cy="180" r="150" stroke="rgba(255,255,255,0.14)" strokeWidth="1" strokeDasharray="2 8" />
-        <circle cx="180" cy="180" r="112" stroke="rgba(255,255,255,0.18)" strokeWidth="1" strokeDasharray="3 6" />
-        <circle cx="180" cy="180" r="78" stroke="rgba(255,255,255,0.22)" strokeWidth="1.5" />
+function ClinicalVaultIllustration() {
+  return (
+    <div className="vl-rise relative z-10 mx-auto my-4 flex w-full max-w-[500px] flex-1 items-center justify-center py-2 2xl:max-w-[560px]">
+      <svg
+        viewBox="0 0 560 390"
+        className="h-auto w-full"
+        role="img"
+        aria-label="Ilustração de um prontuário digital protegido"
+      >
+        <defs>
+          <linearGradient id="auth-folder-front" x1="0" y1="0" x2="1" y2="1">
+            <stop stopColor="#2666FF" />
+            <stop offset="1" stopColor="#072AA8" />
+          </linearGradient>
+          <linearGradient id="auth-folder-back" x1="0" y1="0" x2="1" y2="1">
+            <stop stopColor="#86AFFF" />
+            <stop offset="1" stopColor="#2B5FE2" />
+          </linearGradient>
+          <linearGradient id="auth-shield" x1="0" y1="0" x2="1" y2="1">
+            <stop stopColor="#56E7C4" />
+            <stop offset="1" stopColor="#15A77F" />
+          </linearGradient>
+        </defs>
+
+        <ellipse cx="280" cy="208" rx="205" ry="146" fill="none" stroke="#7CB0FF" strokeOpacity=".36" strokeDasharray="4 8" />
+        <ellipse cx="280" cy="208" rx="155" ry="112" fill="none" stroke="#7CB0FF" strokeOpacity=".2" />
+        <circle cx="280" cy="208" r="112" fill="#2872FF" fillOpacity=".16" />
+
+        <g fill="#86C5FF">
+          <circle cx="94" cy="111" r="3" />
+          <circle cx="443" cy="94" r="3" />
+          <circle cx="481" cy="237" r="3" />
+          <circle cx="137" cy="315" r="3" />
+        </g>
+
+        <g>
+          <path d="M172 158h103l22 25h103a18 18 0 0 1 18 18v112a22 22 0 0 1-22 22H164a22 22 0 0 1-22-22V180a22 22 0 0 1 22-22h8Z" fill="url(#auth-folder-back)" />
+
+          <g transform="rotate(4 286 158)">
+            <rect x="210" y="84" width="174" height="121" rx="13" fill="#F8FBFF" />
+            <circle cx="244" cy="125" r="17" fill="#DCE8FF" />
+            <circle cx="244" cy="120" r="7" fill="#2B63E8" />
+            <path d="M231 140c3-10 23-10 26 0v5h-26v-5Z" fill="#2B63E8" />
+            <rect x="273" y="110" width="69" height="8" rx="4" fill="#C8D7F5" />
+            <rect x="273" y="126" width="50" height="7" rx="3.5" fill="#DFE7F6" />
+            <path d="M271 166h28l7-17 9 34 9-23 7 12h29" stroke="#255BE1" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+          </g>
+
+          <path d="M154 210h107l23 24h126a18 18 0 0 1 18 18v69a24 24 0 0 1-24 24H160a24 24 0 0 1-24-24v-93a18 18 0 0 1 18-18Z" fill="url(#auth-folder-front)" />
+          <rect x="208" y="263" width="60" height="18" rx="5" fill="#EAF2FF" />
+          <rect x="229" y="242" width="18" height="60" rx="5" fill="#EAF2FF" />
+
+          <g transform="translate(350 239)">
+            <path d="M43 0c12 9 28 13 43 15v35c0 29-17 51-43 65C17 101 0 79 0 50V15C15 13 31 9 43 0Z" fill="url(#auth-shield)" stroke="#B9FFEA" strokeWidth="3" />
+            <path d="m24 54 13 13 26-30" stroke="white" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
+          </g>
+        </g>
       </svg>
 
-      {/* coração + ECG */}
-      <svg viewBox="0 0 200 200" className="relative h-44 w-44" fill="none">
-        <path
-          d="M100 168c-7-6-58-42-72-78C16 58 30 32 56 32c18 0 30 12 44 28 14-16 26-28 44-28 26 0 40 26 28 58-14 36-65 72-72 78Z"
-          fill="rgba(255,255,255,0.04)"
-          stroke="rgba(255,255,255,0.85)"
-          strokeWidth="2.5"
-          strokeLinejoin="round"
-        />
-        {/* Uma única passada de 3,5 s (< 5 s da SC 2.2.2) e para. O traço tem
-            ~207 unidades e o dash é 260/260: no fim (offset −1000 ≡ 40 dentro
-            do período de 520) o segmento aceso cobre a linha inteira, ou seja,
-            o repouso é o ECG COMPLETO — não um traço cortado no meio. */}
-        <path
-          d="M40 104h28l12-26 18 52 14-34 10 18h38"
-          stroke="#6EE7B7"
-          strokeWidth="3.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeDasharray="260"
-          style={{ animation: 'vl-dash 3.5s linear 1 both' }}
-        />
-      </svg>
-
-      {/* nós de funcionalidades */}
-      <Node className="left-1/2 top-0 -translate-x-1/2"><User className="h-4 w-4" /></Node>
-      <Node className="right-0 top-1/2 -translate-y-1/2"><Activity className="h-4 w-4" /></Node>
-      <Node className="bottom-0 left-1/2 -translate-x-1/2"><NotebookPen className="h-4 w-4" /></Node>
-      <Node className="left-0 top-1/2 -translate-y-1/2"><ShieldCheck className="h-4 w-4" /></Node>
+      <OrbitNode className="left-[8%] top-[23%]" icon={LockKeyhole} />
+      <OrbitNode className="right-[7%] top-[28%]" icon={BarChart3} />
+      <OrbitNode className="left-1/2 top-[3%] -translate-x-1/2" icon={HeartPulse} />
+      <OrbitNode className="bottom-[4%] left-1/2 -translate-x-1/2" icon={FileHeart} />
     </div>
   );
 }
 
-function Node({ children, className }: { children: React.ReactNode; className?: string }) {
+function OrbitNode({
+  icon: Icon,
+  className,
+}: {
+  icon: LucideIcon;
+  className: string;
+}) {
   return (
     <span
-      className={`absolute flex h-10 w-10 items-center justify-center rounded-full bg-white/12 text-white ring-1 ring-white/25 backdrop-blur ${className}`}
+      aria-hidden
+      className={`absolute flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-blue-400/15 text-white shadow-[0_10px_30px_rgba(0,8,61,0.25)] backdrop-blur-md ${className}`}
     >
-      {children}
+      <Icon className="h-5 w-5" />
     </span>
+  );
+}
+
+function FeaturePill({
+  icon: Icon,
+  label,
+}: {
+  icon: LucideIcon;
+  label: string;
+}) {
+  return (
+    <div className="flex min-h-12 items-center gap-2.5 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm font-semibold text-white backdrop-blur-sm">
+      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-health-400/15 text-health-300">
+        <Icon className="h-4 w-4" aria-hidden />
+      </span>
+      {label}
+      <Check className="ml-1 h-3.5 w-3.5 text-blue-200/80" aria-hidden />
+    </div>
   );
 }
