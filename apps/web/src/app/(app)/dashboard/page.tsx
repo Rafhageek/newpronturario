@@ -53,7 +53,6 @@ import { useActiveProfile } from '@/components/profile-context';
 import { ConstancyCard } from '@/components/dashboard/constancy-card';
 import { WaterCard } from '@/components/dashboard/water-card';
 import { TrendChip } from '@/components/dashboard/trend-chip';
-import { SetupChecklist } from '@/components/dashboard/setup-checklist';
 import { Spinner } from '@/components/ui/spinner';
 import { ErrorState } from '@/components/ui/error-state';
 import { StatusChip, Trend } from '@/components/dashboard/metric-cards';
@@ -235,24 +234,6 @@ export default function DashboardPage() {
     }
   }
 
-  const setupSteps = [
-    {
-      label: 'Complete seu perfil (nascimento e sexo)',
-      href: '/perfil',
-      done:
-        Boolean(profile?.date_of_birth) && profile?.biological_sex !== 'unspecified',
-    },
-    {
-      label: 'Registre suas alergias',
-      href: '/perfil',
-      done: allergies.length > 0,
-    },
-    {
-      label: 'Adicione um medicamento',
-      href: '/medicamentos',
-      done: meds.length > 0,
-    },
-  ];
 
   return (
     <div className="mx-auto max-w-[1440px] space-y-5 pb-10">
@@ -603,8 +584,6 @@ export default function DashboardPage() {
           </DashboardSection>
         </aside>
       </div>
-
-      <SetupChecklist steps={setupSteps} />
 
       <section aria-labelledby="acompanhamento-title">
         <div className="mb-3 flex items-end justify-between gap-4">

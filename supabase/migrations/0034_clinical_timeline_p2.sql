@@ -244,13 +244,18 @@ begin
     from public.vaccinations va
     where va.patient_id = p_patient_id and v_is_owner
   ),
+  -- O alias `e.` NÃO é cosmético: `occurred_at` e `event_key` também são nomes
+  -- das colunas de RETURNS TABLE, e o PL/pgSQL os enxerga como variáveis. Sem
+  -- qualificar, o PostgreSQL recusa a consulta inteira com
+  -- "column reference \"occurred_at\" is ambiguous" (42702) — e a linha do tempo
+  -- deixa de carregar para todo mundo. Manter sempre qualificado aqui.
   filtered as (
     select *
-    from events
+    from events e
     where
       p_before_at is null
-      or (occurred_at, event_key) < (p_before_at, p_before_key)
-    order by occurred_at desc, event_key desc
+      or (e.occurred_at, e.event_key) < (p_before_at, p_before_key)
+    order by e.occurred_at desc, e.event_key desc
     limit v_limit + 1
   )
   select
