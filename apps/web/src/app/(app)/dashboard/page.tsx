@@ -47,6 +47,8 @@ import {
   classifyBloodPressure,
   computeBMI,
   DISCLAIMERS,
+  estadoAgregado,
+  estadoSecao,
   formatVital,
 } from '@hubpatients/core';
 import { useActiveProfile } from '@/components/profile-context';
@@ -115,7 +117,7 @@ function formatTime(value: string | null): string | null {
 }
 
 export default function DashboardPage() {
-  const { patientId, ownId, isViewingDependent } = useActiveProfile();
+  const { patientId, ownId, isViewingDependent, isPatientKnown } = useActiveProfile();
   const profileQuery = useProfile(patientId || undefined);
   const dashboardQuery = useDashboard(patientId || undefined);
   const bpQuery = useVitalsRange(patientId || undefined, 'blood_pressure', 30);
@@ -141,11 +143,28 @@ export default function DashboardPage() {
     conditionsQuery,
     timelineQuery,
   ];
-  const isInitialLoading =
-    Boolean(patientId) && dashboardQueries.some((query) => query.isLoading);
-  const hasLoadError = dashboardQueries.some((query) => query.isError);
+  /*
+   * Este painel escreve "Nenhuma registrada" em Alergias e em Condições de
+   * saúde. Antes ele decidia isso com `isLoading`/`isError`, e as duas flags
+   * são `false` ao mesmo tempo enquanto `patientId` está vazio (consulta
+   * `enabled: false` no React Query v5) — ou seja, as duas travas eram
+   * contornadas juntas, em TODO carregamento do painel, e a tela afirmava
+   * ausência de alergia sobre um paciente que ainda não tinha sido
+   * identificado. Quem decide agora é `estadoSecao`, que trata "não sei de
+   * quem é" como estado próprio. Regra e testes em
+   * `packages/core/src/utils/estado-secao.ts`.
+   */
+  const estado = estadoAgregado(
+    dashboardQueries.map((query) =>
+      estadoSecao({
+        sujeitoConhecido: isPatientKnown,
+        isSuccess: query.isSuccess,
+        isError: query.isError,
+      }),
+    ),
+  );
 
-  if (isInitialLoading) {
+  if (estado === 'sujeito-indefinido' || estado === 'carregando') {
     return (
       <div
         className="flex min-h-[50vh] items-center justify-center"
@@ -157,7 +176,7 @@ export default function DashboardPage() {
     );
   }
 
-  if (hasLoadError) {
+  if (estado === 'falhou') {
     return (
       <ErrorState
         message="Não foi possível carregar todo o seu resumo. Nenhuma ausência de informação será tratada como resultado normal."

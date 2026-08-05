@@ -10,7 +10,9 @@ import { Button, Field, Input } from '@/components/ui';
 import { confirmAction } from '@/lib/confirm';
 
 export function AllergiesSection({ patientId }: { patientId: string }) {
-  const { data: allergies } = useAllergies(patientId);
+  // `isSuccess`, e não "não está carregando": consulta que falhou também
+  // devolve lista vazia, e alergia é o dado em que essa confusão custa caro.
+  const { data: allergies, isSuccess, isError } = useAllergies(patientId);
   const { create, remove } = useAllergyMutations(patientId);
   const { register, handleSubmit, reset, formState: { errors } } = useForm<AllergyInput>({
     resolver: zodResolver(allergySchema),
@@ -61,8 +63,14 @@ export function AllergiesSection({ patientId }: { patientId: string }) {
             );
           })}
         </ul>
-      ) : (
+      ) : isSuccess ? (
         <p className="text-sm text-muted">Nenhuma alergia registrada.</p>
+      ) : (
+        <p className="text-sm text-muted">
+          {isError
+            ? 'Não foi possível carregar esta seção. O prontuário pode ter registros que não aparecem aqui.'
+            : 'Carregando suas alergias…'}
+        </p>
       )}
 
       <form onSubmit={handleSubmit(onAdd)} className="grid gap-3 rounded-xl border border-line bg-surface-2 p-3 sm:grid-cols-2" noValidate>

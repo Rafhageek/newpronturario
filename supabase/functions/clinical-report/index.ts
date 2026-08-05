@@ -25,6 +25,13 @@
 //     fragmento da barra de endereço.
 //   * Nada de PHI é logado. Respostas sempre `Cache-Control: private, no-store`.
 //
+// VERACIDADE (o papel não pode afirmar o que não confirmou)
+//   * Consulta que FALHA nunca vira lista vazia. "Nenhuma alergia registrada."
+//     é lido como fato clínico por quem vai prescrever.
+//   * Alergias e medicamentos são fail-closed: sem eles, nenhum relatório sai.
+//   * As demais seções avisam que não carregaram e o relatório segue — a pessoa
+//     está na porta do consultório, e o resto do que ela registrou ainda serve.
+//
 // USO
 //   POST  /functions/v1/clinical-report            (web — header Authorization)
 //         body: { patientId?, days?: 30|90, sections?: string[],
@@ -395,7 +402,33 @@ interface ReportData {
   exams: ExamRow[];
   diary: DiaryRow[];
   timeline: TimelineRow[];
+  /**
+   * Quais consultas realmente responderam. Lista vazia só pode virar "nenhum
+   * registro" quando o banco confirmou que não há nada — sem isso, uma consulta
+   * que falhou vira uma afirmação falsa no papel que o médico vai ler.
+   *
+   * Alergias e medicamentos não estão aqui de propósito: para eles a resposta
+   * não é avisar, é não gerar o relatório (ver `loadReportData`).
+   */
+  loaded: {
+    vitals: boolean;
+    exams: boolean;
+    diary: boolean;
+    profile: boolean;
+  };
 }
+
+// Mesma frase do PDF do prontuário no mobile (apps/mobile/app/(tabs)/perfil.tsx).
+// Repetida palavra por palavra de propósito: o paciente não pode encontrar duas
+// redações diferentes para a mesma situação em dois documentos do mesmo app.
+const NAO_CARREGADO =
+  '<p class="empty">Não foi possível carregar esta seção. O prontuário pode ter registros que não aparecem aqui.</p>';
+
+// A identificação não é uma seção de lista — a frase acima falaria de "registros
+// que não aparecem", que não é o caso aqui. O silêncio é que seria ruim: sem
+// aviso, o nome cai no genérico "Paciente" e a idade some sem explicação.
+const IDENTIFICACAO_NAO_CARREGADA =
+  '<p class="empty">Não foi possível carregar o nome e a data de nascimento. Confirme a identificação com o paciente.</p>';
 
 function sectionAlergias(rows: AllergyRow[]): string {
   const shown = rows.slice(0, CAP.alergias);
@@ -448,7 +481,11 @@ function sectionMedicamentos(rows: MedicationRow[]): string {
   return `<section><h2>Medicamentos em uso</h2>${body}${more}</section>`;
 }
 
-function sectionVitais(rows: VitalRow[], days: number): string {
+function sectionVitais(rows: VitalRow[], days: number, loaded: boolean): string {
+  if (!loaded) {
+    return `<section><h2>Medidas registradas</h2>${NAO_CARREGADO}</section>`;
+  }
+
   // Agrupa por tipo mantendo a ordem (mais recente primeiro).
   const byType = new Map<string, VitalRow[]>();
   for (const row of rows) {
@@ -489,7 +526,11 @@ function sectionVitais(rows: VitalRow[], days: number): string {
   return `<section><h2>Medidas registradas</h2><ul>${items}</ul></section>`;
 }
 
-function sectionExames(rows: ExamRow[], days: number): string {
+function sectionExames(rows: ExamRow[], days: number, loaded: boolean): string {
+  if (!loaded) {
+    return `<section><h2>Exames no período</h2>${NAO_CARREGADO}</section>`;
+  }
+
   const shown = rows.slice(0, CAP.exames);
   const body = shown.length
     ? `<ul>${shown
@@ -514,7 +555,11 @@ function sectionExames(rows: ExamRow[], days: number): string {
   return `<section><h2>Exames no período</h2>${body}${more}</section>`;
 }
 
-function sectionDiario(rows: DiaryRow[], days: number): string {
+function sectionDiario(rows: DiaryRow[], days: number, loaded: boolean): string {
+  if (!loaded) {
+    return `<section><h2>Diário — o que o paciente anotou</h2>${NAO_CARREGADO}</section>`;
+  }
+
   const shown = rows.slice(0, CAP.diario);
   const body = shown.length
     ? `<ul>${shown
@@ -576,9 +621,9 @@ function buildReportBody(
   for (const key of sections) {
     if (key === 'alergias') rendered.push(sectionAlergias(data.allergies));
     else if (key === 'medicamentos') rendered.push(sectionMedicamentos(data.medications));
-    else if (key === 'vitais') rendered.push(sectionVitais(data.vitals, days));
-    else if (key === 'exames') rendered.push(sectionExames(data.exams, days));
-    else if (key === 'diario') rendered.push(sectionDiario(data.diary, days));
+    else if (key === 'vitais') rendered.push(sectionVitais(data.vitals, days, data.loaded.vitals));
+    else if (key === 'exames') rendered.push(sectionExames(data.exams, days, data.loaded.exams));
+    else if (key === 'diario') rendered.push(sectionDiario(data.diary, days, data.loaded.diary));
     else if (key === 'linha_do_tempo') rendered.push(sectionTimeline(data.timeline));
   }
 
@@ -591,6 +636,7 @@ function buildReportBody(
 
   <h1>Meus registros — resumo para a consulta</h1>
   <p class="who">${esc(name)}${age != null ? ` · ${age} anos` : ''}</p>
+  ${data.loaded.profile ? '' : IDENTIFICACAO_NAO_CARREGADA}
   <p class="meta">Período: últimos ${days} dias (${esc(period)}) · Gerado em ${esc(generatedAt)}</p>
   <hr class="rule" />
 
@@ -718,6 +764,15 @@ type Client = ReturnType<typeof createClient>;
 class ReportForbiddenError extends Error {}
 /** A trilha de auditoria falhou — fail-closed: PHI não sai. */
 class ReportAuditError extends Error {}
+/**
+ * Uma seção que, vazia por engano, faria o papel mentir para quem prescreve
+ * (alergias, medicamentos) não veio do banco — fail-closed: o relatório não sai.
+ *
+ * Classe própria, e não `ReportAuditError`, porque aqui a auditoria FUNCIONOU:
+ * reaproveitar aquela classe faria a resposta dizer que o acesso não foi
+ * registrado quando ele foi, e diluiria o significado da regra de auditoria.
+ */
+class ReportCriticalSectionError extends Error {}
 
 async function loadReportData(
   supabase: Client,
@@ -816,6 +871,21 @@ async function loadReportData(
     throw new ReportAuditError();
   }
 
+  // Segundo portão, que SOMA ao de cima: alergias e medicamentos não admitem
+  // "deu erro, então imprime lista vazia". Este papel vai para a mão de quem
+  // vai prescrever, e "Nenhuma alergia registrada." é lido como fato clínico —
+  // não como uma consulta que falhou. Nenhum relatório é melhor que um
+  // relatório que afirma o contrário do prontuário.
+  //
+  // Só entram aqui as seções realmente pedidas: quem não pediu alergias tem
+  // `null` no lugar da consulta e não é afetado.
+  for (const critica of [allergies, medications]) {
+    if (!critica?.error) continue;
+    const code = (critica.error as { code?: string }).code;
+    if (code === '42501') throw new ReportForbiddenError();
+    throw new ReportCriticalSectionError();
+  }
+
   const fromMs = new Date(fromISO).getTime();
 
   const examRows = ((exams?.data ?? []) as ExamRow[]).filter((e) => {
@@ -835,12 +905,23 @@ async function loadReportData(
 
   return {
     profile: (profile.data ?? null) as ProfileRow | null,
+    // Chegou aqui: as duas críticas responderam (ou não foram pedidas). Só
+    // depois desse portão o `?? []` volta a significar "o banco disse vazio".
     allergies: (allergies?.data ?? []) as AllergyRow[],
     medications: (medications?.data ?? []) as MedicationRow[],
     vitals: (vitals?.data ?? []) as VitalRow[],
     exams: examRows,
     diary: diaryRows,
     timeline: timelineRows,
+    // Derrubar o relatório inteiro porque o diário deu timeout seria
+    // desproporcional — a pessoa já está na porta do consultório. Aqui o
+    // relatório sai, e a seção que falhou diz que falhou.
+    loaded: {
+      vitals: !vitals?.error,
+      exams: !exams?.error,
+      diary: !diary?.error,
+      profile: !profile.error,
+    },
   };
 }
 
@@ -929,9 +1010,19 @@ Deno.serve(async (req: Request) => {
     try {
       data = await loadReportData(supabase, patientId, sections, fromISO, fromDay);
     } catch (loadError) {
-      return loadError instanceof ReportForbiddenError
-        ? fail(403, 'Você não tem acesso aos registros deste perfil.')
-        : fail(503, 'Não foi possível registrar o acesso aos dados agora. Tente de novo em alguns minutos.');
+      if (loadError instanceof ReportForbiddenError) {
+        return fail(403, 'Você não tem acesso aos registros deste perfil.');
+      }
+      // A mensagem diz POR QUE não veio papel nenhum: sem isso o paciente
+      // tentaria de novo achando que foi falha de rede, ou imprimiria o
+      // resumo antigo sem saber que alergias e remédios ficaram de fora.
+      if (loadError instanceof ReportCriticalSectionError) {
+        return fail(
+          503,
+          'Não foi possível confirmar suas alergias e seus medicamentos agora. O resumo não é gerado sem essa parte — tente de novo em alguns minutos.',
+        );
+      }
+      return fail(503, 'Não foi possível registrar o acesso aos dados agora. Tente de novo em alguns minutos.');
     }
 
     const reportBody = buildReportBody(data, sections, days, fromISO);

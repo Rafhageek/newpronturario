@@ -14,6 +14,7 @@ export * from './ics';
 export * from './reputation';
 export * from './markdown';
 export * from './content-guard';
+export * from './estado-secao';
 export * from './safe-redirect';
 export * from './constancy';
 export * from './mood-map';

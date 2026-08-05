@@ -431,7 +431,11 @@ function DoseGuardianCard({
   );
   const lista = meds ?? [];
   const criticos = lista.filter((m) => m.is_critical);
-  const exemplo = criticos.length > 0 ? (criticos[0]?.name ?? 'Losartana') : 'Losartana';
+  // Prévia do aviso. Sem remédio marcado não há nome para citar: o texto fixo
+  // "Losartana" mostrava um anti-hipertensivo a quem talvez nem o tome. O
+  // horário também sai — o aviso real usa a hora da dose, que esta tela não
+  // carrega, e "08:00" era invenção mesmo com remédio marcado.
+  const exemplo = criticos[0]?.name ?? null;
 
   // Transparência do outro lado: quem eu cuido e mantém o recurso ligado.
   const dependentesComGuardiao = iCareFor.filter((d) =>
@@ -599,8 +603,8 @@ function DoseGuardianCard({
                 Sem confirmação de dose
               </Text>
               <Text style={{ fontFamily: fonts.regular }} className="text-[12px] leading-[17px] text-muted">
-                Não houve confirmação da dose de {exemplo} às 08:00. Pode ser só o registro que faltou —
-                se puder, mande uma mensagem carinhosa.
+                Não houve confirmação da dose de {exemplo ?? 'um remédio que você marcou'} no horário
+                marcado. Pode ser só o registro que faltou — se puder, mande uma mensagem carinhosa.
               </Text>
             </View>
             <Text style={{ fontFamily: fonts.regular }} className="text-[11px] leading-[16px] text-muted">

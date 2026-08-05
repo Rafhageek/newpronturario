@@ -14,7 +14,8 @@ import { useConditions, useConditionMutations } from '@hubpatients/supabase';
 import { Button, Field, Input } from '@/components/ui';
 
 export function ConditionsSection({ patientId }: { patientId: string }) {
-  const { data: conditions } = useConditions(patientId);
+  // Mesma regra das alergias: lista vazia só vira "nenhuma" com `isSuccess`.
+  const { data: conditions, isSuccess, isError } = useConditions(patientId);
   const { create, remove } = useConditionMutations(patientId);
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<ConditionInput>({
@@ -57,8 +58,14 @@ export function ConditionsSection({ patientId }: { patientId: string }) {
             </li>
           ))}
         </ul>
-      ) : (
+      ) : isSuccess ? (
         <p className="text-sm text-muted">Nenhuma condição registrada.</p>
+      ) : (
+        <p className="text-sm text-muted">
+          {isError
+            ? 'Não foi possível carregar esta seção. O prontuário pode ter registros que não aparecem aqui.'
+            : 'Carregando suas condições…'}
+        </p>
       )}
 
       <form onSubmit={handleSubmit(onAdd)} className="grid gap-3 rounded-xl border border-line bg-surface-2 p-3 sm:grid-cols-2" noValidate>

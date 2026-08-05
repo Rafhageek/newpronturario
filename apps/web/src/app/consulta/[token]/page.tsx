@@ -6,6 +6,7 @@ import {
   CalendarDays,
   ClipboardList,
   Droplet,
+  EyeOff,
   FlaskConical,
   HeartPulse,
   Link2Off,
@@ -78,6 +79,35 @@ document.addEventListener('click', function (e) {
 
 type Bundle = Record<string, unknown>;
 
+/**
+ * Seções clínicas que um link pode carregar, e como saber se cada uma veio.
+ *
+ * A RPC `api_me_bundle_v2` monta o pacote escopo a escopo: a chave só existe se
+ * o paciente autorizou aquela categoria, e uma categoria autorizada mas sem
+ * registros vem como `[]` (o `coalesce` da migração 0035). Ou seja, o servidor
+ * JÁ distingue "não compartilhado" de "compartilhado e vazio" — a página é que
+ * jogava as duas coisas no mesmo balde, escondendo a seção nos dois casos.
+ *
+ * A diferença é clínica. "Nenhuma alergia registrada" é uma resposta; seção
+ * ausente sem explicação é lida como a mesma resposta, e não é. O médico que
+ * procura alergias e não acha a seção conclui que não há.
+ *
+ * `read:profile` fica de fora desta lista de propósito: a migração 0039 proíbe
+ * esse escopo no Modo Consulta, então listá-lo como "não compartilhado" seria
+ * cobrar do paciente uma escolha que ele nunca teve.
+ */
+const SECOES_CLINICAS = [
+  { chave: 'allergies', titulo: 'Alergias' },
+  { chave: 'medications', titulo: 'Medicamentos em uso' },
+  { chave: 'vitals', titulo: 'Sinais vitais' },
+  { chave: 'exams', titulo: 'Exames' },
+] as const;
+
+/** Compartilhado = a chave existe no pacote, ainda que a lista venha vazia. */
+function foiCompartilhado(bundle: Bundle, chave: string): boolean {
+  return Object.prototype.hasOwnProperty.call(bundle, chave);
+}
+
 type LoadResult =
   | { kind: 'ok'; bundle: Bundle }
   | { kind: 'invalid' }
@@ -138,8 +168,9 @@ export default async function ConsultaPage({ params }: { params: Promise<{ token
   const generatedAt = str(bundle, 'generatedAt');
 
   const patientName = patient ? str(patient, 'name') : null;
-  const nothingShared =
-    !patient && medications.length === 0 && vitals.length === 0 && allergies.length === 0 && exams.length === 0;
+  const compartilhadas = SECOES_CLINICAS.filter((s) => foiCompartilhado(bundle, s.chave));
+  const omitidas = SECOES_CLINICAS.filter((s) => !foiCompartilhado(bundle, s.chave));
+  const nothingShared = !patient && compartilhadas.length === 0;
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
@@ -190,12 +221,16 @@ export default async function ConsultaPage({ params }: { params: Promise<{ token
       ) : (
         <div className="mt-6 space-y-5">
           {patient && <PatientCard patient={patient} />}
-          {allergies.length > 0 && <AllergiesCard allergies={allergies} />}
-          {medications.length > 0 && <MedicationsCard medications={medications} />}
-          {vitals.length > 0 && <VitalsCard vitals={vitals} />}
-          {exams.length > 0 && <ExamsCard exams={exams} />}
+          {foiCompartilhado(bundle, 'allergies') && <AllergiesCard allergies={allergies} />}
+          {foiCompartilhado(bundle, 'medications') && (
+            <MedicationsCard medications={medications} />
+          )}
+          {foiCompartilhado(bundle, 'vitals') && <VitalsCard vitals={vitals} />}
+          {foiCompartilhado(bundle, 'exams') && <ExamsCard exams={exams} />}
         </div>
       )}
+
+      {omitidas.length > 0 && !nothingShared && <OmittedNotice titulos={omitidas.map((s) => s.titulo)} />}
 
       <footer className="mt-8 space-y-2 border-t border-line pt-5">
         <p className="flex items-start gap-2 text-xs leading-relaxed text-muted">
@@ -232,6 +267,47 @@ function Section({
       </div>
       {subtitle && <p className="mt-0.5 text-xs text-muted">{subtitle}</p>}
       <div className="mt-3">{children}</div>
+    </section>
+  );
+}
+
+/** Resposta confirmada do servidor: a categoria veio, e veio sem registros. */
+function SemRegistros({ children }: { children: ReactNode }) {
+  return <p className="text-sm text-muted">{children}</p>;
+}
+
+/** "a, b e c" — sem `Intl.ListFormat`, para a formatação não variar por navegador. */
+function listar(itens: string[]): string {
+  if (itens.length <= 1) return itens[0] ?? '';
+  return `${itens.slice(0, -1).join(', ')} e ${itens[itens.length - 1]}`;
+}
+
+/**
+ * Aviso de omissão deliberada.
+ *
+ * O paciente tem direito de não compartilhar (LGPD art. 9º: consentimento é
+ * específico e granular), e por isso o CONTEÚDO não aparece de forma alguma
+ * aqui — nem o nome de um registro, nem quantos existem. O que este bloco
+ * revela é só o desenho da ferramenta: que o resumo é montado por categorias e
+ * que estas não entraram.
+ *
+ * Sem esse aviso, a omissão fica indistinguível de "não tem", e é o médico —
+ * não o paciente — quem paga o erro. Com ele, o médico faz a pergunta que
+ * sempre coube a ele fazer. O texto é deliberadamente sobre o app e não sobre a
+ * pessoa: nada de "o paciente ocultou".
+ */
+function OmittedNotice({ titulos }: { titulos: string[] }) {
+  return (
+    <section className="print-card mt-5 flex items-start gap-2.5 rounded-2xl border border-line bg-surface-2 px-4 py-3">
+      <EyeOff className="mt-0.5 h-4 w-4 shrink-0 text-muted" />
+      <p className="text-xs leading-relaxed text-fg-soft">
+        <strong className="font-semibold text-fg">
+          Este resumo não inclui {listar(titulos)}.
+        </strong>{' '}
+        Cada link mostra apenas as categorias que o paciente marca no aplicativo. A ausência de
+        uma categoria não é informação clínica e não quer dizer que não haja registros — pergunte
+        diretamente ao paciente.
+      </p>
     </section>
   );
 }
@@ -274,42 +350,48 @@ function AllergiesCard({ allergies }: { allergies: Record<string, unknown>[] }) 
       title="Alergias"
       subtitle="Relatadas pelo paciente — confirme antes de qualquer conduta."
     >
-      <ul className="space-y-2">
-        {allergies.map((a, i) => {
-          const severity = str(a, 'criticality');
-          const meta =
-            severity && severity in ALLERGY_SEVERITY
-              ? ALLERGY_SEVERITY[severity as keyof typeof ALLERGY_SEVERITY]
-              : null;
-          const severe = meta?.tone === 'alert';
-          return (
-            <li
-              key={`${str(a, 'substance') ?? 'alergia'}-${i}`}
-              className={`flex flex-wrap items-baseline gap-x-2 gap-y-1 rounded-xl border px-3 py-2 ${
-                severe ? 'border-rose-500/40 bg-rose-500/[0.07]' : 'border-line bg-surface-2'
-              }`}
-            >
-              <span className="text-sm font-semibold text-fg">
-                {str(a, 'substance') ?? 'Substância não informada'}
-              </span>
-              {meta && (
-                <span
-                  className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                    severe
-                      ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300'
-                      : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
-                  }`}
-                >
-                  {meta.label}
+      {allergies.length === 0 ? (
+        <SemRegistros>
+          O paciente compartilhou esta categoria e não há nenhuma alergia registrada por ele.
+        </SemRegistros>
+      ) : (
+        <ul className="space-y-2">
+          {allergies.map((a, i) => {
+            const severity = str(a, 'criticality');
+            const meta =
+              severity && severity in ALLERGY_SEVERITY
+                ? ALLERGY_SEVERITY[severity as keyof typeof ALLERGY_SEVERITY]
+                : null;
+            const severe = meta?.tone === 'alert';
+            return (
+              <li
+                key={`${str(a, 'substance') ?? 'alergia'}-${i}`}
+                className={`flex flex-wrap items-baseline gap-x-2 gap-y-1 rounded-xl border px-3 py-2 ${
+                  severe ? 'border-rose-500/40 bg-rose-500/[0.07]' : 'border-line bg-surface-2'
+                }`}
+              >
+                <span className="text-sm font-semibold text-fg">
+                  {str(a, 'substance') ?? 'Substância não informada'}
                 </span>
-              )}
-              {str(a, 'reaction') && (
-                <span className="text-xs text-muted">Reação: {str(a, 'reaction')}</span>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+                {meta && (
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                      severe
+                        ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300'
+                        : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                    }`}
+                  >
+                    {meta.label}
+                  </span>
+                )}
+                {str(a, 'reaction') && (
+                  <span className="text-xs text-muted">Reação: {str(a, 'reaction')}</span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </Section>
   );
 }
@@ -317,29 +399,36 @@ function AllergiesCard({ allergies }: { allergies: Record<string, unknown>[] }) 
 function MedicationsCard({ medications }: { medications: Record<string, unknown>[] }) {
   return (
     <Section icon={Pill} title="Medicamentos em uso" subtitle="Somente os marcados como ativos.">
-      <ul className="divide-y divide-line/60">
-        {medications.map((m, i) => {
-          const form = str(m, 'form');
-          const frequency = str(m, 'frequency');
-          const detail = [
-            str(m, 'dosage'),
-            form && form in MEDICATION_FORM_LABELS
-              ? MEDICATION_FORM_LABELS[form as keyof typeof MEDICATION_FORM_LABELS]
-              : null,
-            frequency && frequency in MEDICATION_FREQUENCY_LABELS
-              ? MEDICATION_FREQUENCY_LABELS[frequency as keyof typeof MEDICATION_FREQUENCY_LABELS]
-              : null,
-          ]
-            .filter((part): part is string => Boolean(part))
-            .join(' · ');
-          return (
-            <li key={`${str(m, 'name') ?? 'med'}-${i}`} className="py-2 first:pt-0 last:pb-0">
-              <p className="text-sm font-semibold text-fg">{str(m, 'name') ?? 'Sem nome'}</p>
-              {detail && <p className="text-xs text-muted">{detail}</p>}
-            </li>
-          );
-        })}
-      </ul>
+      {medications.length === 0 ? (
+        <SemRegistros>
+          O paciente compartilhou esta categoria e não há nenhum medicamento ativo registrado por
+          ele.
+        </SemRegistros>
+      ) : (
+        <ul className="divide-y divide-line/60">
+          {medications.map((m, i) => {
+            const form = str(m, 'form');
+            const frequency = str(m, 'frequency');
+            const detail = [
+              str(m, 'dosage'),
+              form && form in MEDICATION_FORM_LABELS
+                ? MEDICATION_FORM_LABELS[form as keyof typeof MEDICATION_FORM_LABELS]
+                : null,
+              frequency && frequency in MEDICATION_FREQUENCY_LABELS
+                ? MEDICATION_FREQUENCY_LABELS[frequency as keyof typeof MEDICATION_FREQUENCY_LABELS]
+                : null,
+            ]
+              .filter((part): part is string => Boolean(part))
+              .join(' · ');
+            return (
+              <li key={`${str(m, 'name') ?? 'med'}-${i}`} className="py-2 first:pt-0 last:pb-0">
+                <p className="text-sm font-semibold text-fg">{str(m, 'name') ?? 'Sem nome'}</p>
+                {detail && <p className="text-xs text-muted">{detail}</p>}
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </Section>
   );
 }
@@ -357,44 +446,54 @@ function VitalsCard({ vitals }: { vitals: Record<string, unknown>[] }) {
 
   return (
     <Section icon={HeartPulse} title="Sinais vitais" subtitle="Medições feitas em casa pelo paciente.">
-      <div className="grid gap-2 sm:grid-cols-2">
-        {Array.from(latestByType.entries()).map(([type, v]) => (
-          <div key={type} className="rounded-xl border border-line bg-surface-2 px-3 py-2">
-            <p className="text-[11px] uppercase tracking-wide text-muted">{vitalLabel(type)}</p>
-            <p className="text-lg font-bold text-fg">{vitalValue(v, type)}</p>
-            <p className="text-[11px] text-faint">{formatDateTime(str(v, 'effectiveDateTime'))}</p>
+      {vitals.length === 0 ? (
+        <SemRegistros>
+          O paciente compartilhou esta categoria e não há nenhuma medição registrada por ele.
+        </SemRegistros>
+      ) : (
+        <>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {Array.from(latestByType.entries()).map(([type, v]) => (
+              <div key={type} className="rounded-xl border border-line bg-surface-2 px-3 py-2">
+                <p className="text-[11px] uppercase tracking-wide text-muted">{vitalLabel(type)}</p>
+                <p className="text-lg font-bold text-fg">{vitalValue(v, type)}</p>
+                <p className="text-[11px] text-faint">
+                  {formatDateTime(str(v, 'effectiveDateTime'))}
+                </p>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      {recent.length > 1 && (
-        <div className="mt-3 overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="text-muted">
-                <th className="py-1.5 pr-3 font-medium">Data</th>
-                <th className="py-1.5 pr-3 font-medium">Medida</th>
-                <th className="py-1.5 font-medium">Valor</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line/60">
-              {recent.map((v, i) => {
-                const type = str(v, 'type') ?? '';
-                return (
-                  <tr key={`${type}-${i}`}>
-                    <td className="whitespace-nowrap py-1.5 pr-3 text-muted">
-                      {formatDateTime(str(v, 'effectiveDateTime'))}
-                    </td>
-                    <td className="py-1.5 pr-3 text-fg-soft">{vitalLabel(type)}</td>
-                    <td className="whitespace-nowrap py-1.5 font-medium text-fg">
-                      {vitalValue(v, type)}
-                    </td>
+          {recent.length > 1 && (
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="text-muted">
+                    <th className="py-1.5 pr-3 font-medium">Data</th>
+                    <th className="py-1.5 pr-3 font-medium">Medida</th>
+                    <th className="py-1.5 font-medium">Valor</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody className="divide-y divide-line/60">
+                  {recent.map((v, i) => {
+                    const type = str(v, 'type') ?? '';
+                    return (
+                      <tr key={`${type}-${i}`}>
+                        <td className="whitespace-nowrap py-1.5 pr-3 text-muted">
+                          {formatDateTime(str(v, 'effectiveDateTime'))}
+                        </td>
+                        <td className="py-1.5 pr-3 text-fg-soft">{vitalLabel(type)}</td>
+                        <td className="whitespace-nowrap py-1.5 font-medium text-fg">
+                          {vitalValue(v, type)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
       )}
     </Section>
   );
@@ -413,32 +512,38 @@ function ExamsCard({ exams }: { exams: Record<string, unknown>[] }) {
       title="Exames recentes"
       subtitle="Apenas os registros — os arquivos não são compartilhados por este link."
     >
-      <ul className="divide-y divide-line/60">
-        {sorted.slice(0, 20).map((e, i) => {
-          const category = str(e, 'category');
-          const status = str(e, 'status');
-          return (
-            <li
-              key={`${str(e, 'title') ?? 'exame'}-${i}`}
-              className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2 first:pt-0 last:pb-0"
-            >
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-fg">{str(e, 'title') ?? 'Exame'}</p>
-                <p className="text-xs text-muted">
-                  {category && category in EXAM_CATEGORY_LABELS
-                    ? EXAM_CATEGORY_LABELS[category as keyof typeof EXAM_CATEGORY_LABELS]
-                    : 'Exame'}
-                  {status && status !== 'processed' ? ' · ainda em processamento' : ''}
-                </p>
-              </div>
-              <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs text-muted">
-                <CalendarDays className="h-3.5 w-3.5" />
-                {formatDate(str(e, 'effectiveDateTime'))}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
+      {sorted.length === 0 ? (
+        <SemRegistros>
+          O paciente compartilhou esta categoria e não há nenhum exame registrado por ele.
+        </SemRegistros>
+      ) : (
+        <ul className="divide-y divide-line/60">
+          {sorted.slice(0, 20).map((e, i) => {
+            const category = str(e, 'category');
+            const status = str(e, 'status');
+            return (
+              <li
+                key={`${str(e, 'title') ?? 'exame'}-${i}`}
+                className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2 first:pt-0 last:pb-0"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-fg">{str(e, 'title') ?? 'Exame'}</p>
+                  <p className="text-xs text-muted">
+                    {category && category in EXAM_CATEGORY_LABELS
+                      ? EXAM_CATEGORY_LABELS[category as keyof typeof EXAM_CATEGORY_LABELS]
+                      : 'Exame'}
+                    {status && status !== 'processed' ? ' · ainda em processamento' : ''}
+                  </p>
+                </div>
+                <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs text-muted">
+                  <CalendarDays className="h-3.5 w-3.5" />
+                  {formatDate(str(e, 'effectiveDateTime'))}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </Section>
   );
 }

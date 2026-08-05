@@ -45,12 +45,34 @@ export const SHARE_SCOPES = [
 
 export type ShareScope = (typeof SHARE_SCOPES)[number]['key'];
 
+/**
+ * Escopos que o **Modo Consulta** aceita — subconjunto menor que `SHARE_SCOPES`.
+ *
+ * `SHARE_SCOPES` espelha a constraint da migração 0035 (token de API). O link
+ * do médico passa por outra função, `issue_consultation_access_token` (migração
+ * 0039), que deixa `read:profile` de fora de propósito: são dados cadastrais que
+ * o médico não precisa para ver a evolução.
+ *
+ * Enquanto as duas listas viveram separadas, a seleção padrão trazia
+ * `read:profile` e o banco derrubava a emissão com "Escopo de consulta
+ * inválido." — o botão "Gerar acesso para o médico" falhava justamente na
+ * configuração que a tela sugeria. Derivar daqui é o que impede a divergência
+ * de voltar; `sharing-escopos.test.ts` trava as duas pontas.
+ */
+export const CONSULTATION_SCOPES = [
+  'read:medications',
+  'read:vitals',
+  'read:allergies',
+  'read:exams',
+] as const satisfies readonly ShareScope[];
+
+export type ConsultationScope = (typeof CONSULTATION_SCOPES)[number];
+
 /** Sugestão inicial: o essencial de uma consulta, sem excesso. */
-export const DEFAULT_SHARE_SCOPES: ShareScope[] = [
+export const DEFAULT_SHARE_SCOPES: ConsultationScope[] = [
   'read:medications',
   'read:allergies',
   'read:vitals',
-  'read:profile',
 ];
 
 const VALID_SCOPES = new Set<string>(SHARE_SCOPES.map((s) => s.key));

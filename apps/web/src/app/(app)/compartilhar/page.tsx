@@ -21,6 +21,7 @@ import {
   useRevokeAccessToken,
   PatMfaRequiredError,
   SHARE_SCOPES,
+  CONSULTATION_SCOPES,
   SHARE_PRESETS,
   DEFAULT_SHARE_SCOPES,
   DEFAULT_SHARE_PRESET,
@@ -32,9 +33,22 @@ import {
   type SharePresetId,
   type ShareScope,
 } from '@hubpatients/supabase';
+
+/**
+ * O que a tela oferece: apenas os escopos que `issue_consultation_access_token`
+ * aceita. `SHARE_SCOPES` é a lista do token de API, mais larga — oferecer
+ * "Identificação" aqui era uma armadilha: a caixa marcava e o banco derrubava a
+ * emissão inteira. Derivado (não redigitado) para as legendas seguirem uma
+ * fonte só.
+ */
+const ESCOLHAS = SHARE_SCOPES.filter((s) =>
+  (CONSULTATION_SCOPES as readonly string[]).includes(s.key),
+);
+
 import { DISCLAIMERS } from '@hubpatients/core';
 import { useAuth } from '@/components/auth-provider';
 import { Badge } from '@/components/ui/badge';
+import { ErrorState } from '@/components/ui/error-state';
 import { ListSkeleton } from '@/components/ui/skeleton';
 
 /**
@@ -48,7 +62,18 @@ export default function CompartilharPage() {
   const { user } = useAuth();
   const userId = user?.id;
 
-  const { data: accesses, isLoading } = useAccessTokens(userId);
+  /*
+   * `isError` importa tanto quanto `isLoading`: "Ninguém está vendo seus dados
+   * agora" é uma afirmação sobre a privacidade da pessoa, e a lista vazia da
+   * falha escrevia justamente essa frase — ela se dá por segura enquanto um
+   * link segue aberto. Mesmo tratamento do mobile (`app/compartilhar.tsx`).
+   */
+  const {
+    data: accesses,
+    isLoading,
+    isError: accessesFailed,
+    refetch: refetchAccesses,
+  } = useAccessTokens(userId);
   const issue = useIssueAccessToken(userId);
   const revoke = useRevokeAccessToken(userId);
 
@@ -267,7 +292,7 @@ export default function CompartilharPage() {
           <h2 className="text-sm font-semibold text-fg">O que o médico verá?</h2>
           <p className="text-xs text-muted">Marque só o necessário para esta consulta.</p>
           <div className="mt-2 space-y-1.5">
-            {SHARE_SCOPES.map((s) => (
+            {ESCOLHAS.map((s) => (
               <label
                 key={s.key}
                 className="flex items-start gap-2.5 rounded-xl border border-line bg-surface-2 px-3 py-2"
@@ -316,6 +341,13 @@ export default function CompartilharPage() {
         <h2 className="text-sm font-semibold text-fg">Acessos ativos</h2>
         {isLoading ? (
           <ListSkeleton rows={2} />
+        ) : accessesFailed ? (
+          <ErrorState
+            message="Não foi possível carregar seus acessos. Esta lista não prova que ninguém está vendo seus dados: pode haver acesso ativo que não aparece aqui."
+            onRetry={() => {
+              void refetchAccesses();
+            }}
+          />
         ) : active.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-line py-8 text-center text-sm text-muted">
             Nenhum acesso ativo. Ninguém está vendo seus dados agora.

@@ -39,7 +39,13 @@ export default function PerfilScreen() {
   const router = useRouter();
   const { user, signOut } = useAuth();
   const pid = user?.id ?? '';
-  const { data: profile, isSuccess: profileLoaded } = useProfile(user?.id);
+  const {
+    data: profile,
+    isSuccess: profileLoaded,
+    isError: profileFailed,
+    isFetching: profileFetching,
+    refetch: refetchProfile,
+  } = useProfile(user?.id);
   /*
    * `data` volta `undefined` tanto na falha quanto antes da consulta terminar,
    * e nos dois casos a lista vira vazia. Vazio aqui alimentaria o QR de
@@ -57,7 +63,9 @@ export default function PerfilScreen() {
   const { data: conditions, isSuccess: conditionsLoaded } = useConditions(pid || undefined);
   const { data: surgeries, isSuccess: surgeriesLoaded } = useSurgeries(pid || undefined);
   const { data: familyHistory, isSuccess: familyHistoryLoaded } = useFamilyHistory(pid || undefined);
-  const { data: insuranceData } = useInsurance(pid || undefined);
+  // `isSuccess` também aqui: no PDF, convênio que não carregou imprimia
+  // "Operadora: —", que o balcão do hospital lê como "não tem plano".
+  const { data: insuranceData, isSuccess: insuranceLoaded } = useInsurance(pid || undefined);
   const insurance = Array.isArray(insuranceData) ? insuranceData[0] : insuranceData;
   const age = profile?.date_of_birth ? calculateAge(profile.date_of_birth) : null;
   const severe = (allergies ?? []).filter((a) => a.severity === 'severe');
@@ -88,6 +96,7 @@ export default function PerfilScreen() {
         // isso, e não "Nenhuma ... registrada".
         loaded: {
           profile: profileLoaded,
+          insurance: insuranceLoaded,
           allergies: allergiesLoaded,
           conditions: conditionsLoaded,
           surgeries: surgeriesLoaded,
@@ -138,6 +147,20 @@ export default function PerfilScreen() {
     }
   };
 
+  /*
+   * O cartão de emergência depende de DUAS consultas, e as duas precisam ter
+   * respondido. A trava era só a das alergias; com o perfil falhando sozinho
+   * saía um QR com "Nome: —" e "Tipo sanguíneo: —" — um cartão de emergência
+   * que não identifica ninguém e omite o tipo sanguíneo é pior que cartão
+   * nenhum, porque o socorrista confia no que está escrito.
+   */
+  const emergencyReady = allergiesLoaded && profileLoaded;
+  const emergencyFailed = allergiesFailed || profileFailed;
+  const emergencyRetrying = allergiesFetching || profileFetching;
+  const emergencyProblem = allergiesFailed
+    ? 'Não foi possível carregar suas alergias. O cartão não é gerado sem essa lista: ele informaria “alergias graves: nenhuma” sem ter recebido esse dado.'
+    : 'Não foi possível carregar seus dados pessoais. O cartão não é gerado sem eles: sairia com nome e tipo sanguíneo em branco, sem identificar você.';
+
   // QR de emergência: resumo de dados vitais
   const emergencyText =
     `HubPatients — Emergência\nNome: ${profile?.full_name ?? '—'}\n` +
@@ -186,9 +209,9 @@ export default function PerfilScreen() {
               ))}
             </View>
           ) : null}
-          {/* Quem lê este QR é socorrista. Sem a lista de alergias confirmada,
-              o cartão não é gerado: ele diria "nenhuma" sem ter o dado. */}
-          {allergiesLoaded ? (
+          {/* Quem lê este QR é socorrista. Sem a lista de alergias E o perfil
+              confirmados, o cartão não é gerado. */}
+          {emergencyReady ? (
             <View className="mt-2 items-center gap-1.5 rounded-2xl border border-line bg-surface-2 p-3" style={{ borderCurve: 'continuous' }}>
               <QRCode value={emergencyText} size={120} color={colors.fg} backgroundColor="transparent" />
               <Text style={{ fontFamily: fonts.medium }} className="text-[11px] text-muted">
@@ -198,20 +221,23 @@ export default function PerfilScreen() {
           ) : (
             <View className="mt-2 w-full gap-2 rounded-2xl border border-line bg-surface-2 p-3.5" style={{ borderCurve: 'continuous' }}>
               <Text style={{ fontFamily: fonts.semibold }} className="text-[13px] text-fg">
-                {allergiesFailed ? 'Cartão de emergência indisponível' : 'Preparando o cartão de emergência…'}
+                {emergencyFailed ? 'Cartão de emergência indisponível' : 'Preparando o cartão de emergência…'}
               </Text>
               <Text style={{ fontFamily: fonts.regular }} className="text-[12px] leading-4 text-muted">
-                {allergiesFailed
-                  ? 'Não foi possível carregar suas alergias. O cartão não é gerado sem essa lista: ele informaria “alergias graves: nenhuma” sem ter recebido esse dado.'
-                  : 'O cartão aparece assim que a lista de alergias terminar de carregar.'}
+                {emergencyFailed
+                  ? emergencyProblem
+                  : 'O cartão aparece assim que seus dados terminarem de carregar.'}
               </Text>
-              {allergiesFailed ? (
+              {emergencyFailed ? (
                 <Button
                   label="Tentar de novo"
                   size="sm"
                   variant="outline"
-                  loading={allergiesFetching}
-                  onPress={() => void refetchAllergies()}
+                  loading={emergencyRetrying}
+                  onPress={() => {
+                    if (allergiesFailed) void refetchAllergies();
+                    if (profileFailed) void refetchProfile();
+                  }}
                 />
               ) : null}
             </View>
@@ -266,9 +292,14 @@ type ProntuarioData = {
   conditions: NonNullable<ReturnType<typeof useConditions>['data']>;
   surgeries: NonNullable<ReturnType<typeof useSurgeries>['data']>;
   familyHistory: NonNullable<ReturnType<typeof useFamilyHistory>['data']>;
-  /** Quais consultas realmente responderam. Lista vazia só vira "nenhuma" se `true`. */
+  /**
+   * Quais consultas realmente responderam. Lista vazia só vira "nenhuma" se
+   * `true` — e campo vazio só vira "—" se `true`. Para quem lê o PDF, um traço
+   * em "Tipo sanguíneo" é indistinguível de "o paciente não informou".
+   */
   loaded: {
     profile: boolean;
+    insurance: boolean;
     allergies: boolean;
     conditions: boolean;
     surgeries: boolean;
@@ -310,6 +341,11 @@ function buildProntuarioHtml(d: ProntuarioData): string {
 
   const rowsHtml = (rows: [string, string][]) =>
     rows.map((r) => `<tr><th>${r[0]}</th><td>${r[1]}</td></tr>`).join('');
+
+  // A tabela inteira sai de cena quando a consulta não respondeu: linha a linha
+  // o "—" continuaria passando por "não informado".
+  const personalHtml = !d.loaded.profile ? NAO_CARREGADO : `<table>${rowsHtml(personalRows)}</table>`;
+  const convenioHtml = !d.loaded.insurance ? NAO_CARREGADO : `<table>${rowsHtml(convenioRows)}</table>`;
 
   const allergiesHtml = !d.loaded.allergies
     ? NAO_CARREGADO
@@ -373,8 +409,8 @@ function buildProntuarioHtml(d: ProntuarioData): string {
     <p>${esc(profile?.full_name) || 'Titular'}${age != null ? ` · ${age} anos` : ''}</p>
   </header>
 
-  <section><h2>Dados pessoais</h2><table>${rowsHtml(personalRows)}</table></section>
-  <section><h2>Convênio</h2><table>${rowsHtml(convenioRows)}</table></section>
+  <section><h2>Dados pessoais</h2>${personalHtml}</section>
+  <section><h2>Convênio</h2>${convenioHtml}</section>
   <section><h2>Alergias</h2>${allergiesHtml}</section>
   <section><h2>Condições de saúde</h2>${conditionsHtml}</section>
   <section><h2>Cirurgias</h2>${surgeriesHtml}</section>

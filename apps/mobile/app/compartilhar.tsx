@@ -16,6 +16,7 @@ import {
   useRevokeAccessToken,
   PatMfaRequiredError,
   SHARE_SCOPES,
+  CONSULTATION_SCOPES,
   SHARE_PRESETS,
   DEFAULT_SHARE_SCOPES,
   DEFAULT_SHARE_PRESET,
@@ -27,6 +28,18 @@ import {
   type SharePresetId,
   type ShareScope,
 } from '@hubpatients/supabase';
+
+/**
+ * O que a tela oferece: apenas os escopos que `issue_consultation_access_token`
+ * aceita. `SHARE_SCOPES` é a lista do token de API, mais larga — oferecer
+ * "Identificação" aqui era uma armadilha: a caixa marcava e o banco derrubava a
+ * emissão inteira. Derivado (não redigitado) para as legendas seguirem uma
+ * fonte só.
+ */
+const ESCOLHAS = SHARE_SCOPES.filter((s) =>
+  (CONSULTATION_SCOPES as readonly string[]).includes(s.key),
+);
+
 import { DISCLAIMERS } from '@hubpatients/core';
 import { useAuth } from '@/lib/auth';
 import { AppHeader, Card, SectionTitle, EmptyState, Button, Badge } from '@/components/ui';
@@ -56,7 +69,20 @@ export default function CompartilharScreen() {
   const { user } = useAuth();
   const uid = user?.id;
 
-  const { data: accesses = [], isLoading } = useAccessTokens(uid);
+  /*
+   * `isError` não é detalhe de UX aqui. "Ninguém está vendo seus registros
+   * agora" é uma afirmação sobre a privacidade da pessoa, e a lista vazia da
+   * falha produzia exatamente essa frase: alguém confere a tela, lê que não há
+   * acesso ativo e sai tranquila — com um link aberto que ela teria revogado se
+   * soubesse. Falha é falha, com chance de tentar de novo.
+   */
+  const {
+    data: accesses = [],
+    isLoading,
+    isError: accessesFailed,
+    isFetching: accessesFetching,
+    refetch: refetchAccesses,
+  } = useAccessTokens(uid);
   const issue = useIssueAccessToken(uid);
   const revoke = useRevokeAccessToken(uid);
 
@@ -252,7 +278,7 @@ export default function CompartilharScreen() {
         {/* Escopos */}
         <SectionTitle>O que o médico verá?</SectionTitle>
         <Card className="gap-2">
-          {SHARE_SCOPES.map((s) => {
+          {ESCOLHAS.map((s) => {
             const checked = scopes.includes(s.key);
             return (
               <Pressable
@@ -317,6 +343,27 @@ export default function CompartilharScreen() {
           <View className="items-center py-8">
             <ActivityIndicator color={colors.primary} />
           </View>
+        ) : accessesFailed ? (
+          <Card className="gap-2">
+            <Text style={{ fontFamily: fonts.semibold }} className="text-[14px] text-fg">
+              Não foi possível carregar seus acessos
+            </Text>
+            <Text
+              style={{ fontFamily: fonts.regular }}
+              className="text-[12px] leading-4 text-fg-soft"
+            >
+              Esta lista não carregou, então ela não prova que ninguém está vendo seus registros:
+              pode haver acesso ativo que não aparece aqui. Tente de novo antes de considerar a
+              lista vazia.
+            </Text>
+            <Button
+              label="Tentar de novo"
+              size="sm"
+              variant="outline"
+              loading={accessesFetching}
+              onPress={() => void refetchAccesses()}
+            />
+          </Card>
         ) : active.length === 0 ? (
           <EmptyState
             icon={Stethoscope}
