@@ -10,6 +10,7 @@ import type {
   AuditAction,
   InsertRow,
 } from '@hubpatients/core';
+import { diaLocal } from '@hubpatients/core';
 import type { HubPatientsClient } from '../types';
 
 /** Registra (na trilha de auditoria) uma leitura/ação sobre dados da criança. */
@@ -99,7 +100,10 @@ export async function addMeasurement(
   const { error } = await client.from('child_growth_measurements').insert({
     child_id: childId,
     age_months_at_measurement: ageMonths,
-    measured_at: input.measuredAt ?? new Date().toISOString().slice(0, 10),
+    // `diaLocal()`, nunca `toISOString().slice(0,10)`: a segunda joga para UTC
+    // e, depois das 21h no Brasil, a medida de HOJE entra com a data de AMANHÃ.
+    // Em curva de crescimento infantil isso desloca o ponto no gráfico.
+    measured_at: input.measuredAt ?? diaLocal(),
     weight_kg: input.weightKg ?? null,
     length_or_height_cm: input.lengthOrHeightCm ?? null,
     head_circumference_cm: input.headCircumferenceCm ?? null,

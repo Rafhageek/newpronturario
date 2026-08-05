@@ -1,5 +1,13 @@
 'use client';
 
+/**
+ * Barra do topo do Painel: menu (telefone), busca larga com `Ctrl + K`,
+ * alternador de tema, sino com contador e avatar.
+ *
+ * Altura 64px (`layout.topbarHeight` em @hubpatients/ui-tokens) — a mesma do
+ * cabeçalho da lateral, senão as duas linhas divisórias ficam desalinhadas.
+ */
+
 import { useRouter } from 'next/navigation';
 import { Menu } from 'lucide-react';
 import { useProfile } from '@hubpatients/supabase';
@@ -29,25 +37,26 @@ export function AppTopbar({ onMenuClick }: { onMenuClick?: () => void }) {
   }
 
   return (
-    <header className="flex h-[72px] shrink-0 items-center justify-between gap-3 border-b border-line bg-surface px-4 sm:px-6">
+    <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-line bg-surface px-3 sm:px-5">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <button
           type="button"
           onClick={onMenuClick}
           aria-label="Abrir menu"
-          className="-ml-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-fg-soft transition hover:bg-surface-2 lg:hidden"
+          className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-chip text-fg-soft transition-colors hover:bg-surface-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:hidden"
         >
           <Menu className="h-5 w-5" aria-hidden />
         </button>
         <AppSearch />
+        {/* No telefone a busca some e o espaço vira identidade da tela. */}
         <div className="min-w-0 md:hidden">
-          <p className="truncate text-sm font-bold text-fg">HubPatients</p>
-          <p className="truncate text-xs text-muted">Seu prontuário de saúde</p>
+          <p className="truncate text-body-sm font-bold text-fg">HubPatients</p>
+          <p className="truncate text-caption text-muted">Seu prontuário de saúde</p>
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1.5">
-        <div className="hidden items-center gap-1.5 sm:flex">
+      <div className="flex shrink-0 items-center gap-1">
+        <div className="hidden items-center gap-1 sm:flex">
           <ProfileSwitcher />
           <LanguageMenu />
           <ThemeMenu />

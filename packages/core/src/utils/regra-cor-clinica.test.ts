@@ -96,7 +96,7 @@ const PASTAS = [
    * são a BASE de ~49 rotas e ~47 telas: um `bg-rose-100` que nasça aqui não
    * afeta uma tela, afeta 96. É o lugar do repositório onde a trava rende mais.
    *
-   * Nenhuma exceção foi aberta junto — `EXCECOES_ESPERADAS` continua em 5.
+   * Nenhuma exceção foi aberta junto — as primitivas não usam cor de status.
    */
   'apps/web/src/components/ui/painel',
   'apps/mobile/src/components/painel',
@@ -110,10 +110,20 @@ const FECHA = '@fim-cor-do-sistema';
 /**
  * Quantas exceções de SISTEMA existem hoje, somando todos os arquivos varridos.
  * Mexer neste número é o pedágio consciente para abrir uma exceção nova.
- * Hoje: badge "Dados protegidos · LGPD" e o card de constância (web); status do
- * dia, aviso de alergia grave e o cartão de agenda "Próxima consulta" (mobile).
+ *
+ * Hoje (4): o card de constância (web — o verde celebra o HÁBITO de registrar,
+ * não medida do corpo); status do dia, aviso de alergia grave e o cartão de
+ * agenda "Próxima consulta" (mobile).
+ *
+ * Caiu de 5 para 4 no redesenho do Painel (2026-08): o selo "Dados protegidos ·
+ * LGPD" era um link verde numa região declarada, e virou a primitiva `Seal`,
+ * que não tem cor de status. A exceção SAIU — o pedágio vale nos dois sentidos,
+ * porque um contador que só sobe deixa de descrever a realidade.
+ *
+ * Este número é GLOBAL: soma web + mobile. Duas frentes mexendo em exceções na
+ * mesma leva precisam combinar o total, senão uma derruba o teste da outra.
  */
-const EXCECOES_ESPERADAS = 5;
+const EXCECOES_ESPERADAS = 4;
 
 interface Regra {
   nome: string;

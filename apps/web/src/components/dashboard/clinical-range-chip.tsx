@@ -27,6 +27,17 @@ const ZONE_READING: Record<ClinicalZone, { icon: LucideIcon; text: string }> = {
   alert: { icon: ArrowUp, text: 'Acima do intervalo de referência' },
 };
 
+/**
+ * A MESMA leitura, só em palavras — para onde não cabe um chip (a dica do
+ * `<StatCard>`, um `aria-label`, um resumo impresso). Existe para a frase ser
+ * escrita UMA vez: duas redações do mesmo intervalo divergem na primeira
+ * revisão de texto, e aí a tela e o leitor de tela passam a dizer coisas
+ * diferentes sobre a mesma medida.
+ */
+export function leituraDaFaixa(zone: ClinicalZone): string {
+  return ZONE_READING[zone].text;
+}
+
 export function ClinicalRangeChip({
   zone,
   className = '',

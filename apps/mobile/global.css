@@ -6,29 +6,44 @@
    usam rgb(var(--color-x) / <alpha>). Trocam claro↔escuro pela classe .dark,
    alternada em runtime pelo nativewind colorScheme.set(). Espelha apps/web.
 
-   Redesign "Papel Clínico Quente + Expressivo" (2026-07-25) — os valores abaixo
-   são os mesmos de src/theme.ts (fonte: packages/ui-tokens). Contrastes medidos
-   contra o PIOR fundo de cada tema; detalhe em docs/REDESIGN-2026-07.md.
+   ⚠️ CAMADA "PAINEL" LIGADA GLOBALMENTE (2026-08).
+   O tema claro deixou de ser o creme quente do "Papel Clínico" (#faf9f6) e virou
+   o canvas azul-neutro do Painel (#f5f7fb) — o MESMO da web (`.hp-painel` em
+   apps/web/src/app/globals.css). Fonte dos valores: `painelSurfaceLight` /
+   `painelInkLight` em @hubpatients/ui-tokens.
 
-   ⚠️ `--color-faint` NÃO foi removida: ~40 telas usam a classe `text-faint`. O
-   nome ficou e o VALOR virou o de `--color-hint` (4,55:1 no claro / 4,59:1 no
-   escuro), então todas passam a cumprir WCAG AA sem edição. Em código novo, use
-   `hint`. Idem `line` (decorativa) vs `line-strong` (borda de campo, ≥3:1). */
+   POR QUE GLOBAL, e não tela a tela: durante a migração as telas redesenhadas
+   liam o canvas frio direto dos tokens e as antigas continuavam quentes. Trocar
+   de aba mudava a cor do fundo — isso lê como DEFEITO, não como transição.
+
+   As tintas trocaram JUNTO com as superfícies, de propósito: cinza quente
+   (#555149) sobre canvas frio fica sujo, e deixar a web com tinta fria e o
+   mobile com tinta quente recria exatamente a divergência que a fundação
+   existe para fechar.
+
+   Contrastes REMEDIDOS contra as superfícies novas — todos subiram, nenhum
+   caiu (a superfície fria é mais clara que a creme). O pior fundo do tema
+   continua sendo `surface-3`. Matriz completa e travada em
+   packages/core/src/utils/contraste-painel.test.ts.
+
+   `--color-faint` NÃO foi removida: ~40 telas usam `text-faint`. O nome ficou e
+   o VALOR é o de `--color-hint`. Idem `line` (decorativa) vs `line-strong`
+   (borda de campo, ≥3:1). */
 @layer base {
   :root {
-    --color-bg: 250 249 246; /* #faf9f6 — creme quente, não branco puro (catarata) */
+    --color-bg: 245 247 251; /* #f5f7fb — canvas azul-neutro do Painel */
     --color-surface: 255 255 255; /* #ffffff */
-    --color-surface-2: 243 241 236; /* #f3f1ec */
-    --color-surface-3: 234 231 224; /* #eae7e0 — 3º degrau tonal */
-    --color-line: 230 227 220; /* #e6e3dc — DECORATIVA (1,28:1): não usar como borda de campo */
-    --color-line-strong: 135 131 124; /* #87837c — borda de campo, 3,05:1 (SC 1.4.11) */
-    --color-fg: 27 26 24; /* #1b1a18 — 14,08:1 AAA */
-    --color-fg-soft: 65 60 54; /* #413c36 — 8,84:1 AAA */
-    --color-muted: 85 81 73; /* #555149 — 6,39:1 AAA */
-    --color-hint: 108 103 94; /* #6c675e — 4,55:1 AA */
-    --color-faint: 108 103 94; /* alias de hint (era #847e74 = 3,82:1, reprovava) */
-    --color-primary: 4 66 191; /* #0442bf — 6,70:1 AAA */
-    --color-accent: 196 41 60; /* #c4293c — 4,56:1 (era #d12f3e = 4,76, falhava em surface-3) */
+    --color-surface-2: 247 248 252; /* #f7f8fc */
+    --color-surface-3: 237 241 247; /* #edf1f7 — 3º degrau; PIOR fundo do tema */
+    --color-line: 226 231 240; /* #e2e7f0 — DECORATIVA: não usar como borda de campo */
+    --color-line-strong: 122 133 151; /* #7a8597 — borda de campo, 3,29:1 (SC 1.4.11) */
+    --color-fg: 21 27 43; /* #151b2b — 15,14:1 AAA sobre surface-3 */
+    --color-fg-soft: 53 64 86; /* #354056 — 9,17:1 AAA */
+    --color-muted: 88 101 122; /* #58657a — 5,20:1 AA */
+    --color-hint: 97 110 131; /* #616e83 — 4,55:1 AA */
+    --color-faint: 97 110 131; /* alias de hint */
+    --color-primary: 4 66 191; /* #0442bf — 7,30:1 AAA */
+    --color-accent: 196 41 60; /* #c4293c — 4,96:1 (era 4,56 sobre o creme) */
 
     /* ══ Camada "Painel" (2026-08) — espelha `painel` de @hubpatients/ui-tokens
        e as vars de apps/web/globals.css. Chips pastel = cor de CATEGORIA; a

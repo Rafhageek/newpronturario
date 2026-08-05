@@ -12,7 +12,11 @@ import {
   CheckCheck,
   type LucideIcon,
 } from 'lucide-react-native';
-import { notificationCategory, type NotificationCategory } from '@hubpatients/core';
+import {
+  notificationCategory,
+  tempoRelativo,
+  type NotificationCategory,
+} from '@hubpatients/core';
 import {
   useNotifications,
   useMarkNotificationRead,
@@ -22,21 +26,11 @@ import { useAuth } from '@/lib/auth';
 import { Screen, AppHeader, EmptyState } from '@/components/ui';
 import { useColors, fonts } from '@/theme';
 
-// Tempo relativo em pt-BR ("agora", "há 2 h", "ontem"). SEM Intl — o Hermes
-// (motor JS do RN) não garante Intl.RelativeTimeFormat e usá-lo derruba o app.
-function timeAgo(iso: string): string {
-  const sec = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
-  if (sec < 60) return 'agora';
-  const min = Math.round(sec / 60);
-  if (min < 60) return `há ${min} min`;
-  const hr = Math.round(min / 60);
-  if (hr < 24) return hr === 1 ? 'há 1 h' : `há ${hr} h`;
-  const day = Math.round(hr / 24);
-  if (day === 1) return 'ontem';
-  if (day < 30) return `há ${day} dias`;
-  const mon = Math.round(day / 30);
-  return mon === 1 ? 'há 1 mês' : `há ${mon} meses`;
-}
+// Tempo relativo em pt-BR ("agora", "há 2 h", "ontem"). Vive em
+// `@hubpatients/core` (datas-pt), de onde a web também o consome — era a mesma
+// escada escrita duas vezes, com redações que já começavam a divergir. SEM
+// Intl: o Hermes não garante `RelativeTimeFormat` e usá-lo derruba o app.
+const timeAgo = tempoRelativo;
 
 // Cada categoria de notificação tem um ícone (mesma semântica da web).
 const CATEGORY_ICON: Record<NotificationCategory, LucideIcon> = {

@@ -1,6 +1,26 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+/**
+ * ════════════════════════════════════════════════════════════════════════════
+ * LATERAL DO PAINEL — web
+ * ════════════════════════════════════════════════════════════════════════════
+ *
+ * Clara, recolhível, com os grupos do mockup em maiúsculas pequenas. Item ativo
+ * é pílula azul-clara com texto azul (`nav-active-*`, 6,98:1 — medido em
+ * `packages/core/src/utils/contraste-painel.test.ts`).
+ *
+ * O QUE ESTE ARQUIVO NÃO FAZ:
+ *  · não declara uma segunda lista de menu — a única é `NAV`/`NAV_SECTIONS`;
+ *  · não escreve tamanho de fonte literal (`text-[10px]` matava o Modo Sênior
+ *    em todo item de menu: era o degrau mais usado da casca inteira);
+ *  · não usa `height` em alvo tocável, só `min-h-11` em rem — com
+ *    `html[data-senior] { font-size: 130% }` o item cresce para ~57px sozinho.
+ *
+ * RECOLHIDA: o rótulo sai da tela, então cada item vira ícone + `title` +
+ * `aria-label`. Ícone sozinho sem nome acessível é um botão mudo.
+ */
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ChevronDown, ChevronLeft, X } from 'lucide-react';
@@ -16,6 +36,31 @@ import {
   type NavSection,
 } from './nav';
 
+/** Rodapé da lateral. Fica aqui porque é a única superfície que o exibe. */
+const PRODUTO = 'HubPatients';
+const VERSAO = 'MVP · v0.1.0';
+
+/** Preferências da casca. Lidas depois da montagem (evita erro de hidratação). */
+const CHAVE_RECOLHIDA = 'hp.painel.lateral.recolhida';
+const CHAVE_GRUPOS = 'hp.painel.lateral.grupos';
+
+function lerJson<T>(chave: string, padrao: T): T {
+  try {
+    const cru = window.localStorage.getItem(chave);
+    return cru == null ? padrao : (JSON.parse(cru) as T);
+  } catch {
+    return padrao;
+  }
+}
+
+function gravarJson(chave: string, valor: unknown): void {
+  try {
+    window.localStorage.setItem(chave, JSON.stringify(valor));
+  } catch {
+    /* modo anônimo / cota cheia: a preferência é conforto, não requisito. */
+  }
+}
+
 export function AppSidebar({
   mobileOpen = false,
   onClose,
@@ -25,9 +70,15 @@ export function AppSidebar({
 }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
-  const [expandedSections, setExpandedSections] = useState<NavSection[]>([]);
+  /** `null` = ainda não escolheu nada; cai no padrão (grupo principal aberto). */
+  const [gruposAbertos, setGruposAbertos] = useState<NavSection[] | null>(null);
   const asideRef = useRef<HTMLElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setCollapsed(lerJson<boolean>(CHAVE_RECOLHIDA, false));
+    setGruposAbertos(lerJson<NavSection[] | null>(CHAVE_GRUPOS, null));
+  }, []);
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -98,50 +149,70 @@ export function AppSidebar({
     [showPregnancy, showCycle, isStaff],
   );
 
-  function toggleSection(section: NavSection) {
-    setExpandedSections((current) =>
-      current.includes(section)
-        ? current.filter((candidate) => candidate !== section)
-        : [...current, section],
+  const ehRotaAtiva = useCallback(
+    (item: NavItem) => pathname === item.href || pathname.startsWith(`${item.href}/`),
+    [pathname],
+  );
+
+  /** Seção do item aberto agora — `null` numa rota fora do menu. */
+  const secaoAtiva = useMemo(
+    () => items.find((item) => ehRotaAtiva(item))?.section ?? null,
+    [items, ehRotaAtiva],
+  );
+
+  /*
+   * Quais grupos estão abertos.
+   *
+   * `null` = a pessoa ainda não escolheu nada; aí o padrão é o grupo principal
+   * MAIS o grupo de onde ela está — chegar numa tela e não ver o próprio item no
+   * menu é desorientador.
+   *
+   * O que NÃO fazemos: forçar o grupo da rota atual a ficar aberto para sempre.
+   * A versão anterior fazia isso, e o botão do grupo virava um controle morto —
+   * clicava, `aria-expanded` prometia mudar, e nada acontecia. Um botão que não
+   * responde é pior que um rótulo fixo, porque promete uma ação que não existe.
+   */
+  const abertos = gruposAbertos ?? [
+    PRIMARY_NAV_SECTION,
+    ...(secaoAtiva && secaoAtiva !== PRIMARY_NAV_SECTION ? [secaoAtiva] : []),
+  ];
+
+  /* Navegou para um grupo fechado? Ele abre. Continua fechável logo em seguida. */
+  useEffect(() => {
+    if (!secaoAtiva) return;
+    setGruposAbertos((atual) =>
+      atual && !atual.includes(secaoAtiva) ? [...atual, secaoAtiva] : atual,
     );
+  }, [secaoAtiva]);
+
+  /* Persistência num lugar só: o estado é a fonte, o storage é o espelho. */
+  useEffect(() => {
+    if (gruposAbertos) gravarJson(CHAVE_GRUPOS, gruposAbertos);
+  }, [gruposAbertos]);
+
+  function alternarGrupo(secao: NavSection) {
+    setGruposAbertos((atual) => {
+      const base = atual ?? abertos;
+      return base.includes(secao)
+        ? base.filter((candidato) => candidato !== secao)
+        : [...base, secao];
+    });
   }
 
-  function ItemLink({ item }: { item: NavItem }) {
-    // Ativo no item exato OU em qualquer subrota (ex.: /diario/novo → Diário).
-    const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-    const Icon = item.icon;
-    return (
-      <Link
-        href={item.href}
-        onClick={onClose}
-        title={collapsed ? item.label : undefined}
-        aria-current={active ? 'page' : undefined}
-        className={`group relative flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
-          active
-            ? 'bg-primary/10 font-semibold text-primary'
-            : 'font-medium text-muted hover:bg-surface-2 hover:text-fg'
-        }`}
-      >
-        <Icon className={`h-[18px] w-[18px] shrink-0 ${active ? 'text-primary' : ''}`} />
-        {!collapsed && (
-          <>
-            <span className="truncate">{item.label}</span>
-            {item.plus && (
-              <span className="ml-auto rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
-                Plus
-              </span>
-            )}
-            {!item.plus && item.status === 'beta' && (
-              <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary/60" title="Em testes (beta)" />
-            )}
-            {!item.plus && item.status === 'planned' && (
-              <span className="ml-auto h-1.5 w-1.5 rounded-full bg-amber-400/60" title="Em breve" />
-            )}
-          </>
-        )}
-      </Link>
-    );
+  function alternarRecolhida() {
+    setCollapsed((atual) => {
+      gravarJson(CHAVE_RECOLHIDA, !atual);
+      return !atual;
+    });
   }
+
+  /*
+   * "Recolhida" é estado de DESKTOP. A gaveta do telefone tem 264px e mostra
+   * rótulo sempre — sem isto, quem recolheu a lateral no computador abria o menu
+   * no celular e recebia uma coluna de ícones sem nome dentro de um painel
+   * largo, porque a preferência é a mesma em `localStorage` nos dois tamanhos.
+   */
+  const recolhida = collapsed && !mobileOpen;
 
   return (
     <>
@@ -158,118 +229,214 @@ export function AppSidebar({
         role={mobileOpen ? 'dialog' : undefined}
         aria-modal={mobileOpen ? true : undefined}
         aria-label={mobileOpen ? 'Menu principal' : undefined}
-        className={`fixed inset-y-0 left-0 z-40 flex w-[264px] shrink-0 flex-col overscroll-contain border-r border-line bg-surface transition-transform duration-300 lg:static lg:z-20 lg:translate-x-0 ${
+        /* 264 / 76 px vêm de `layout` em @hubpatients/ui-tokens (DESIGN.md §7). */
+        className={`fixed inset-y-0 left-0 z-40 flex w-[264px] shrink-0 flex-col overscroll-contain border-r border-line bg-surface transition-[transform,width] duration-300 motion-reduce:transition-none lg:static lg:z-20 lg:translate-x-0 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
-        } ${collapsed ? 'lg:w-[76px]' : 'lg:w-[256px]'}`}
+        } ${recolhida ? 'lg:w-[76px]' : 'lg:w-[264px]'}`}
       >
-        {/* Logo */}
-        <div className="flex h-[72px] items-center gap-2.5 border-b border-line px-5">
+        {/* ── Marca + botão « ─────────────────────────────────────────────── */}
+        <div
+          className={`flex h-16 shrink-0 items-center gap-2 border-b border-line ${
+            recolhida ? 'justify-center px-2' : 'px-4'
+          }`}
+        >
           {/*
-            Expandida usa a LOGO COMPLETA (símbolo + escrita, `wordmark.png`,
-            gerada de img/Logo.png). Recolhida cai no símbolo quadrado
-            (`logo.png`, gerado de img/icon.png), que é o único que cabe em
-            76px sem esmagar a escrita.
-            O nome deixou de ser texto HTML ao lado do símbolo: com a logo
-            completa, escrever "HubPatients" de novo duplicaria a marca.
+            Expandida usa a LOGO COMPLETA (símbolo + escrita, `wordmark.png`).
+            Recolhida cai no símbolo quadrado (`logo.png`), o único que cabe em
+            76px sem esmagar a escrita. O nome NÃO é repetido em texto ao lado:
+            com a logo completa, seria a marca escrita duas vezes.
           */}
-          {collapsed ? (
-            <img
-              src="/logo.png"
-              alt="HubPatients"
-              width={36}
-              height={36}
-              className="h-9 w-9 shrink-0"
-            />
-          ) : (
-            /*
-              56px de altura num cabeçalho de 72px — o máximo que respira sem
-              encostar na borda. A altura do cabeçalho NÃO pode crescer: ela
-              casa com os 72px da topbar, e a linha divisória das duas ficaria
-              desalinhada.
-            */
-            <img
-              src="/wordmark.png"
-              alt="HubPatients"
-              className="h-14 w-auto max-w-[170px] shrink-0 object-contain"
-            />
-          )}
-          <button
-            onClick={() => setCollapsed((c) => !c)}
-            className="ml-auto hidden h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-fg-soft lg:flex"
-            aria-label="Recolher menu"
-          >
-            <ChevronLeft className={`h-4 w-4 transition-transform ${collapsed ? 'rotate-180' : ''}`} />
-          </button>
-          <button
+          <Link
+            href="/dashboard"
             onClick={onClose}
-            className="ml-auto flex h-11 w-11 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-fg-soft lg:hidden"
-            aria-label="Fechar menu"
+            aria-label="HubPatients — ir para a visão geral"
+            className="flex min-h-11 items-center rounded-chip focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
-            <X className="h-5 w-5" />
+            {recolhida ? (
+              <img src="/logo.png" alt="" width={36} height={36} className="h-9 w-9 shrink-0" />
+            ) : (
+              <img
+                src="/wordmark.png"
+                alt=""
+                className="h-11 w-auto max-w-[152px] shrink-0 object-contain"
+              />
+            )}
+          </Link>
+
+          {/* Aberta: o « fica no cabeçalho. Recolhida ele não cabe ao lado do
+              símbolo e desce para a faixa abaixo — continua no fluxo do Tab. */}
+          {!recolhida && (
+            <button
+              type="button"
+              onClick={alternarRecolhida}
+              aria-expanded
+              aria-label="Recolher menu"
+              title="Recolher menu"
+              className="ml-auto hidden min-h-11 min-w-11 items-center justify-center rounded-chip text-muted transition-colors hover:bg-surface-2 hover:text-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:flex"
+            >
+              <ChevronLeft className="h-4 w-4" aria-hidden />
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fechar menu"
+            className="ml-auto flex min-h-11 min-w-11 items-center justify-center rounded-chip text-muted transition-colors hover:bg-surface-2 hover:text-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:hidden"
+          >
+            <X className="h-5 w-5" aria-hidden />
           </button>
         </div>
 
-        {/* Navegação */}
-        <nav aria-label="Navegação principal" className="flex-1 overflow-y-auto px-3 py-4">
-          {collapsed ? (
-            // recolhido → lista plana
-            <div className="space-y-0.5">
+        {/* Recolhida, o « sai do cabeçalho (não cabe ao lado do símbolo) e vira
+            o primeiro item da navegação — continua alcançável pelo teclado. */}
+        {recolhida && (
+          <div className="flex justify-center border-b border-line py-2">
+            <button
+              type="button"
+              onClick={alternarRecolhida}
+              aria-expanded={false}
+              aria-label="Expandir menu"
+              title="Expandir menu"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-chip text-muted transition-colors hover:bg-surface-2 hover:text-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              <ChevronLeft className="h-4 w-4 rotate-180" aria-hidden />
+            </button>
+          </div>
+        )}
+
+        {/* ── Navegação ───────────────────────────────────────────────────── */}
+        <nav
+          aria-label="Navegação principal"
+          className={`flex-1 overflow-y-auto py-3 ${recolhida ? 'px-2' : 'px-3'}`}
+        >
+          {recolhida ? (
+            // Recolhida: lista plana. Agrupar sem rótulo visível seria decoração
+            // sem significado — a categoria volta assim que a lateral abre.
+            <ul className="space-y-1">
               {items.map((item) => (
-                <ItemLink key={item.href} item={item} />
+                <li key={item.href}>
+                  <ItemLink
+                    item={item}
+                    collapsed
+                    active={ehRotaAtiva(item)}
+                    onNavigate={onClose}
+                  />
+                </li>
               ))}
-            </div>
+            </ul>
           ) : (
-            // padrão → agrupado por seção
-            NAV_SECTIONS.map((section, sectionIndex) => {
-              const group = items.filter((i) => i.section === section);
-              if (group.length === 0) return null;
-              const containsActiveRoute = group.some(
-                (item) => pathname === item.href || pathname.startsWith(`${item.href}/`),
-              );
-              const isPrimary = section === PRIMARY_NAV_SECTION;
-              const isExpanded =
-                isPrimary || containsActiveRoute || expandedSections.includes(section);
-              const sectionId = `nav-section-${sectionIndex}`;
+            NAV_SECTIONS.map((secao, indice) => {
+              const grupo = items.filter((i) => i.section === secao);
+              if (grupo.length === 0) return null;
+
+              const aberto = abertos.includes(secao);
+              const idGrupo = `nav-grupo-${indice}`;
+
               return (
-                <div key={section} className="mb-2">
-                  {isPrimary || containsActiveRoute ? (
-                    <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-faint">
-                      {section}
-                    </p>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => toggleSection(section)}
-                      aria-expanded={isExpanded}
-                      aria-controls={sectionId}
-                      className="flex min-h-11 w-full items-center justify-between rounded-lg px-3 text-left text-[10px] font-semibold uppercase tracking-wider text-faint transition hover:bg-surface-2 hover:text-fg-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                    >
-                      <span>{section}</span>
-                      <ChevronDown
-                        className={`h-3.5 w-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                        aria-hidden
-                      />
-                    </button>
-                  )}
-                  <div id={sectionId} hidden={!isExpanded} className="space-y-0.5">
-                    {group.map((item) => (
-                      <ItemLink key={item.href} item={item} />
+                <div key={secao} className="mb-1">
+                  <button
+                    type="button"
+                    onClick={() => alternarGrupo(secao)}
+                    aria-expanded={aberto}
+                    aria-controls={idGrupo}
+                    className="flex min-h-11 w-full items-center justify-between gap-2 rounded-chip px-3 text-left text-caption font-semibold uppercase tracking-wider text-hint transition-colors hover:bg-surface-2 hover:text-fg-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  >
+                    <span className="min-w-0 truncate">{secao}</span>
+                    <ChevronDown
+                      className={`h-4 w-4 shrink-0 transition-transform motion-reduce:transition-none ${
+                        aberto ? 'rotate-180' : ''
+                      }`}
+                      aria-hidden
+                    />
+                  </button>
+                  <ul id={idGrupo} hidden={!aberto} className="mt-0.5 space-y-0.5">
+                    {grupo.map((item) => (
+                      <li key={item.href}>
+                        <ItemLink
+                          item={item}
+                          active={ehRotaAtiva(item)}
+                          onNavigate={onClose}
+                        />
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 </div>
               );
             })
           )}
         </nav>
 
-        {/* Rodapé */}
-        {!collapsed && (
-          <div className="border-t border-line px-5 py-4">
-            <p className="text-xs font-semibold text-fg-soft">HubPatients</p>
-            <p className="text-[11px] text-muted">MVP · v0.1.0</p>
+        {/* ── Rodapé: cartão com o nome do produto e a versão ─────────────── */}
+        {!recolhida && (
+          <div className="shrink-0 border-t border-line p-3">
+            <div className="rounded-card border border-line bg-surface-2 px-3 py-2.5">
+              <p className="truncate text-label font-semibold text-fg">{PRODUTO}</p>
+              <p className="truncate text-caption text-muted">{VERSAO}</p>
+            </div>
           </div>
         )}
       </aside>
     </>
+  );
+}
+
+/* ══════════════════════════════ Item ══════════════════════════════ */
+
+function ItemLink({
+  item,
+  active,
+  collapsed = false,
+  onNavigate,
+}: {
+  item: NavItem;
+  active: boolean;
+  collapsed?: boolean;
+  onNavigate?: () => void;
+}) {
+  const Icon = item.icon;
+  /* Estado do módulo em PALAVRAS. O ponto azul é reforço, nunca o único canal —
+     um ponto sozinho não diz nada a quem não enxerga a cor (SC 1.4.1). */
+  const marca =
+    item.plus ? 'Plus' : item.status === 'beta' ? 'em testes' : item.status === 'planned' ? 'em breve' : null;
+
+  return (
+    <Link
+      href={item.href}
+      onClick={onNavigate}
+      title={collapsed ? item.label : undefined}
+      aria-label={collapsed ? item.label : undefined}
+      aria-current={active ? 'page' : undefined}
+      className={`group relative flex min-h-11 items-center gap-3 rounded-chip py-2 text-body-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+        collapsed ? 'justify-center px-2' : 'px-3'
+      } ${
+        active
+          ? 'bg-nav-active-tint font-semibold text-nav-active-ink'
+          : 'font-medium text-muted hover:bg-surface-2 hover:text-fg'
+      }`}
+    >
+      <Icon className="h-[1.15em] w-[1.15em] shrink-0" aria-hidden />
+      {!collapsed && (
+        <>
+          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+          {item.plus ? (
+            <span className="shrink-0 rounded-full bg-chip-azul-tint px-2 py-0.5 text-caption font-bold uppercase tracking-wide text-chip-azul-ink">
+              Plus
+            </span>
+          ) : marca ? (
+            <>
+              <span
+                aria-hidden
+                className={`h-2 w-2 shrink-0 rounded-full ${
+                  item.status === 'beta' ? 'bg-primary' : 'border border-line-strong'
+                }`}
+              />
+              <span className="sr-only">({marca})</span>
+            </>
+          ) : null}
+        </>
+      )}
+      {collapsed && marca ? <span className="sr-only">({marca})</span> : null}
+    </Link>
   );
 }

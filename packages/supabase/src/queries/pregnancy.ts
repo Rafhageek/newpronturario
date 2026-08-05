@@ -6,6 +6,7 @@ import type {
   PregnancyMilestoneCatalog,
   PregnancyRisk,
 } from '@hubpatients/core';
+import { diaLocal } from '@hubpatients/core';
 import type { HubPatientsClient } from '../types';
 
 /** Item da timeline = marco da gestação + sua definição no catálogo do MS. */
@@ -40,8 +41,14 @@ export interface StartPregnancyArgs {
   maternityPhone?: string;
 }
 
-const toISODate = (d?: Date | null): string | null =>
-  d ? d.toISOString().slice(0, 10) : null;
+/**
+ * `Date` → `AAAA-MM-DD` no fuso LOCAL.
+ *
+ * Era `toISOString().slice(0, 10)`, que converte para UTC: uma DUM ou data
+ * prevista de parto escolhida à noite no Brasil era gravada um dia à frente, e
+ * a idade gestacional inteira sai desalinhada a partir dela.
+ */
+const toISODate = (d?: Date | null): string | null => (d ? diaLocal(d) : null);
 
 /** Inicia a gestação e popula os marcos do catálogo (RPC atômica). */
 export async function startPregnancy(

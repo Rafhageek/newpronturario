@@ -120,3 +120,74 @@ export function semanaDe(dia: string): string[] {
 
 /** Iniciais da semana na mesma ordem de `semanaDe` (segunda → domingo). */
 export const SEMANA_CURTA_SEG_PRIMEIRO = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'] as const;
+
+/* ==========================================================================
+ * HORA E TEMPO RELATIVO — também sem `Intl`
+ *
+ * Estas funções existiam soltas: `horaLocal` escrita à mão na home do mobile,
+ * `timeAgo` copiada em `app/notificacoes.tsx`, e `Intl.RelativeTimeFormat` na
+ * `topbar-menus.tsx` da web. Três implementações, três redações — e a da web é
+ * uma bomba armada: no dia em que o sino for para o mobile, `RelativeTimeFormat`
+ * derruba o app no Hermes. Já aconteceu neste projeto, com essa API exata.
+ * ========================================================================== */
+
+/** "14:30" no fuso de quem está lendo. Aceita ISO ou `Date`. */
+export function horaLocal(quando: string | Date): string {
+  const d = quando instanceof Date ? quando : new Date(quando);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+/** "12 de agosto, 14:30" — data curta + hora, no fuso local. */
+export function dataEHoraLocal(quando: string | Date): string {
+  const d = quando instanceof Date ? quando : new Date(quando);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${diaEMes(diaLocal(d))}, ${horaLocal(d)}`;
+}
+
+/**
+ * "agora" · "há 2 min" · "há 3 h" · "ontem" · "há 5 dias" · "há 2 meses".
+ *
+ * Redação escolhida para caber em chip e em linha de lista, e para não afirmar
+ * precisão que não temos: arredondar 90 min para "há 2 h" é honesto; "há 1,5
+ * hora" seria exatidão inventada em cima de um relógio que pode estar torto.
+ *
+ * Futuro (`quando` à frente de `agora`) devolve "em …" em vez de um "há -3 h"
+ * sem sentido — acontece de verdade com relógio de aparelho adiantado.
+ */
+export function tempoRelativo(quando: string | Date, agora: Date = new Date()): string {
+  const d = quando instanceof Date ? quando : new Date(quando);
+  if (Number.isNaN(d.getTime())) return '';
+
+  const deltaMs = agora.getTime() - d.getTime();
+  const futuro = deltaMs < 0;
+  const seg = Math.round(Math.abs(deltaMs) / 1000);
+
+  if (seg < 45) return futuro ? 'daqui a pouco' : 'agora';
+
+  const prefixo = (texto: string) => (futuro ? `em ${texto}` : `há ${texto}`);
+
+  const min = Math.round(seg / 60);
+  if (min < 60) return prefixo(`${min} min`);
+
+  const hr = Math.round(min / 60);
+  if (hr < 24) return prefixo(hr === 1 ? '1 h' : `${hr} h`);
+
+  const dias = Math.round(hr / 24);
+  if (dias === 1) return futuro ? 'amanhã' : 'ontem';
+  if (dias < 30) return prefixo(`${dias} dias`);
+
+  const meses = Math.round(dias / 30);
+  if (meses < 12) return prefixo(meses === 1 ? '1 mês' : `${meses} meses`);
+
+  const anos = Math.round(meses / 12);
+  return prefixo(anos === 1 ? '1 ano' : `${anos} anos`);
+}
+
+/** "Bom dia" · "Boa tarde" · "Boa noite" — pelo relógio de quem está lendo. */
+export function saudacao(agora: Date = new Date()): string {
+  const h = agora.getHours();
+  if (h < 12) return 'Bom dia';
+  if (h < 18) return 'Boa tarde';
+  return 'Boa noite';
+}

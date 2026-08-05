@@ -9,6 +9,7 @@
 
 export {
   PanelCard,
+  PanelRow,
   IconChip,
   PanelButton,
   Seal,
@@ -17,6 +18,8 @@ export {
   StatCard,
   StatRow,
   EmptyState,
+  ErrorState,
+  StatusChip,
   QuickActions,
   CHIP_TONES,
   chipToneFor,
@@ -24,12 +27,16 @@ export {
 
 export type {
   PanelCardProps,
+  PanelRowProps,
   IconChipProps,
   PanelButtonProps,
   PageHeaderProps,
   SectionHeaderProps,
   StatCardProps,
   EmptyStateProps,
+  ErrorStateProps,
+  StatusChipProps,
+  StatusKind,
   QuickAction,
   ChipTone,
 } from './primitives';

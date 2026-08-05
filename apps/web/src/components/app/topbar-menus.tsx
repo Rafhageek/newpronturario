@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
@@ -24,7 +25,12 @@ import {
   User as UserIcon,
   Users,
 } from 'lucide-react';
-import { LOCALES, notificationCategory, type LocaleCode } from '@hubpatients/core';
+import {
+  LOCALES,
+  notificationCategory,
+  tempoRelativo,
+  type LocaleCode,
+} from '@hubpatients/core';
 import type { NotificationQueueItem } from '@hubpatients/core';
 import {
   useNotifications,
@@ -35,20 +41,18 @@ import {
 } from '@hubpatients/supabase';
 import { useAuth } from '@/components/auth-provider';
 import { IconMenu } from '@/components/ui/icon-menu';
+import { IconChip, type ChipTone } from '@/components/ui/painel';
 
-// ── Tempo relativo (pt-BR) ────────────────────────────────────────────────────
-const rtf = new Intl.RelativeTimeFormat('pt-BR', { numeric: 'auto' });
-function timeAgo(iso: string): string {
-  const sec = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
-  if (sec < 60) return 'agora';
-  const min = Math.round(sec / 60);
-  if (min < 60) return rtf.format(-min, 'minute');
-  const hr = Math.round(min / 60);
-  if (hr < 24) return rtf.format(-hr, 'hour');
-  const day = Math.round(hr / 24);
-  if (day < 30) return rtf.format(-day, 'day');
-  return rtf.format(-Math.round(day / 30), 'month');
-}
+/**
+ * Tempo relativo em PT-BR.
+ *
+ * Era `new Intl.RelativeTimeFormat('pt-BR')` aqui mesmo. Funciona na web e é
+ * uma bomba armada: no dia em que o sino for para o mobile, `RelativeTimeFormat`
+ * derruba o app no Hermes — já aconteceu neste projeto, com essa API exata.
+ * Agora sai de `@hubpatients/core`, na mesma implementação que o mobile usa, e
+ * a redação passa a ser uma só nas duas plataformas.
+ */
+const timeAgo = tempoRelativo;
 
 // ════════════════════════════════ TEMA ═══════════════════════════════════════
 const THEME_OPTIONS = [
@@ -73,7 +77,7 @@ export function ThemeMenu() {
     >
       {(close) => (
         <div className="p-1.5">
-          <p className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-faint">
+          <p className="px-2.5 py-1.5 text-caption font-semibold uppercase tracking-wider text-faint">
             Aparência
           </p>
           {THEME_OPTIONS.map((opt) => {
@@ -88,8 +92,8 @@ export function ThemeMenu() {
                   setTheme(opt.value);
                   close();
                 }}
-                className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm transition ${
-                  active ? 'bg-sky-500/10 text-primary' : 'text-fg-soft hover:bg-surface-2'
+                className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-body-sm transition ${
+                  active ? 'bg-nav-active-tint text-nav-active-ink' : 'text-fg-soft hover:bg-surface-2'
                 }`}
               >
                 <Icon className="h-4 w-4 shrink-0" />
@@ -123,7 +127,7 @@ export function LanguageMenu() {
     >
       {(close) => (
         <div className="p-1.5">
-          <p className="px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-faint">
+          <p className="px-2.5 py-1.5 text-caption font-semibold uppercase tracking-wider text-faint">
             Idioma
           </p>
           {LOCALES.map((loc) => {
@@ -145,8 +149,8 @@ export function LanguageMenu() {
                     });
                   }
                 }}
-                className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm transition ${
-                  active ? 'bg-sky-500/10 text-primary' : 'text-fg-soft hover:bg-surface-2'
+                className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-body-sm transition ${
+                  active ? 'bg-nav-active-tint text-nav-active-ink' : 'text-fg-soft hover:bg-surface-2'
                 }`}
               >
                 <span aria-hidden className="text-base leading-none">
@@ -164,16 +168,26 @@ export function LanguageMenu() {
 }
 
 // ════════════════════════════ NOTIFICAÇÕES ═══════════════════════════════════
+/**
+ * Ícone e tom de CATEGORIA por tipo de notificação.
+ *
+ * O âmbar que estava em `medication` e o verde de `milestone`/`growth` faziam o
+ * aviso nascer com gravidade escolhida pela categoria: um lembrete de remédio de
+ * rotina chegava pintado igual a um alerta, e "cresceu 2 cm" chegava com o verde
+ * de aprovação sobre o corpo de uma criança. Os tons pastel da fundação dizem
+ * apenas de que ASSUNTO é o aviso — urgência, quando existir, vai no texto, que
+ * é o canal que sobrevive ao daltonismo e à impressão.
+ */
 const CATEGORY_VISUAL = {
-  diary: { Icon: NotebookPen, tone: 'text-primary', bg: 'bg-sky-500/15' },
-  medication: { Icon: Pill, tone: 'text-status-attention-ink', bg: 'bg-amber-500/15' },
-  exam: { Icon: FlaskConical, tone: 'text-primary', bg: 'bg-sky-500/15' },
-  appointment: { Icon: CalendarDays, tone: 'text-primary', bg: 'bg-sky-500/15' },
-  milestone: { Icon: Trophy, tone: 'text-status-ok-ink', bg: 'bg-health-500/15' },
-  growth: { Icon: Ruler, tone: 'text-status-ok-ink', bg: 'bg-health-500/15' },
-  community: { Icon: Users, tone: 'text-primary', bg: 'bg-sky-500/15' },
-  system: { Icon: Bell, tone: 'text-primary', bg: 'bg-sky-500/15' },
-} as const;
+  diary: { Icon: NotebookPen, tone: 'azul' },
+  medication: { Icon: Pill, tone: 'indigo' },
+  exam: { Icon: FlaskConical, tone: 'violeta' },
+  appointment: { Icon: CalendarDays, tone: 'turquesa' },
+  milestone: { Icon: Trophy, tone: 'ameixa' },
+  growth: { Icon: Ruler, tone: 'turquesa' },
+  community: { Icon: Users, tone: 'ardosia' },
+  system: { Icon: Bell, tone: 'azul' },
+} as const satisfies Record<string, { Icon: LucideIcon; tone: ChipTone }>;
 
 function notifVisual(type: string) {
   return CATEGORY_VISUAL[notificationCategory(type)];
@@ -187,26 +201,30 @@ function NotificationRow({
   onRead: (id: string) => void;
 }) {
   const unread = !item.read_at;
-  const { Icon, tone, bg } = notifVisual(item.type);
+  const { Icon, tone } = notifVisual(item.type);
   return (
-    <li className={`relative ${unread ? 'bg-sky-500/[0.05]' : ''}`}>
-      {unread && <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-sky-500" aria-hidden />}
+    <li className={`relative ${unread ? 'bg-surface-2' : ''}`}>
+      {unread && <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-primary" aria-hidden />}
       <button
         onClick={() => unread && onRead(item.id)}
-        className="flex w-full items-start gap-3 px-3 py-3 text-left transition hover:bg-surface-2"
+        className="flex min-h-11 w-full items-start gap-3 px-3 py-3 text-left transition-colors hover:bg-surface-3"
       >
-        <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${bg}`}>
-          <Icon className={`h-[18px] w-[18px] ${tone}`} />
-        </span>
+        <IconChip icon={Icon} tone={tone} size="sm" className="mt-0.5" />
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2">
-            <span className={`truncate text-sm ${unread ? 'font-semibold text-fg' : 'text-fg-soft'}`}>
+            <span className={`truncate text-body-sm ${unread ? 'font-semibold text-fg' : 'text-fg-soft'}`}>
               {item.title}
             </span>
-            {unread && <span className="h-2 w-2 shrink-0 rounded-full bg-sky-500" aria-label="Não lida" />}
+            {/* "Não lida" precisa ser PALAVRA, não só um ponto colorido. */}
+            {unread && (
+              <>
+                <span className="h-2 w-2 shrink-0 rounded-full bg-primary" aria-hidden />
+                <span className="sr-only">Não lida</span>
+              </>
+            )}
           </span>
-          <span className="mt-0.5 line-clamp-2 block text-xs text-muted">{item.body}</span>
-          <span className="mt-1 block text-[11px] text-faint">{timeAgo(item.created_at)}</span>
+          <span className="mt-0.5 line-clamp-2 block text-caption text-muted">{item.body}</span>
+          <span className="mt-1 block text-caption text-faint">{timeAgo(item.created_at)}</span>
         </span>
       </button>
     </li>
@@ -231,12 +249,12 @@ export function NotificationsMenu() {
       {(close) => (
         <div className="flex max-h-[28rem] flex-col">
           <div className="flex items-center justify-between border-b border-line px-3.5 py-3">
-            <p className="text-sm font-semibold text-fg">Notificações</p>
+            <p className="text-body-sm font-semibold text-fg">Notificações</p>
             {unreadCount > 0 && (
               <button
                 onClick={() => markAll.mutate()}
                 disabled={markAll.isPending}
-                className="inline-flex items-center gap-1 text-xs font-medium text-primary transition hover:underline disabled:opacity-50"
+                className="inline-flex items-center gap-1 text-caption font-medium text-primary transition hover:underline disabled:opacity-50"
               >
                 <CheckCheck className="h-3.5 w-3.5" /> Marcar todas como lidas
               </button>
@@ -261,8 +279,8 @@ export function NotificationsMenu() {
                 <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface-2">
                   <BellOff className="h-6 w-6 text-faint" />
                 </span>
-                <p className="text-sm font-medium text-fg-soft">Tudo em dia</p>
-                <p className="max-w-[15rem] text-xs text-muted">
+                <p className="text-body-sm font-medium text-fg-soft">Tudo em dia</p>
+                <p className="max-w-[15rem] text-caption text-muted">
                   Você não tem notificações novas. Avisamos aqui sobre estoque baixo, lembretes e mais.
                 </p>
               </div>
@@ -281,7 +299,7 @@ export function NotificationsMenu() {
                 close();
                 router.push('/medicamentos');
               }}
-              className="w-full rounded-xl px-3 py-2 text-center text-sm font-medium text-fg-soft transition hover:bg-surface-2"
+              className="w-full rounded-xl px-3 py-2 text-center text-body-sm font-medium text-fg-soft transition hover:bg-surface-2"
             >
               Ver medicamentos
             </button>
@@ -311,7 +329,7 @@ export function UserMenu({
       align="end"
       width="w-60"
       icon={
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-cyan-400 text-sm font-bold text-white">
+        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-body-sm font-bold text-white">
           {initial}
         </span>
       }
@@ -319,8 +337,8 @@ export function UserMenu({
       {(close) => (
         <div>
           <div className="border-b border-line px-3.5 py-3">
-            <p className="truncate text-sm font-semibold text-fg">{name}</p>
-            {email && <p className="truncate text-xs text-muted">{email}</p>}
+            <p className="truncate text-body-sm font-semibold text-fg">{name}</p>
+            {email && <p className="truncate text-caption text-muted">{email}</p>}
           </div>
           <div className="p-1.5">
             {[
@@ -336,7 +354,7 @@ export function UserMenu({
                     close();
                     router.push(it.href);
                   }}
-                  className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm text-fg-soft transition hover:bg-surface-2"
+                  className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-body-sm text-fg-soft transition hover:bg-surface-2"
                 >
                   <Icon className="h-4 w-4 shrink-0" />
                   {it.label}
@@ -351,7 +369,7 @@ export function UserMenu({
                 close();
                 onSignOut();
               }}
-              className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm text-status-alert-ink transition hover:bg-status-alert-tint"
+              className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-body-sm text-status-alert-ink transition hover:bg-status-alert-tint"
             >
               <LogOut className="h-4 w-4 shrink-0" />
               Sair da conta

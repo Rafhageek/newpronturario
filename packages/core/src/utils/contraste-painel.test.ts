@@ -18,6 +18,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   a11y,
+  status,
+  inkLight,
   contrastRatio,
   isCategoryHue,
   hexToHsl,
@@ -295,5 +297,128 @@ describe('gráficos: a paleta neutra-clínica continua sem semáforo', () => {
       const vermelha = s >= 0.25 && (h <= 20 || h >= 335);
       expect(vermelha, `${cor} está em ${Math.round(h)}° — vermelho`).toBe(false);
     }
+  });
+});
+
+/**
+ * ════════════════════════════════════════════════════════════════════════════
+ * A MATRIZ INTEIRA — porque a superfície do mobile mudou por baixo de 47 telas
+ * ════════════════════════════════════════════════════════════════════════════
+ *
+ * A camada Painel foi LIGADA GLOBALMENTE no mobile: o canvas deixou de ser o
+ * creme quente (#faf9f6) e virou o azul-neutro (#f5f7fb), e as tintas trocaram
+ * junto. Isso muda o fundo de 47 telas que ninguém redesenhou.
+ *
+ * "Todas as combinações devem continuar passando" não é conclusão que se tira
+ * por raciocínio — a superfície nova é mais clara, mas `line-strong` e `hint`
+ * vivem a 3,29 e 4,55, ou seja, a poucos centésimos do piso. Então aqui a
+ * matriz é percorrida INTEIRA: cada tinta contra CADA superfície que pode ficar
+ * atrás dela, nos dois temas. Se um par cair, o teste diz qual e com que número.
+ */
+describe('matriz completa: toda tinta contra toda superfície, nos dois temas', () => {
+  const temas = [
+    {
+      nome: 'claro',
+      superficies: painelSurfaceLight,
+      tintas: painelInkLight,
+      /** Não fazem parte da camada Painel, mas continuam sobre estas superfícies. */
+      extras: {
+        accent: inkLight.accent,
+        'status ok': status.light.ok.ink,
+        'status attention': status.light.attention.ink,
+        'status alert': status.light.alert.ink,
+        'status neutro': status.light.neutro.ink,
+      },
+    },
+    {
+      nome: 'escuro',
+      superficies: painelSurfaceDark,
+      tintas: painelInkDark,
+      extras: {
+        accent: inkDark.accent,
+        'status ok': status.dark.ok.ink,
+        'status attention': status.dark.attention.ink,
+        'status alert': status.dark.alert.ink,
+        'status neutro': status.dark.neutro.ink,
+      },
+    },
+  ] as const;
+
+  for (const tema of temas) {
+    // `line` é DECORATIVA (separador) e por isso fica fora — ela não tem
+    // requisito de 3:1, e é justamente para isso que existe `lineStrong`.
+    const fundos = [
+      ['bg', tema.superficies.bg],
+      ['surface', tema.superficies.surface],
+      ['surface2', tema.superficies.surface2],
+      ['surface3', tema.superficies.surface3],
+    ] as const;
+
+    const tintasDeTexto = {
+      fg: tema.tintas.fg,
+      fgSoft: tema.tintas.fgSoft,
+      muted: tema.tintas.muted,
+      hint: tema.tintas.hint,
+      primary: tema.tintas.primary,
+      ...tema.extras,
+    } as Record<string, string>;
+
+    for (const [nomeFundo, fundo] of fundos) {
+      it(`[${tema.nome}] toda tinta de texto cumpre AA sobre ${nomeFundo}`, () => {
+        const reprovadas: string[] = [];
+        for (const [nomeTinta, tinta] of Object.entries(tintasDeTexto)) {
+          const razao = medir(tinta, fundo);
+          if (razao < AA_TEXTO) {
+            reprovadas.push(`${nomeTinta} (${tinta}) sobre ${nomeFundo} (${fundo}) = ${razao}:1`);
+          }
+        }
+        expect(reprovadas, reprovadas.join(' · ')).toEqual([]);
+      });
+
+      it(`[${tema.nome}] lineStrong serve de borda de campo sobre ${nomeFundo}`, () => {
+        const razao = medir(tema.superficies.lineStrong, fundo);
+        expect(
+          razao,
+          `lineStrong (${tema.superficies.lineStrong}) sobre ${nomeFundo} = ${razao}:1`,
+        ).toBeGreaterThanOrEqual(AA_NAO_TEXTO);
+      });
+    }
+
+    it(`[${tema.nome}] o chip pastel continua legível sobre QUALQUER superfície`, () => {
+      const paleta = chipPastel[tema.nome === 'claro' ? 'light' : 'dark'];
+      const reprovados: string[] = [];
+      for (const tom of CHIP_TONES) {
+        for (const [nomeFundo, fundo] of fundos) {
+          // O `tint` é o fundo do próprio chip; o que precisa se ler contra a
+          // superfície da tela é a TINTA, no caso de o chip ser usado sem fundo.
+          const razao = medir(paleta[tom].ink, fundo);
+          if (razao < AA_TEXTO) reprovados.push(`${tom} sobre ${nomeFundo} = ${razao}:1`);
+        }
+      }
+      expect(reprovados, reprovados.join(' · ')).toEqual([]);
+    });
+  }
+
+  /**
+   * O canvas quente saiu do app, mas a paleta continua exportada (relatório
+   * impresso, páginas públicas). Este teste existe para o dia em que alguém
+   * misturar as duas: tinta quente sobre superfície fria, ou o contrário.
+   */
+  it('as tintas QUENTES antigas ainda passariam sobre a superfície fria', () => {
+    for (const tinta of [inkLight.fg, inkLight.fgSoft, inkLight.muted, inkLight.hint]) {
+      const razao = medir(tinta, painelSurfaceLight.surface3);
+      expect(razao, `${tinta} sobre a superfície fria = ${razao}:1`).toBeGreaterThanOrEqual(
+        AA_TEXTO,
+      );
+    }
+  });
+
+  it('a superfície fria do mobile é IDÊNTICA à da web (não podem divergir de novo)', () => {
+    // Os valores da web moram em apps/web/src/app/globals.css (`.hp-painel`) e
+    // os do mobile em apps/mobile/global.css — os dois copiados DESTES tokens.
+    expect(painelSurfaceLight.bg).toBe('#f5f7fb');
+    expect(painelSurfaceLight.surface3).toBe('#edf1f7');
+    expect(painelSurfaceLight.lineStrong).toBe('#7a8597');
+    expect(painelInkLight.hint).toBe('#616e83');
   });
 });

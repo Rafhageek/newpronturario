@@ -1,12 +1,46 @@
 'use client';
 
+/**
+ * ════════════════════════════════════════════════════════════════════════════
+ * PAINEL — visão geral
+ * ════════════════════════════════════════════════════════════════════════════
+ *
+ * Primeira tela reescrita sobre a fundação (docs/DESIGN.md). Ela não inventa
+ * vocabulário: cartão, chip, botão, estado vazio e cabeçalho vêm todos de
+ * `@/components/ui/painel`. Se você precisou de um hex, um `fontSize` ou um raio
+ * AQUI, a peça está faltando na fundação — abra lá, não aqui.
+ *
+ * TRÊS COISAS QUE ESTA TELA PROTEGE (e que um redesenho desfaz sem querer):
+ *
+ * 1. NÃO AFIRMAR O QUE NÃO SE SABE. Quem decide se a tela pode dizer "nenhuma
+ *    alergia registrada" é `estadoSecao`/`estadoAgregado`, não `isLoading`. As
+ *    duas flags do React Query são `false` juntas enquanto `patientId` está
+ *    vazio (`enabled: false`), e foi assim que a tela já afirmou ausência de
+ *    alergia sobre um paciente que ainda não tinha sido identificado. Falha de
+ *    carregamento vira `ErrorState` com "tentar de novo" — nunca "não há nada".
+ *
+ * 2. A DICA SEGUE O ESTADO. O mockup trazia "Nenhuma registrada" com "Informado
+ *    por você" logo embaixo. Se não há registro, ninguém informou: quando o
+ *    cartão está vazio a dica vira um caminho ("Você pode informar no perfil"),
+ *    e nunca uma atribuição de autoria.
+ *
+ * 3. COR NUNCA NO CORPO DO PACIENTE. A faixa da pressão sai em PALAVRAS
+ *    (`leituraDaFaixa`) + seta neutra (`Trend`); os chips dos cartões são de
+ *    CATEGORIA e a paleta não tem verde, âmbar nem vermelho para escolher. O
+ *    humor usa `<MoodScale>`/`<MoodMark>`: forma + rótulo, um matiz só. Âmbar e
+ *    vermelho aparecem apenas em status de AGENDA (`SystemStatusChip`), que é
+ *    domínio do sistema. Trava: `packages/core/src/utils/regra-cor-clinica.test.ts`.
+ *
+ * Datas e horas são formatadas pelos utilitários PT-BR do `@hubpatients/core`,
+ * sem `Intl` — o mobile roda em Hermes, e paridade também é ter um formatador só.
+ */
+
 import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { motion } from 'framer-motion';
 import {
+  Activity,
   AlertTriangle,
-  ArrowRight,
   Building2,
   CalendarDays,
   Check,
@@ -17,13 +51,14 @@ import {
   HeartPulse,
   History,
   Hospital,
+  NotebookPen,
   Pill,
+  QrCode,
   Scale,
   Send,
   Share2,
   ShieldCheck,
   Smile,
-  Sparkles,
   Stethoscope,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -32,7 +67,9 @@ import {
   useAppointments,
   useClinicalTimeline,
   useConditions,
+  useCreateDiaryEntry,
   useDashboard,
+  useDiaryEntries,
   useDiarySummary,
   useNextAppointment,
   useProfile,
@@ -42,11 +79,15 @@ import {
 } from '@hubpatients/supabase';
 import {
   APPOINTMENT_KIND_LABELS,
+  DIAS_SEMANA_PT,
+  DISCLAIMERS,
   MEDICATION_FORM_LABELS,
   MEDICATION_FREQUENCY_LABELS,
   classifyBloodPressure,
   computeBMI,
-  DISCLAIMERS,
+  dataDoDia,
+  diaEMes,
+  diaLocal,
   estadoAgregado,
   estadoSecao,
   formatVital,
@@ -58,7 +99,27 @@ import { TrendChip } from '@/components/dashboard/trend-chip';
 import { Spinner } from '@/components/ui/spinner';
 import { ErrorState } from '@/components/ui/error-state';
 import { SystemStatusChip, Trend } from '@/components/dashboard/metric-cards';
-import { ClinicalRangeChip } from '@/components/dashboard/clinical-range-chip';
+import { leituraDaFaixa } from '@/components/dashboard/clinical-range-chip';
+import {
+  IlustracaoAgenda,
+  IlustracaoDiario,
+  IlustracaoRemedio,
+} from '@/components/dashboard/empty-illustrations';
+import {
+  EmptyState,
+  IconChip,
+  MoodMark,
+  MoodScale,
+  PageHeader,
+  PanelButton,
+  PanelCard,
+  QuickActions,
+  Seal,
+  SectionHeader,
+  StatCard,
+  StatRow,
+  type QuickAction,
+} from '@/components/ui/painel';
 import { toast } from 'sonner';
 
 const BloodPressureChart = dynamic(
@@ -66,22 +127,12 @@ const BloodPressureChart = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="h-60 animate-pulse rounded-xl bg-surface-2" role="status">
+      <div className="h-60 animate-pulse rounded-card bg-surface-2" role="status">
         <span className="sr-only">Carregando gráfico de pressão arterial</span>
       </div>
     ),
   },
 );
-
-const overviewContainer = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.05, delayChildren: 0.04 } },
-};
-
-const overviewItem = {
-  hidden: { opacity: 0, y: 10 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.28, ease: 'easeOut' } },
-};
 
 const TIMELINE_ICONS = {
   appointment: CalendarDays,
@@ -100,24 +151,35 @@ const TIMELINE_STATUS: Record<string, string> = {
   resolved: 'Resolvido',
 };
 
-function formatDate(value: string, withTime = false): string {
-  return new Date(value).toLocaleString('pt-BR', {
-    day: '2-digit',
-    month: 'short',
-    ...(withTime ? { hour: '2-digit', minute: '2-digit' } : {}),
-  });
+const ACOES_RAPIDAS: QuickAction[] = [
+  { label: 'Anotar no diário', icon: NotebookPen, href: '/diario/novo', tone: 'azul' },
+  { label: 'Registrar dor', icon: Activity, href: '/diario/dor', tone: 'ardosia' },
+  { label: 'Adicionar exame', icon: FlaskConical, href: '/exames', tone: 'violeta' },
+  { label: 'Mostrar ao médico', icon: QrCode, href: '/compartilhar', tone: 'turquesa' },
+];
+
+/* ── Formatação PT-BR, sem `Intl` (paridade com o mobile) ────────────────── */
+
+/** "5 de agosto" a partir de um instante ISO, no fuso de quem está lendo. */
+function dataCurta(iso: string): string {
+  return diaEMes(diaLocal(new Date(iso)));
 }
 
-function formatTime(value: string | null): string | null {
-  if (!value) return null;
-  return new Date(value).toLocaleTimeString('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+/** "14:30". Concatenação, porque `toLocaleTimeString` é `Intl` por baixo. */
+function horaLocal(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+/** Número com vírgula decimal. "78.4" no banco é "78,4" na tela. */
+function numeroBR(valor: number, casas = 1): string {
+  return valor.toFixed(casas).replace('.', ',');
 }
 
 export default function DashboardPage() {
-  const { patientId, ownId, isViewingDependent, isPatientKnown } = useActiveProfile();
+  const { patientId, ownId, active, isViewingDependent, isPatientKnown } = useActiveProfile();
   const profileQuery = useProfile(patientId || undefined);
   const dashboardQuery = useDashboard(patientId || undefined);
   const bpQuery = useVitalsRange(patientId || undefined, 'blood_pressure', 30);
@@ -125,11 +187,14 @@ export default function DashboardPage() {
   const appointmentQuery = useNextAppointment(patientId || undefined);
   const appointmentsQuery = useAppointments(patientId || undefined);
   const wellbeingQuery = useDiarySummary(patientId || undefined);
+  const diaryQuery = useDiaryEntries(patientId || undefined);
   const allergiesQuery = useAllergies(patientId || undefined);
   const conditionsQuery = useConditions(patientId || undefined);
   const timelineQuery = useClinicalTimeline(patientId || undefined, 12);
   const registerIntake = useRegisterIntake(patientId);
+  const criarEntradaDiario = useCreateDiaryEntry(patientId);
   const [registeringId, setRegisteringId] = useState<string | null>(null);
+  const [humorDeHoje, setHumorDeHoje] = useState<number | null>(null);
 
   const dashboardQueries = [
     profileQuery,
@@ -139,6 +204,7 @@ export default function DashboardPage() {
     appointmentQuery,
     appointmentsQuery,
     wellbeingQuery,
+    diaryQuery,
     allergiesQuery,
     conditionsQuery,
     timelineQuery,
@@ -188,12 +254,13 @@ export default function DashboardPage() {
     );
   }
 
-  const now = new Date();
-  const dateLabel = now.toLocaleDateString('pt-BR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  });
+  const hoje = diaLocal();
+  const dataDeHoje = dataDoDia(hoje);
+  const diaDaSemana = dataDeHoje ? DIAS_SEMANA_PT[dataDeHoje.getDay()] ?? '' : '';
+  const dataPorExtenso = diaDaSemana
+    ? `${diaDaSemana.charAt(0).toUpperCase()}${diaDaSemana.slice(1)}, ${diaEMes(hoje)}`
+    : diaEMes(hoje);
+
   const profile = profileQuery.data;
   const data = dashboardQuery.data;
   const bp = data?.latestBloodPressure ?? null;
@@ -206,6 +273,10 @@ export default function DashboardPage() {
   const range = bpQuery.data ?? [];
   const nextAppt = appointmentQuery.data;
   const wellbeing = wellbeingQuery.data;
+  const entradasDoDiario = diaryQuery.data ?? [];
+  const registroDeHoje = entradasDoDiario.find((entrada) => entrada.entry_date === hoje) ?? null;
+  const humorRegistrado = humorDeHoje ?? registroDeHoje?.mood ?? null;
+
   const latestWeight =
     (weightQuery.data ?? [])
       .slice()
@@ -214,6 +285,8 @@ export default function DashboardPage() {
           new Date(b.measured_at).getTime() - new Date(a.measured_at).getTime(),
       )[0] ?? null;
   const bmi = computeBMI(latestWeight?.value_primary ?? null, profile?.height_cm ?? null);
+  const alturaEmMetros = profile?.height_cm ? numeroBR(profile.height_cm / 100, 2) : null;
+
   const timelineEvents = (timelineQuery.data?.pages ?? [])
     .flatMap((page) => page.events)
     .filter((event) => ['appointment', 'exam', 'surgery'].includes(event.eventType))
@@ -233,6 +306,12 @@ export default function DashboardPage() {
     const current = range[range.length - 1]!.value_primary;
     return current > previous ? 'up' : current < previous ? 'down' : 'flat';
   })();
+
+  const temTipoSanguineo = Boolean(profile?.blood_type && profile.blood_type !== 'unknown');
+  const primeiroNome = (profile?.full_name ?? active.name).trim().split(' ')[0] || 'você';
+  const saudacao = isViewingDependent
+    ? `Prontuário de ${primeiroNome}`
+    : `Olá, ${primeiroNome}! 👋`;
 
   async function handleRegisterPending(intake: (typeof upcoming)[number]) {
     if (registeringId) return;
@@ -254,106 +333,101 @@ export default function DashboardPage() {
     }
   }
 
+  /**
+   * Registra o humor de hoje. Só aparece quando NÃO existe entrada para o dia:
+   * a tabela aceita várias por data, e um segundo toque criaria um registro
+   * duplicado que depois puxaria a média da semana. Para corrigir, o caminho é
+   * o diário, onde a entrada inteira pode ser editada.
+   */
+  async function registrarHumor(valor: number) {
+    if (criarEntradaDiario.isPending) return;
+    setHumorDeHoje(valor);
+    try {
+      await criarEntradaDiario.mutateAsync({
+        patient_id: patientId,
+        entry_date: hoje,
+        mood: valor,
+      });
+      toast.success('Registrado. Obrigado por contar como você está.');
+    } catch {
+      setHumorDeHoje(null);
+      toast.error('Não foi possível registrar agora.');
+    }
+  }
 
   return (
-    <div className="mx-auto max-w-[1440px] space-y-5 pb-10">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-sm capitalize text-muted">{dateLabel}</p>
-          <h1
-            className="mt-0.5 text-3xl font-bold tracking-tight text-fg"
-            style={{ fontFamily: 'var(--font-display)' }}
+    <div className="space-y-6 pb-10">
+      <PageHeader
+        eyebrow={dataPorExtenso}
+        title={saudacao}
+        subtitle="Aqui está seu resumo de saúde, organizado para uma leitura rápida."
+        right={
+          /* O selo é informação FIXA — não muda de cor, não alerta. Continua
+             clicável porque era um atalho real para o painel de permissões, e
+             tirar o caminho seria uma regressão silenciosa. */
+          <Link
+            href="/consentimento"
+            aria-label="Dados protegidos • LGPD — ver e ajustar suas permissões"
+            className="inline-flex min-h-11 items-center rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
-            Seu prontuário
-          </h1>
-          <p className="mt-1 text-sm text-muted">
-            Aqui está seu resumo de saúde, organizado para uma leitura rápida.
-          </p>
-        </div>
-        {/* @cor-do-sistema — verde de garantia de PRIVACIDADE (estado do sistema),
-            não avaliação de nenhum dado do corpo. */}
-        <Link
-          href="/consentimento"
-          className="inline-flex min-h-11 w-fit items-center gap-2 rounded-full bg-status-ok-tint px-4 text-sm font-semibold text-status-ok-ink transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-        >
-          <ShieldCheck className="h-4 w-4" aria-hidden />
-          Dados protegidos · LGPD
-        </Link>
-        {/* @fim-cor-do-sistema */}
-      </header>
+            <Seal icon={ShieldCheck}>Dados protegidos • LGPD</Seal>
+          </Link>
+        }
+      />
 
-      <motion.section
-        aria-label="Resumo clínico"
-        variants={overviewContainer}
-        initial="hidden"
-        animate="show"
-        className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5"
-      >
-        <OverviewCard
+      <StatRow>
+        <StatCard
           icon={HeartPulse}
-          iconTone="blue"
+          tone="azul"
           label="Pressão arterial"
           href="/analise"
+          clinical={Boolean(bp)}
           value={
             bp ? (
               <span className="inline-flex items-center gap-2">
-                <ClinicalNumber>{formatVital(bp)}</ClinicalNumber>
+                {formatVital(bp)}
                 <Trend direction={trend} />
               </span>
             ) : (
               'Sem registro'
             )
           }
-          detail={
-            bpStatus ? (
-              /* `neutro` + seta + texto: a faixa da pressão NÃO é semáforo.
-                 Ver clinical-range-chip.tsx. */
-              <ClinicalRangeChip zone={bpStatus.zone} />
-            ) : (
-              'Toque para registrar'
-            )
-          }
+          /* Faixa de referência em PALAVRAS. Nada de semáforo: o app exibe e
+             organiza, quem interpreta é o médico. */
+          hint={bpStatus ? leituraDaFaixa(bpStatus.zone) : 'Você pode registrar em Indicadores'}
         />
-        <OverviewCard
+
+        <StatCard
           icon={Scale}
-          iconTone="teal"
-          label="Peso / altura"
+          tone="turquesa"
+          label="Peso e altura"
           href="/composicao-corporal"
-          value={
-            latestWeight || profile?.height_cm ? (
-              <span className="flex flex-wrap items-baseline gap-x-2">
-                {latestWeight ? (
-                  <ClinicalNumber>{latestWeight.value_primary} kg</ClinicalNumber>
-                ) : (
-                  <span className="text-base">Peso não informado</span>
-                )}
-                {profile?.height_cm ? (
-                  <span className="text-sm font-semibold text-fg-soft">
-                    {`${(profile.height_cm / 100).toFixed(2).replace('.', ',')} m`}
-                  </span>
-                ) : null}
-              </span>
-            ) : (
-              'Não informado'
-            )
+          clinical={Boolean(latestWeight)}
+          value={latestWeight ? `${numeroBR(latestWeight.value_primary)} kg` : 'Sem registro'}
+          hint={
+            [
+              alturaEmMetros ? `${alturaEmMetros} m` : null,
+              bmi ? `IMC ${numeroBR(bmi)}` : null,
+            ]
+              .filter(Boolean)
+              .join(' · ') || 'Você pode completar no perfil'
           }
-          detail={bmi ? `IMC ${bmi.toFixed(1).replace('.', ',')}` : 'Complete seus dados'}
         />
-        <OverviewCard
+
+        <StatCard
           icon={Droplets}
-          iconTone="violet"
+          tone="ameixa"
           label="Tipo sanguíneo"
           href="/perfil"
-          value={
-            profile?.blood_type && profile.blood_type !== 'unknown'
-              ? <ClinicalNumber>{profile.blood_type}</ClinicalNumber>
-              : 'Não informado'
-          }
-          detail="Informado por você"
+          clinical={temTipoSanguineo}
+          value={temTipoSanguineo ? profile?.blood_type : 'Não informado'}
+          /* A dica segue o ESTADO: sem registro, ninguém "informou" nada. */
+          hint={temTipoSanguineo ? 'Informado por você' : 'Você pode informar no perfil'}
         />
-        <OverviewCard
+
+        <StatCard
           icon={FileHeart}
-          iconTone="neutro"
+          tone="indigo"
           label="Condições de saúde"
           href="/perfil"
           value={
@@ -364,15 +438,16 @@ export default function DashboardPage() {
                   .join(', ')
               : 'Nenhuma registrada'
           }
-          detail={
+          hint={
             activeConditions.length > 0
               ? `${activeConditions.length} ${activeConditions.length === 1 ? 'registro ativo' : 'registros ativos'}`
-              : 'Gerencie no perfil'
+              : 'Você pode adicionar no perfil'
           }
         />
-        <OverviewCard
+
+        <StatCard
           icon={AlertTriangle}
-          iconTone="neutro"
+          tone="violeta"
           label="Alergias"
           href="/perfil"
           value={
@@ -383,85 +458,82 @@ export default function DashboardPage() {
                   .join(', ')
               : 'Nenhuma registrada'
           }
-          detail={
-            allergies.some((allergy) => allergy.severity === 'severe')
-              ? 'Contém alergia marcada como grave'
-              : 'Informado por você'
+          hint={
+            allergies.length === 0
+              ? 'Você pode adicionar no perfil'
+              : allergies.some((allergy) => allergy.severity === 'severe')
+                ? 'Contém alergia marcada como grave'
+                : `${allergies.length} ${allergies.length === 1 ? 'registrada' : 'registradas'}`
           }
         />
-      </motion.section>
+      </StatRow>
 
-      <div className="grid gap-5 xl:grid-cols-12">
-        <div className="space-y-5 xl:col-span-8">
-          <DashboardSection
-            icon={Pill}
-            title="Medicamentos de hoje"
-            actionLabel="Ver todos"
-            actionHref="/medicamentos"
-          >
+      {/* Corpo em duas colunas ≈2/3 + 1/3 (layout.bodyColumns). */}
+      <div className="grid gap-5 xl:grid-cols-3">
+        <div className="space-y-5 xl:col-span-2">
+          <PanelCard as="section" className="vl-rise p-5">
+            <SectionHeader
+              title="Medicamentos de hoje"
+              icon={Pill}
+              tone="azul"
+              href="/medicamentos"
+            />
             {meds.length === 0 ? (
-              <EmptySummary
-                icon={Pill}
-                title="Nenhum medicamento ativo"
-                description="Cadastre seus medicamentos para acompanhar horários e tomadas."
-                href="/medicamentos"
-                action="Adicionar medicamento"
+              <EmptyState
+                className="mt-4"
+                illustration={<IlustracaoRemedio />}
+                title="Nenhum medicamento por aqui ainda"
+                description="Quando você cadastrar, os horários do dia aparecem nesta lista e dá para marcar a tomada com um toque."
+                actionLabel="Adicionar medicamento"
+                actionHref="/medicamentos"
               />
             ) : (
               <>
-                <ul className="divide-y divide-line">
+                <ul className="mt-2 divide-y divide-line">
                   {meds.slice(0, 4).map((medication, index) => {
                     const intake = upcoming.find(
                       (candidate) => candidate.medication_id === medication.id,
                     );
                     const scheduledTime =
-                      formatTime(intake?.scheduled_for ?? null) ??
+                      horaLocal(intake?.scheduled_for ?? null) ??
                       medication.times[index % Math.max(medication.times.length, 1)] ??
                       null;
                     const busy = intake ? registeringId === intake.id : false;
                     return (
-                      <li
-                        key={medication.id}
-                        className="flex min-h-[66px] items-center gap-3 py-3"
-                      >
-                        <span
-                          className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-                            intake ? 'bg-primary' : 'bg-status-neutro-mark'
-                          }`}
-                          aria-hidden
-                        />
+                      <li key={medication.id} className="flex items-center gap-3 py-3">
+                        <IconChip icon={Pill} tone="azul" size="sm" />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-bold text-fg">
+                          <p className="truncate text-body-sm font-semibold text-fg">
                             {medication.name}
                             {medication.dosage ? ` · ${medication.dosage}` : ''}
                           </p>
-                          <p className="mt-0.5 truncate text-xs text-muted">
+                          <p className="mt-0.5 truncate text-caption text-muted">
                             {MEDICATION_FORM_LABELS[medication.form]} ·{' '}
                             {MEDICATION_FREQUENCY_LABELS[medication.frequency]}
                           </p>
                         </div>
                         {intake ? (
-                          <button
-                            type="button"
-                            onClick={() => handleRegisterPending(intake)}
+                          <PanelButton
+                            className="shrink-0"
+                            size="sm"
+                            icon={Check}
+                            onClick={() => void handleRegisterPending(intake)}
                             disabled={busy || registeringId !== null}
-                            aria-busy={busy || undefined}
-                            className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl bg-primary px-3 text-xs font-bold text-primary-foreground transition hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
+                            aria-label={`Registrar tomada de ${medication.name}${
+                              scheduledTime ? ` das ${scheduledTime}` : ''
+                            }`}
                           >
-                            {busy ? (
-                              <Spinner className="h-4 w-4" />
-                            ) : (
-                              <Check className="h-4 w-4" aria-hidden />
-                            )}
-                            <span className="hidden sm:inline">
-                              {busy ? 'Registrando…' : 'Registrar'}
+                            <span className="inline-flex items-center gap-2">
+                              <span className="hidden sm:inline">
+                                {busy ? 'Registrando…' : 'Registrar'}
+                              </span>
+                              {scheduledTime ? (
+                                <span className="hp-num">{scheduledTime}</span>
+                              ) : null}
                             </span>
-                            {scheduledTime ? (
-                              <span className="font-mono">{scheduledTime}</span>
-                            ) : null}
-                          </button>
+                          </PanelButton>
                         ) : (
-                          <span className="shrink-0 rounded-full bg-surface-2 px-3 py-1.5 font-mono text-xs font-bold text-muted">
+                          <span className="hp-num shrink-0 rounded-full bg-surface-3 px-3 py-1.5 text-caption font-semibold text-muted">
                             {scheduledTime ?? 'Sem horário'}
                           </span>
                         )}
@@ -469,35 +541,45 @@ export default function DashboardPage() {
                     );
                   })}
                 </ul>
-                <DashedLink href="/medicamentos">
+                <PanelButton
+                  className="mt-4 w-full"
+                  variant="secondary"
+                  size="sm"
+                  href="/medicamentos"
+                >
                   Adicionar ou atualizar medicamento
-                </DashedLink>
+                </PanelButton>
               </>
             )}
-          </DashboardSection>
+          </PanelCard>
 
-          <DashboardSection
-            icon={CalendarDays}
-            title="Consultas, exames e procedimentos"
-            actionLabel="Linha do tempo"
-            actionHref="/linha-do-tempo"
-          >
+          <PanelCard as="section" className="vl-rise p-5">
+            <SectionHeader
+              title="Consultas, exames e procedimentos"
+              icon={CalendarDays}
+              tone="indigo"
+              href="/linha-do-tempo"
+              actionLabel="Linha do tempo"
+            />
             {timelineEvents.length === 0 && !nextAppt && previousAppointments.length === 0 ? (
-              <EmptySummary
-                icon={History}
+              <EmptyState
+                className="mt-4"
+                illustration={<IlustracaoAgenda />}
                 title="Sua linha do tempo começa aqui"
-                description="Registre consultas, exames e procedimentos para encontrá-los em ordem cronológica."
-                href="/consultas"
-                action="Registrar consulta"
+                description="Consultas, exames e procedimentos registrados ficam em ordem cronológica — fácil de mostrar numa consulta."
+                actionLabel="Registrar consulta"
+                actionHref="/consultas"
               />
             ) : (
               <>
-                <ul className="divide-y divide-line">
+                <ul className="mt-2 divide-y divide-line">
                   {nextAppt ? (
                     <TimelineRow
                       icon={CalendarDays}
                       title={`${nextAppt.specialty ?? 'Consulta'} · ${nextAppt.doctor_name}`}
-                      description={`${formatDate(nextAppt.scheduled_at, true)} · ${APPOINTMENT_KIND_LABELS[nextAppt.kind]}`}
+                      description={`${dataCurta(nextAppt.scheduled_at)}${
+                        horaLocal(nextAppt.scheduled_at) ? `, ${horaLocal(nextAppt.scheduled_at)}` : ''
+                      } · ${APPOINTMENT_KIND_LABELS[nextAppt.kind]}`}
                       status="Próxima"
                       tone="attention"
                     />
@@ -514,16 +596,16 @@ export default function DashboardPage() {
                       <TimelineRow
                         key={event.eventKey}
                         icon={
-                          TIMELINE_ICONS[
-                            event.eventType as keyof typeof TIMELINE_ICONS
-                          ] ?? History
+                          TIMELINE_ICONS[event.eventType as keyof typeof TIMELINE_ICONS] ?? History
                         }
                         title={event.title}
-                        description={`${formatDate(event.occurredAt, !event.dateOnly)}${event.summary ? ` · ${event.summary}` : ''}`}
+                        description={`${dataCurta(event.occurredAt)}${
+                          !event.dateOnly && horaLocal(event.occurredAt)
+                            ? `, ${horaLocal(event.occurredAt)}`
+                            : ''
+                        }${event.summary ? ` · ${event.summary}` : ''}`}
                         status={
-                          event.status
-                            ? TIMELINE_STATUS[event.status] ?? event.status
-                            : 'Registrado'
+                          event.status ? TIMELINE_STATUS[event.status] ?? event.status : 'Registrado'
                         }
                         tone={event.status === 'error' ? 'alert' : 'ok'}
                       />
@@ -534,102 +616,133 @@ export default function DashboardPage() {
                           key={appointment.id}
                           icon={Stethoscope}
                           title={`${appointment.specialty ?? 'Consulta'} · ${appointment.doctor_name}`}
-                          description={`${formatDate(appointment.scheduled_at, true)} · ${APPOINTMENT_KIND_LABELS[appointment.kind]}`}
+                          description={`${dataCurta(appointment.scheduled_at)} · ${APPOINTMENT_KIND_LABELS[appointment.kind]}`}
                           status="Realizada"
                           tone="ok"
                         />
                       ))
                     : null}
                 </ul>
-                <DashedLink href="/consultas">
+                <PanelButton className="mt-4 w-full" variant="secondary" size="sm" href="/consultas">
                   Agendar ou registrar consulta
-                </DashedLink>
+                </PanelButton>
               </>
             )}
-          </DashboardSection>
+          </PanelCard>
         </div>
 
-        <aside className="space-y-5 xl:col-span-4" aria-label="Ações e bem-estar">
-          <DashboardSection icon={Share2} title="Compartilhar dados">
-            <p className="mb-4 text-sm leading-relaxed text-muted">
+        <div className="space-y-5">
+          <PanelCard as="section" className="vl-rise p-5">
+            <SectionHeader title="Compartilhar dados" icon={Share2} tone="violeta" />
+            <p className="mt-3 text-body-sm leading-relaxed text-muted">
               Você escolhe o que compartilhar, com quem e por quanto tempo.
             </p>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-              <ShareOption
-                icon={Stethoscope}
-                title="Profissional de saúde"
-                description="Resumo para uma consulta"
-              />
-              <ShareOption
-                icon={Building2}
-                title="Hospital ou laboratório"
-                description="Acesso temporário"
-              />
-            </div>
-            <Link
-              href="/compartilhar"
-              className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-line-strong bg-surface text-sm font-bold text-fg transition hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            >
-              <Send className="h-4 w-4" aria-hidden />
+            <ul className="mt-4 space-y-2">
+              <li>
+                <ShareOption
+                  icon={Stethoscope}
+                  title="Profissional de saúde"
+                  description="Resumo para uma consulta"
+                />
+              </li>
+              <li>
+                <ShareOption
+                  icon={Building2}
+                  title="Hospital ou laboratório"
+                  description="Acesso temporário"
+                />
+              </li>
+            </ul>
+            <PanelButton className="mt-4 w-full" icon={Send} href="/compartilhar">
               Criar compartilhamento seguro
-            </Link>
-          </DashboardSection>
+            </PanelButton>
+          </PanelCard>
 
-          <DashboardSection icon={Smile} title="Bem-estar · 7 dias">
+          <PanelCard as="section" className="vl-rise p-5">
+            <SectionHeader
+              title="Bem-estar · 7 dias"
+              icon={Smile}
+              tone="turquesa"
+              href="/analise"
+              actionLabel="Ver indicadores"
+            />
+
+            {/*
+              Humor e energia são AUTORRELATO. Sem semáforo, sem carinha
+              vermelha: a escala e o marcador vêm da fundação, num matiz só,
+              com a ordem na FORMA e no RÓTULO (DESIGN.md §5).
+            */}
             {wellbeing?.wellbeing != null ? (
-              <div className="flex items-center gap-4 rounded-xl bg-status-info-tint p-4">
-                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-surface text-status-info-ink">
-                  <Smile className="h-5 w-5" aria-hidden />
-                </span>
-                <div>
-                  <p className="font-mono text-xl font-bold text-fg">
-                    {wellbeing.wellbeing.toFixed(1).replace('.', ',')}
-                    <span className="text-sm text-muted">/5</span>
+              <div className="mt-4 flex items-center gap-4 rounded-card border border-line bg-surface-2 p-4">
+                {wellbeing.mood != null ? (
+                  <MoodMark value={Math.round(wellbeing.mood)} className="shrink-0" />
+                ) : null}
+                <div className="min-w-0">
+                  <p className="hp-num text-title font-semibold text-fg">
+                    {numeroBR(wellbeing.wellbeing)}
+                    <span className="text-body-sm font-normal text-muted">/5</span>
                   </p>
-                  <p className="text-xs text-muted">
-                    Humor {wellbeing.mood?.toFixed(1).replace('.', ',') ?? '—'} ·
-                    energia {wellbeing.energy?.toFixed(1).replace('.', ',') ?? '—'}
+                  <p className="text-caption text-muted">
+                    Humor {wellbeing.mood != null ? numeroBR(wellbeing.mood) : '—'} · energia{' '}
+                    {wellbeing.energy != null ? numeroBR(wellbeing.energy) : '—'}
                   </p>
                 </div>
               </div>
             ) : (
-              <Link
-                href="/diario/novo"
-                className="flex min-h-[76px] items-center gap-3 rounded-xl bg-status-info-tint p-4 transition hover:brightness-95"
-              >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface text-status-info-ink">
-                  <Smile className="h-5 w-5" aria-hidden />
-                </span>
-                <span className="min-w-0 flex-1 text-sm text-muted">
-                  Sem registros nesta semana. Conte como está se sentindo.
-                </span>
-                <ChevronRight className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-              </Link>
+              <EmptyState
+                className="mt-4 py-8"
+                illustration={<IlustracaoDiario className="h-20 w-auto" />}
+                title="Sem registros nesta semana"
+                description="Contar como você está leva alguns segundos — e é o que faz esta média existir."
+              />
             )}
-          </DashboardSection>
-        </aside>
+
+            <div className="mt-4 border-t border-line pt-4">
+              {registroDeHoje || humorRegistrado != null ? (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="min-w-0 text-body-sm text-fg-soft">
+                    Hoje você registrou{' '}
+                    {humorRegistrado != null ? (
+                      <MoodMark value={humorRegistrado} className="align-middle" />
+                    ) : (
+                      'seu diário'
+                    )}
+                  </p>
+                  <Link
+                    href="/diario"
+                    className="inline-flex min-h-11 items-center gap-1 rounded-full px-3 text-caption font-semibold text-primary hover:bg-surface-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  >
+                    Abrir diário
+                    <ChevronRight className="h-4 w-4" aria-hidden />
+                  </Link>
+                </div>
+              ) : (
+                <MoodScale
+                  name="humor-de-hoje"
+                  value={humorRegistrado}
+                  onChange={(valor) => void registrarHumor(valor)}
+                  disabled={criarEntradaDiario.isPending}
+                />
+              )}
+            </div>
+          </PanelCard>
+        </div>
       </div>
 
-      <section aria-labelledby="acompanhamento-title">
-        <div className="mb-3 flex items-end justify-between gap-4">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-primary">
+      {/* ── Acompanhamento ─────────────────────────────────────────────── */}
+      <section aria-labelledby="acompanhamento-titulo" className="space-y-5">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-caption font-semibold uppercase tracking-wider text-primary">
               Acompanhamento
             </p>
-            <h2
-              id="acompanhamento-title"
-              className="mt-1 text-xl font-bold text-fg"
-              style={{ fontFamily: 'var(--font-display)' }}
-            >
+            <h2 id="acompanhamento-titulo" className="mt-1 font-display text-title text-fg">
               Seus hábitos e indicadores
             </h2>
           </div>
-          <Link
-            href="/analise"
-            className="hidden min-h-11 items-center gap-1 text-sm font-bold text-primary hover:underline sm:inline-flex"
-          >
-            Ver indicadores <ArrowRight className="h-4 w-4" aria-hidden />
-          </Link>
+          <PanelButton href="/analise" variant="quiet" size="sm">
+            Ver indicadores
+          </PanelButton>
         </div>
 
         <div className="grid gap-5 lg:grid-cols-3">
@@ -641,142 +754,31 @@ export default function DashboardPage() {
           ) : null}
         </div>
 
-        <section className="vl-rise mt-5 rounded-2xl border border-line bg-surface p-5 shadow-xs">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-status-info-tint text-status-info-ink">
-                <HeartPulse className="h-5 w-5" aria-hidden />
-              </span>
-              <div>
-                <h3 className="text-sm font-bold text-fg">Pressão arterial · 30 dias</h3>
-                <p className="text-xs text-muted">Histórico informado por você</p>
-              </div>
-            </div>
-            <TrendChip
-              values={range.map((vital) => vital.value_primary)}
-              label="Sistólica"
-            />
+        <PanelCard as="section" className="p-5">
+          <SectionHeader
+            title="Pressão arterial · 30 dias"
+            icon={HeartPulse}
+            tone="azul"
+            action={
+              <TrendChip values={range.map((vital) => vital.value_primary)} label="Sistólica" />
+            }
+          />
+          <p className="mt-1 text-caption text-hint">Histórico informado por você</p>
+          <div className="mt-4">
+            <BloodPressureChart vitals={range} />
           </div>
-          <BloodPressureChart vitals={range} />
-          <p className="mt-2 text-xs leading-relaxed text-muted">
+          <p className="mt-3 text-caption leading-relaxed text-muted">
             {DISCLAIMERS.examInterpretation}
           </p>
-        </section>
+        </PanelCard>
       </section>
+
+      <QuickActions actions={ACOES_RAPIDAS} />
     </div>
   );
 }
 
-function ClinicalNumber({ children }: { children: ReactNode }) {
-  return <span className="font-mono text-xl font-bold text-fg">{children}</span>;
-}
-
-function OverviewCard({
-  icon: Icon,
-  iconTone,
-  label,
-  value,
-  detail,
-  href,
-}: {
-  icon: LucideIcon;
-  iconTone: 'blue' | 'teal' | 'violet' | 'neutro';
-  label: string;
-  value: ReactNode;
-  detail: ReactNode;
-  href: string;
-}) {
-  /**
-   * Tinta do ícone — DECORATIVA: identifica a CATEGORIA do cartão, nunca a
-   * gravidade do dado.
-   *
-   * Antes, "Pressão arterial" e "Alergias" vinham em `rose` (vermelho) e
-   * "Condições de saúde" em `amber`, fixos — o cartão nascia "grave" antes de
-   * qualquer valor ser lido. Isso quebra a regra do design system (`status` em
-   * `packages/ui-tokens/src/index.ts`): vermelho e âmbar são do SISTEMA, nunca
-   * do corpo do paciente. A paleta abaixo é a neutra-clínica dos gráficos
-   * (`--chart-*`, sem verde nem vermelho) mais o `neutro` do sistema de status.
-   */
-  const tone = {
-    blue: 'bg-status-info-tint text-status-info-ink',
-    teal: 'bg-[color-mix(in_srgb,var(--chart-2)_12%,transparent)] text-[var(--chart-2)]',
-    violet: 'bg-[color-mix(in_srgb,var(--chart-3)_14%,transparent)] text-[var(--chart-3)]',
-    neutro: 'bg-status-neutro-tint text-status-neutro-ink',
-  }[iconTone];
-
-  return (
-    <motion.article
-      variants={overviewItem}
-      className="group relative min-h-[136px] overflow-hidden rounded-2xl border border-line bg-surface p-4 shadow-xs transition last:col-span-2 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-paper lg:last:col-span-1"
-    >
-      <Link
-        href={href}
-        className="absolute inset-0 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-inset"
-        aria-label={`${label}: abrir detalhes`}
-      />
-      <div className="relative pointer-events-none">
-        <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${tone}`}>
-          <Icon className="h-[18px] w-[18px]" aria-hidden />
-        </span>
-        <p className="mt-3 text-xs font-semibold text-muted">{label}</p>
-        <div className="mt-0.5 line-clamp-2 text-sm font-bold leading-snug text-fg">
-          {value}
-        </div>
-        <div className="mt-1 line-clamp-1 text-xs text-muted">{detail}</div>
-      </div>
-    </motion.article>
-  );
-}
-
-function DashboardSection({
-  icon: Icon,
-  title,
-  actionLabel,
-  actionHref,
-  children,
-}: {
-  icon: LucideIcon;
-  title: string;
-  actionLabel?: string;
-  actionHref?: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="vl-rise rounded-2xl border border-line bg-surface p-5 shadow-xs">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-status-info-tint text-status-info-ink">
-            <Icon className="h-[18px] w-[18px]" aria-hidden />
-          </span>
-          <h2 className="truncate text-base font-bold text-fg">{title}</h2>
-        </div>
-        {actionLabel && actionHref ? (
-          <Link
-            href={actionHref}
-            aria-label={actionLabel}
-            className="inline-flex min-h-11 shrink-0 items-center gap-1 text-sm font-bold text-primary hover:underline"
-          >
-            <span className="hidden sm:inline">{actionLabel}</span>
-            <ChevronRight className="h-4 w-4" aria-hidden />
-          </Link>
-        ) : null}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function DashedLink({ href, children }: { href: string; children: ReactNode }) {
-  return (
-    <Link
-      href={href}
-      className="mt-3 flex min-h-11 items-center justify-center rounded-xl border border-dashed border-line-strong px-4 text-sm font-semibold text-muted transition hover:border-primary hover:bg-status-info-tint hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-    >
-      <Sparkles className="mr-2 h-4 w-4" aria-hidden />
-      {children}
-    </Link>
-  );
-}
+/* ══════════════════════════════ Peças locais ══════════════════════════════ */
 
 function TimelineRow({
   icon: Icon,
@@ -790,76 +792,43 @@ function TimelineRow({
   description: string;
   status: string;
   /* Status de AGENDA/SISTEMA ("Próxima", "Realizada", falha de importação) —
-     é o domínio em que âmbar/vermelho são permitidos. */
+     é o domínio em que âmbar/vermelho são permitidos. Nunca dado do corpo. */
   tone: 'ok' | 'attention' | 'alert';
 }) {
   return (
-    <li className="flex min-h-[66px] items-center gap-3 py-3">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-primary">
-        <Icon className="h-[18px] w-[18px]" aria-hidden />
-      </span>
+    <li className="flex items-center gap-3 py-3">
+      <IconChip icon={Icon} seed={title} size="sm" />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-bold text-fg">{title}</p>
-        <p className="mt-0.5 truncate text-xs text-muted">{description}</p>
+        <p className="truncate text-body-sm font-semibold text-fg">{title}</p>
+        <p className="mt-0.5 truncate text-caption text-muted">{description}</p>
       </div>
-      <SystemStatusChip tone={tone} label={status} />
+      <span className="shrink-0">
+        <SystemStatusChip tone={tone} label={status} />
+      </span>
     </li>
   );
 }
 
 function ShareOption({
-  icon: Icon,
+  icon,
   title,
   description,
 }: {
   icon: LucideIcon;
   title: string;
-  description: string;
+  description: ReactNode;
 }) {
   return (
     <Link
       href="/compartilhar"
-      className="group flex min-h-[88px] items-start gap-3 rounded-xl border border-line bg-surface-2 p-3 transition hover:border-primary/40 hover:bg-status-info-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+      className="group flex min-h-11 items-center gap-3 rounded-card border border-line bg-surface-2 px-3 py-3 transition-colors hover:border-primary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface text-primary">
-        <Icon className="h-[18px] w-[18px]" aria-hidden />
+      <IconChip icon={icon} seed={title} size="sm" />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-body-sm font-semibold text-fg">{title}</span>
+        <span className="mt-0.5 block truncate text-caption text-muted">{description}</span>
       </span>
-      <span className="min-w-0">
-        <span className="block text-sm font-bold text-fg">{title}</span>
-        <span className="mt-0.5 block text-xs leading-snug text-muted">{description}</span>
-      </span>
-      <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-muted transition group-hover:translate-x-0.5 group-hover:text-primary" aria-hidden />
+      <ChevronRight className="h-4 w-4 shrink-0 text-hint" aria-hidden />
     </Link>
-  );
-}
-
-function EmptySummary({
-  icon: Icon,
-  title,
-  description,
-  href,
-  action,
-}: {
-  icon: LucideIcon;
-  title: string;
-  description: string;
-  href: string;
-  action: string;
-}) {
-  return (
-    <div className="flex flex-col items-center rounded-xl bg-surface-2 px-5 py-7 text-center">
-      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-surface text-muted">
-        <Icon className="h-5 w-5" aria-hidden />
-      </span>
-      <p className="mt-3 text-sm font-bold text-fg">{title}</p>
-      <p className="mt-1 max-w-md text-sm leading-relaxed text-muted">{description}</p>
-      <Link
-        href={href}
-        className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-primary-foreground transition hover:bg-primary-hover"
-      >
-        {action}
-        <ArrowRight className="h-4 w-4" aria-hidden />
-      </Link>
-    </div>
   );
 }

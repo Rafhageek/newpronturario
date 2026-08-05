@@ -8,6 +8,10 @@ import {
   rotuloDoDia,
   semanaDe,
   MESES_PT,
+  horaLocal,
+  dataEHoraLocal,
+  tempoRelativo,
+  saudacao,
 } from './datas-pt';
 
 describe('datas por extenso em pt-BR, sem Intl', () => {
@@ -91,5 +95,88 @@ describe('datas por extenso em pt-BR, sem Intl', () => {
     expect(diaEMes('nada')).toBe('');
     expect(rotuloDoDia('nada')).toBe('');
     expect(semanaDe('nada')).toEqual([]);
+  });
+});
+
+describe('hora e tempo relativo — sem Intl, e sem UTC', () => {
+  it('horaLocal usa o relógio de quem lê, não o UTC', () => {
+    // 22h30 no fuso local, seja qual for o fuso da máquina que roda o teste.
+    const d = new Date(2026, 7, 5, 22, 30, 0);
+    expect(horaLocal(d)).toBe('22:30');
+    expect(horaLocal(d.toISOString())).toBe('22:30');
+  });
+
+  it('horaLocal preenche o zero à esquerda (09:05, não 9:5)', () => {
+    expect(horaLocal(new Date(2026, 7, 5, 9, 5, 0))).toBe('09:05');
+  });
+
+  it('dataEHoraLocal não empurra a noite para o dia seguinte', () => {
+    // 5 de agosto às 23h. Com `toISOString()` isto viraria dia 6 no Brasil.
+    const d = new Date(2026, 7, 5, 23, 0, 0);
+    expect(dataEHoraLocal(d)).toBe('5 de agosto, 23:00');
+  });
+
+  it('tempoRelativo cobre a escada inteira em PT-BR', () => {
+    const agora = new Date(2026, 7, 5, 12, 0, 0);
+    const atras = (ms: number) => new Date(agora.getTime() - ms);
+    const s = 1000;
+    const min = 60 * s;
+    const h = 60 * min;
+    const dia = 24 * h;
+
+    expect(tempoRelativo(atras(10 * s), agora)).toBe('agora');
+    expect(tempoRelativo(atras(2 * min), agora)).toBe('há 2 min');
+    expect(tempoRelativo(atras(3 * h), agora)).toBe('há 3 h');
+    expect(tempoRelativo(atras(1 * h), agora)).toBe('há 1 h');
+    expect(tempoRelativo(atras(1 * dia), agora)).toBe('ontem');
+    expect(tempoRelativo(atras(5 * dia), agora)).toBe('há 5 dias');
+    expect(tempoRelativo(atras(60 * dia), agora)).toBe('há 2 meses');
+    expect(tempoRelativo(atras(400 * dia), agora)).toBe('há 1 ano');
+  });
+
+  /**
+   * Relógio de aparelho adiantado é comum, e um "há -3 h" na tela de
+   * notificações é o tipo de coisa que faz a pessoa desconfiar do app inteiro.
+   */
+  it('tempo no FUTURO vira "em …", nunca um "há" negativo', () => {
+    const agora = new Date(2026, 7, 5, 12, 0, 0);
+    const adiante = (ms: number) => new Date(agora.getTime() + ms);
+    expect(tempoRelativo(adiante(2 * 60 * 1000), agora)).toBe('em 2 min');
+    expect(tempoRelativo(adiante(24 * 3600 * 1000), agora)).toBe('amanhã');
+    expect(tempoRelativo(adiante(10 * 1000), agora)).toBe('daqui a pouco');
+  });
+
+  it('data inválida devolve vazio em vez de "Invalid Date" na tela', () => {
+    expect(horaLocal('nada')).toBe('');
+    expect(dataEHoraLocal('nada')).toBe('');
+    expect(tempoRelativo('nada')).toBe('');
+  });
+
+  it('saudação segue o relógio local', () => {
+    expect(saudacao(new Date(2026, 7, 5, 8, 0))).toBe('Bom dia');
+    expect(saudacao(new Date(2026, 7, 5, 14, 0))).toBe('Boa tarde');
+    expect(saudacao(new Date(2026, 7, 5, 21, 0))).toBe('Boa noite');
+  });
+
+  /**
+   * A trava do incidente: `Intl` derruba o app no Hermes, e já derrubou duas
+   * vezes neste projeto (`RelativeTimeFormat` e `DateTimeFormat`). Este módulo é
+   * o que a web e o mobile compartilham, então é aqui que a proibição vale.
+   */
+  it('o módulo inteiro não toca em `Intl`', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { fileURLToPath } = await import('node:url');
+    const fonte = readFileSync(
+      fileURLToPath(new URL('./datas-pt.ts', import.meta.url)),
+      'utf8',
+    );
+    const semComentarios = fonte
+      .split(/\r?\n/)
+      .filter((l) => {
+        const t = l.trimStart();
+        return !t.startsWith('*') && !t.startsWith('//') && !t.startsWith('/*');
+      })
+      .join('\n');
+    expect(semComentarios).not.toMatch(/\bIntl\b/);
   });
 });

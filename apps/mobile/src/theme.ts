@@ -5,8 +5,6 @@ import { useColorScheme } from 'nativewind';
 import {
   colors as sharedColors,
   a11y as sharedA11y,
-  surfaceLight,
-  surfaceDark,
   inkLight,
   inkDark,
   status as sharedStatus,
@@ -83,20 +81,35 @@ export type Palette = {
   white: string;
 };
 
+/**
+ * Tema CLARO — camada "Painel" ligada globalmente (2026-08).
+ *
+ * Deixou de ser o creme quente do "Papel Clínico" (`surfaceLight`/`inkLight`) e
+ * passou a ser o canvas azul-neutro do Painel, o MESMO que a web aplica em
+ * `.hp-painel`. Espelha `apps/mobile/global.css`.
+ *
+ * `surfaceLight`/`inkLight` continuam exportados por `@hubpatients/ui-tokens` —
+ * são a paleta quente, ainda usada por relatório impresso e pelas telas
+ * públicas da web. O que mudou foi quem o APP consome.
+ *
+ * Contrastes remedidos contra as superfícies novas: todos subiram (a superfície
+ * fria é mais clara que a creme). Matriz travada em
+ * `packages/core/src/utils/contraste-painel.test.ts`.
+ */
 export const lightColors: Palette = {
-  bg: surfaceLight.bg,
-  surface: surfaceLight.surface,
-  surface2: surfaceLight.surface2,
-  surface3: surfaceLight.surface3,
-  line: surfaceLight.line,
-  lineStrong: surfaceLight.lineStrong,
-  fg: inkLight.fg,
-  fgSoft: inkLight.fgSoft,
-  muted: inkLight.muted,
-  hint: inkLight.hint,
-  faint: inkLight.hint, // alias do antigo #847e74 (3,82:1 — reprovava)
-  primary: inkLight.primary,
-  accent: inkLight.accent, // #c4293c (4,56:1) no lugar de #d12f3e
+  bg: painelSurfaceLight.bg,
+  surface: painelSurfaceLight.surface,
+  surface2: painelSurfaceLight.surface2,
+  surface3: painelSurfaceLight.surface3,
+  line: painelSurfaceLight.line,
+  lineStrong: painelSurfaceLight.lineStrong, // #7a8597 — 3,29:1 sobre surface3
+  fg: painelInkLight.fg, // 15,14:1
+  fgSoft: painelInkLight.fgSoft, // 9,17:1
+  muted: painelInkLight.muted, // 5,20:1
+  hint: painelInkLight.hint, // 4,55:1
+  faint: painelInkLight.hint, // alias legado (~40 telas usam `text-faint`)
+  primary: painelInkLight.primary, // 7,30:1
+  accent: inkLight.accent, // #c4293c — 4,96:1 sobre o fundo novo (era 4,56)
   brand: sharedColors.trustBlue[600],
   ok: sharedStatus.light.ok.ink, // #007149 no lugar de #10b981 (2,41:1)
   attention: sharedStatus.light.attention.ink, // #895b00 no lugar de #f59e0b (2,04:1)
@@ -104,22 +117,28 @@ export const lightColors: Palette = {
   white: sharedColors.neutral[0],
 };
 
-// Tema escuro (espelha apps/web/globals.css) — near-black HubPatients.
+/**
+ * Tema ESCURO (espelha apps/web/globals.css) — near-black HubPatients.
+ *
+ * O Painel não muda nada aqui: no escuro a hierarquia já era por DEGRAU TONAL +
+ * hairline, que é o certo sobre preto. `painelSurfaceDark`/`painelInkDark` são
+ * idênticos à base auditada — há teste comparando os dois campo a campo.
+ */
 export const darkColors: Palette = {
-  bg: surfaceDark.bg,
-  surface: surfaceDark.surface,
-  surface2: surfaceDark.surface2,
-  surface3: surfaceDark.surface3,
-  line: surfaceDark.line,
-  lineStrong: surfaceDark.lineStrong,
-  fg: inkDark.fg,
-  fgSoft: inkDark.fgSoft,
-  muted: inkDark.muted,
-  hint: inkDark.hint,
-  faint: inkDark.hint, // alias do antigo #7d7d7d
-  primary: inkDark.primary, // #8ba9ff (6,21:1) — o royal dava 2,3:1 no escuro
-  accent: inkDark.accent,
-  brand: inkDark.primary,
+  bg: painelSurfaceDark.bg,
+  surface: painelSurfaceDark.surface,
+  surface2: painelSurfaceDark.surface2,
+  surface3: painelSurfaceDark.surface3,
+  line: painelSurfaceDark.line,
+  lineStrong: painelSurfaceDark.lineStrong,
+  fg: painelInkDark.fg,
+  fgSoft: painelInkDark.fgSoft,
+  muted: painelInkDark.muted,
+  hint: painelInkDark.hint,
+  faint: painelInkDark.hint, // alias do antigo #7d7d7d
+  primary: painelInkDark.primary, // #8ba9ff (6,21:1) — o royal dava 2,3:1 aqui
+  accent: inkDark.accent, // coral clareado — não faz parte da camada Painel
+  brand: painelInkDark.primary,
   ok: sharedStatus.dark.ok.ink,
   attention: sharedStatus.dark.attention.ink,
   alert: sharedStatus.dark.alert.ink,

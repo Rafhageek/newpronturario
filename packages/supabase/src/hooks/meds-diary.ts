@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { DiaryEntryInput, InsertRow } from '@hubpatients/core';
-import { findInteractions, VITAL_TYPES, activityNotification } from '@hubpatients/core';
+import { findInteractions, VITAL_TYPES, activityNotification, diaLocal } from '@hubpatients/core';
 import { enqueueNotification } from '../queries/notifications';
 import { useHubPatientsClient } from './context';
 import { queryKeys } from './keys';
@@ -35,7 +35,21 @@ export function useCreateDiaryEntryFull(patientId: string) {
     mutationFn: async (input: DiaryEntryInput) => {
       const entry = await createDiaryEntry(client, {
         patient_id: patientId,
-        entry_date: input.entryDate.toISOString().slice(0, 10),
+        /**
+         * ⚠️ ERA `input.entryDate.toISOString().slice(0, 10)` — e isso é UTC.
+         *
+         * No Brasil (UTC−3) qualquer registro feito depois das 21h ia para o
+         * banco com a data de AMANHÃ. Não é detalhe de formatação: é o
+         * prontuário guardando um fato com a data errada, e o Diário é
+         * justamente o que a pessoa leva ao médico. Um registro de dor da
+         * segunda à noite aparecia como terça, e a leitura da semana saía
+         * deslocada.
+         *
+         * `diaLocal()` monta `AAAA-MM-DD` a partir de `getFullYear/Month/Date`,
+         * que já são do fuso de quem viveu o dia — que é a definição de "dia"
+         * que a coluna `entry_date` guarda.
+         */
+        entry_date: diaLocal(input.entryDate),
         mood: input.mood ?? null,
         energy: input.energy ?? null,
         pain: input.pain ?? null,

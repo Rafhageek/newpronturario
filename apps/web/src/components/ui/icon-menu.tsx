@@ -72,11 +72,17 @@ export function IconMenu({
       >
         {icon}
         {hasBadge && (
-          <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400/70" />
-            <span className="relative flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold leading-none text-white ring-2 ring-surface">
-              {badge > 9 ? '9+' : badge}
-            </span>
+          /*
+            O contador NÃO pulsa mais. O `animate-ping` que estava aqui era uma
+            animação em LOOP INDEFINIDO ao lado de conteúdo — proibida pelo
+            sistema de movimento (WCAG SC 2.2.2) e gatilho vestibular num público
+            majoritariamente 40+. O que o pulso tentava fazer (chamar atenção) já
+            é feito pela cor de destaque, pelo anel e pelo número.
+            Tamanho em degrau semântico (`text-caption`): `text-[10px]` fixo não
+            crescia no Modo Sênior, e o contador era o texto menor da casca.
+          */
+          <span className="absolute right-1 top-1 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-caption font-bold leading-none text-white ring-2 ring-surface">
+            {badge > 9 ? '9+' : badge}
           </span>
         )}
       </button>

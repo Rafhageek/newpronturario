@@ -1,11 +1,19 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Pill } from 'lucide-react-native';
 import { a11y } from '@hubpatients/ui-tokens';
 import { MOOD_SCALE } from '@hubpatients/core';
-import { MoodScale, PanelButton, StatCard } from '@/components/painel';
-import { saveSeniorMode, tapTarget } from '@/theme';
+import {
+  ErrorState,
+  MoodScale,
+  PanelButton,
+  PanelCard,
+  PanelRow,
+  StatCard,
+  StatusChip,
+} from '@/components/painel';
+import { saveSeniorMode, status, tapTarget } from '@/theme';
 
 /**
  * ════════════════════════════════════════════════════════════════════════════
@@ -183,5 +191,146 @@ describe('escala de humor — a ordem sobrevive sem cor', () => {
       StyleSheet.flatten(opcoes[i]!.props.style) as { borderColor?: string; backgroundColor?: string };
     expect(cor(0).borderColor).toBe(cor(4).borderColor);
     expect(cor(0).backgroundColor).toBe(cor(4).backgroundColor);
+  });
+});
+
+describe('PanelCard: o estilo tem que chegar no elemento que a fileira estica', () => {
+  /**
+   * O bug: com `onPress`, o `PanelCard` embrulhava o conteúdo num
+   * `PressableScale` e NÃO repassava `style`. O `flex: 1` pousava na View de
+   * dentro, e quem era o item flexível da `StatRow` era o Pressable de fora —
+   * com largura de conteúdo. Um cartão de valor longo ("Próxima consulta")
+   * esticava e empurrava os vizinhos: a fileira deixava de ser grade.
+   *
+   * A tela tinha contornado com uma View extra em volta. Remendo de tela em
+   * cima de primitiva não escala para 47 telas — por isso o conserto foi aqui, e
+   * por isso este teste existe.
+   */
+  function estiloDoNoRaiz(no: { props: { style?: unknown } }): Record<string, unknown> {
+    return (StyleSheet.flatten(no.props.style) ?? {}) as Record<string, unknown>;
+  }
+
+  it('StatCard clicável: o `flex: 1` fica no elemento MAIS EXTERNO', async () => {
+    const { UNSAFE_root } = await renderApp(
+      <StatCard icon={Pill} label="Próxima consulta" value="12 de agosto" onPress={() => {}} />,
+    );
+    // Sobe do texto até achar quem declara `flex: 1`, e confere que esse nó
+    // também é quem responde ao toque (ou seja: é o de fora, não a View interna).
+    let no = screen.getByText('Próxima consulta').parent as never as {
+      parent: unknown;
+      props: { style?: unknown; onStartShouldSetResponder?: unknown };
+    } | null;
+    let achouFlex = false;
+    let flexEraTocavel = false;
+    while (no) {
+      const flat = estiloDoNoRaiz(no);
+      if (flat.flex === 1) {
+        achouFlex = true;
+        flexEraTocavel = typeof no.props.onStartShouldSetResponder === 'function';
+        break;
+      }
+      no = no.parent as typeof no;
+    }
+    void UNSAFE_root;
+    // Sem isto, nenhum ancestral declara `flex: 1` e a fileira não vira grade.
+    expect(achouFlex).toBe(true);
+    // E se o `flex: 1` estiver na View interna em vez do Pressable, o bug voltou.
+    expect(flexEraTocavel).toBe(true);
+  });
+
+  it('PanelCard sem onPress continua aplicando `style` normalmente', async () => {
+    await renderApp(
+      <PanelCard style={{ width: 321 }}>
+        <Text>conteúdo</Text>
+      </PanelCard>,
+    );
+    let no = screen.getByText('conteúdo').parent as never as {
+      parent: unknown;
+      props: { style?: unknown };
+    } | null;
+    let largura: unknown;
+    while (no) {
+      const flat = estiloDoNoRaiz(no);
+      if (flat.width !== undefined) {
+        largura = flat.width;
+        break;
+      }
+      no = no.parent as typeof no;
+    }
+    expect(largura).toBe(321);
+  });
+});
+
+describe('primitivas que faltavam ao Painel', () => {
+  afterEach(async () => {
+    await setSenior(false);
+  });
+
+  it('ErrorState oferece caminho de volta e NÃO se confunde com o vazio', async () => {
+    const onRetry = jest.fn();
+    await renderApp(<ErrorState onRetry={onRetry} />);
+    // Texto padrão acolhedor, sem jargão técnico.
+    expect(screen.getByText('Não conseguimos carregar')).toBeTruthy();
+    expect(screen.getByText('Verifique sua conexão e tente novamente.')).toBeTruthy();
+    // Erro SEMPRE oferece tentar de novo — é o que o separa do estado vazio.
+    fireEvent.press(screen.getByText('Tentar novamente'));
+    expect(onRetry).toHaveBeenCalled();
+  });
+
+  it('ErrorState cresce no Modo Sênior como todo o resto', async () => {
+    await setSenior(true);
+    await renderApp(<ErrorState />);
+    expect(fontSizeOf('Não conseguimos carregar')).toBe(
+      Math.round(17 * a11y.seniorFontFactor),
+    );
+  });
+
+  it('StatusChip renderiza o RÓTULO, não só a cor (SC 1.4.1)', async () => {
+    await renderApp(<StatusChip status="attention" label="Sem confirmação" />);
+    // Se o rótulo estivesse só no accessibilityLabel, `getByText` falharia — e
+    // quem lê no sol, imprime ou tem daltonismo ficaria sem a informação.
+    expect(screen.getByText('Sem confirmação')).toBeTruthy();
+  });
+
+  it('StatusChip usa os três papéis de tinta (ink no texto, mark na borda)', async () => {
+    await renderApp(<StatusChip status="attention" label="Sem confirmação" />);
+    const tom = status.light.attention;
+    const texto = StyleSheet.flatten(
+      screen.getByText('Sem confirmação').props.style,
+    ) as { color?: string };
+    expect(texto.color).toBe(tom.ink);
+
+    const chip = screen.getByLabelText('Sem confirmação');
+    const caixa = StyleSheet.flatten(chip.props.style) as {
+      borderColor?: string;
+      backgroundColor?: string;
+    };
+    expect(caixa.borderColor).toBe(tom.mark);
+    expect(caixa.backgroundColor).toBe(tom.tint);
+  });
+
+  it('PanelRow é um alvo de toque inteiro e se anuncia por completo', async () => {
+    const onPress = jest.fn();
+    await renderApp(
+      <PanelRow icon={Pill} title="Losartana 50 mg" subtitle="08:00" onPress={onPress} />,
+    );
+    const linha = screen.getByLabelText('Losartana 50 mg, 08:00');
+    fireEvent.press(linha);
+    expect(onPress).toHaveBeenCalled();
+
+    // A linha inteira é o alvo, e ela cresce com o Modo Sênior.
+    const flat = StyleSheet.flatten(
+      (screen.getByText('Losartana 50 mg').parent as never as { parent: { props: { style?: unknown } } })
+        .parent.props.style,
+    ) as { minHeight?: number };
+    expect(flat.minHeight).toBeGreaterThanOrEqual(tapTarget.min);
+  });
+
+  it('PanelRow LIGADO o Modo Sênior: título e subtítulo crescem juntos', async () => {
+    await setSenior(true);
+    await renderApp(<PanelRow title="Losartana 50 mg" subtitle="08:00" onPress={() => {}} />);
+    const f = a11y.seniorFontFactor;
+    expect(fontSizeOf('Losartana 50 mg')).toBe(Math.round(15 * f));
+    expect(fontSizeOf('08:00')).toBe(Math.round(13 * f));
   });
 });

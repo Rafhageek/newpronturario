@@ -1,7 +1,22 @@
 import type { LucideIcon } from 'lucide-react';
 import { Sparkles } from 'lucide-react';
+import { EmptyState, Seal } from '@/components/ui/painel';
 
-/** Stub elegante para seções planejadas em fases futuras. */
+/**
+ * Stub elegante para seções planejadas em fases futuras.
+ *
+ * ⚠️ ESTE ARQUIVO É UM SERVER COMPONENT — e é o caso de teste que pegou o bug.
+ *
+ * A primeira tentativa de reescrevê-lo com as primitivas do Painel derrubou o
+ * `next build`: "Functions cannot be passed directly to Client Components", e o
+ * `/assinatura` parou de prerenderizar. A causa não era o ícone: era o
+ * `'use client'` que as primitivas carregavam sem precisar, e que transformava
+ * cada prop numa travessia de fronteira.
+ *
+ * As primitivas deixaram de ser `'use client'`, então este arquivo pode passar
+ * `icon={Icon}` normalmente. Se ele voltar a quebrar, é sinal de que a marca
+ * voltou para `components/ui/painel/primitives.tsx` — e só o `next build` avisa.
+ */
 export function ComingSoon({
   icon: Icon,
   title,
@@ -16,25 +31,29 @@ export function ComingSoon({
   plus?: boolean;
 }) {
   return (
-    <div className="mx-auto flex max-w-xl flex-col items-center justify-center py-16 text-center">
-      <span className="flex h-16 w-16 items-center justify-center rounded-2xl border border-line bg-surface-2 text-primary">
-        <Icon className="h-7 w-7" />
-      </span>
-      <div className="mt-5 flex items-center gap-2">
-        <h2 className="text-2xl font-bold tracking-tight text-fg" style={{ fontFamily: 'var(--font-display)' }}>
-          {title}
-        </h2>
-        {plus && (
-          <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
-            Plus
-          </span>
-        )}
-      </div>
-      <p className="mt-3 max-w-md text-sm leading-relaxed text-muted">{description}</p>
-      <span className="mt-6 inline-flex items-center gap-1.5 rounded-full border border-amber-400/20 bg-amber-400/10 px-3.5 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-300">
-        <Sparkles className="h-3.5 w-3.5" />
+    <div className="mx-auto flex max-w-xl flex-col items-center justify-center py-16">
+      <EmptyState
+        icon={Icon}
+        tone="ardosia"
+        // O vazio aqui já está solto na página, sem cartão em volta — mas
+        // `bare` porque a moldura tracejada sugere "some algo aqui em breve",
+        // e o que a página diz é outra coisa: a seção inteira ainda não existe.
+        variant="bare"
+        title={title}
+        description={
+          <>
+            {description}
+            {plus ? (
+              <span className="mt-3 block text-caption font-semibold uppercase tracking-wide text-primary">
+                Recurso Plus
+              </span>
+            ) : null}
+          </>
+        }
+      />
+      <Seal icon={Sparkles} className="mt-4">
         {phase ? `Em desenvolvimento · Fase ${phase}` : 'Em desenvolvimento'}
-      </span>
+      </Seal>
     </div>
   );
 }

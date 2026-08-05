@@ -108,7 +108,61 @@ Nenhuma primitiva formata data ou número por conta própria. O `eyebrow` do
 utilitários de data em PT-BR do `@hubpatients/core`. Use o mesmo caminho na web —
 paridade também é ter um formatador só.
 
-### 2.5 Movimento
+### 2.5 Web: primitiva não leva `'use client'` sem precisar
+
+**Só `next build` pega este erro.** `tsc`, ESLint e os testes passam todos.
+
+Um módulo marcado `'use client'` vira fronteira RSC, e toda prop que o cruza
+precisa ser serializável. `LucideIcon` é um **componente** — então um Server
+Component fazendo `icon={Pill}` derruba o build com *"Functions cannot be passed
+directly to Client Components"*. Foi assim que o `/assinatura` parou de
+prerenderizar.
+
+As primitivas do Painel **não têm** `'use client'`: nenhuma delas usa hook nem
+define handler, então o módulo é universal — renderiza no servidor quando um
+Server Component o usa, e vira código de cliente quando um Client Component o
+importa. Se você adicionar um hook a uma primitiva, adicione a marca **e** o
+custo: a partir dali ela só aceita ícone em forma de elemento vindo de RSC.
+
+`MoodScale` é a exceção e é `'use client'` — aquele tem estado de verdade.
+
+Nas duas plataformas o `icon` aceita as duas formas:
+
+```tsx
+<IconChip icon={Pill} />                          // o atalho
+<IconChip icon={<Pill className="h-5 w-5" />} />   // quando o tamanho importa,
+                                                   // ou ao cruzar RSC → cliente
+```
+
+Caso de regressão vivo: `apps/web/src/components/app/coming-soon.tsx`. Se ele
+voltar a quebrar o build, a marca voltou para as primitivas.
+
+### 2.6 Data e hora: nunca UTC, nunca `Intl`
+
+Duas regras, mesma raiz — o fuso de quem viveu o fato.
+
+**`toISOString().slice(0, 10)` é proibido para gravar dia.** Isso converte para
+UTC: no Brasil (UTC−3), tudo registrado depois das 21h ia para o banco com a
+data de **amanhã**. Não é detalhe de formatação — é o prontuário guardando um
+fato com a data errada, e é esse prontuário que a pessoa leva ao médico. Use
+`diaLocal()` (`@hubpatients/core`).
+
+**`Intl` não entra no mobile.** O Hermes derruba o app, e já derrubou duas vezes
+neste projeto (`RelativeTimeFormat` e `DateTimeFormat` com `dateStyle`). Como as
+duas plataformas precisam escrever as mesmas palavras, a proibição vale também
+na web: tudo sai de `datas-pt.ts`.
+
+| Precisa de | Use |
+| --- | --- |
+| `AAAA-MM-DD` de hoje (ou de um `Date`) | `diaLocal()` |
+| "5 de agosto" / "5 de agosto de 2026" | `diaEMes()` / `dataPorExtenso()` |
+| "Quarta-feira, 5 de agosto" | `rotuloDoDia()` |
+| "14:30" | `horaLocal()` |
+| "12 de agosto, 14:30" | `dataEHoraLocal()` |
+| "há 2 h" / "ontem" / "em 5 min" | `tempoRelativo()` |
+| "Bom dia" / "Boa tarde" | `saudacao()` |
+
+### 2.7 Movimento
 
 Teto de 400 ms para o que responde a toque. Um elemento por vez. **Nada em loop
 indefinido** ao lado de conteúdo (SC 2.2.2). "Reduzir movimento" ≠ "sem
@@ -139,6 +193,21 @@ Nenhum hex novo deve nascer em `globals.css`, em `tailwind.config.js` ou em
 | Contraste | `contrastRatio`, `isCategoryHue` | usado em teste | usado em teste |
 
 ### 3.1 Superfícies
+
+⚠️ **A camada está LIGADA GLOBALMENTE nas duas plataformas.** Na web, por
+`.hp-painel` (e o alias `.hp-clinical-shell`, que o layout de `(app)` já
+aplica); no mobile, direto em `global.css` + `theme.ts`.
+
+Isso foi decidido durante a migração porque a alternativa não funciona: com a
+camada ligada tela a tela, as rotas redesenhadas ficavam frias e as antigas
+quentes, e **trocar de aba mudava a cor do fundo** — o que lê como defeito, não
+como transição. As tintas trocaram junto com as superfícies: cinza quente sobre
+canvas frio fica sujo, e deixar a web fria e o mobile quente recriava a
+divergência que esta fundação existe para fechar.
+
+A superfície nova é mais CLARA que o creme antigo, então nenhum contraste caiu —
+todos subiram. A matriz inteira (cada tinta × cada superfície × cada tema) é
+percorrida em `contraste-painel.test.ts`, e não deduzida.
 
 Quatro degraus, e cada um tem um trabalho:
 
@@ -201,15 +270,34 @@ assinatura de um lado? Muda do outro, no mesmo commit.
 | Primitiva | Use quando | Não use quando |
 | --- | --- | --- |
 | `PanelCard` | qualquer superfície de conteúdo | você precisa de um cartão "diferente" — provavelmente não precisa |
-| `IconChip` | identificar a categoria de um cartão/seção | quer indicar gravidade → é `<StatusChip>` |
+| **`PanelRow`** | **linha de lista: chip + título + subtítulo + ação** | a linha é um cartão inteiro → `PanelCard` |
+| `IconChip` | identificar a categoria de um cartão/seção | quer indicar gravidade → é `StatusChip` |
 | `StatCard` + `StatRow` | fileira de métricas do topo da página | o valor precisa de gráfico → cartão próprio dentro de `PanelCard` |
 | `PageHeader` | topo de **toda** rota: data, saudação, subtítulo, selo | — |
 | `SectionHeader` | título de cartão com "Ver todos" | — |
 | `EmptyState` | não há nada ainda (e está tudo bem) | **algo falhou** → `ErrorState` |
+| **`ErrorState`** | **algo existe e não conseguimos trazer** | não há nada mesmo → `EmptyState` |
 | `PanelButton` | qualquer ação | — |
-| `Seal` | informação fixa ("Dados protegidos • LGPD") | algo pode dar errado → `<StatusChip>` |
+| **`StatusChip`** | **estado do SISTEMA: dose sem confirmação, envio falhou** | dado do corpo → `ClinicalRangeChip` |
+| `Seal` | informação fixa ("Dados protegidos • LGPD") | algo pode dar errado → `StatusChip` |
 | `QuickActions` | barra de atalhos no rodapé do conteúdo | — |
 | `MoodScale` / `MoodFace` / `MoodMark` | registrar ou exibir humor | — |
+
+`PanelRow` é a peça que mais se repete no produto — "Medicamentos de hoje",
+linha do tempo, exames, consultas, família, ajustes são todos a mesma forma.
+Ela estava sendo remontada à mão em cada tela, um pouco diferente a cada vez.
+
+`EmptyState` e `ErrorState` são um PAR e têm as mesmas variantes:
+`variant="boxed"` (padrão, moldura tracejada própria) e `variant="bare"` (sem
+moldura, para quando já estão **dentro** de um `PanelCard` — senão vira borda
+dentro de borda).
+
+`StatusChip` é a **única porta de âmbar e vermelho** do Painel, e a regra da cor
+de sistema mora dentro dele: três papéis de tinta (`ink`/`mark`/`tint`), `label`
+obrigatório e sempre renderizado, glifo não-cromático. Enquanto ele só existia
+na web, cada tela do mobile que precisava dizer "sem confirmação de dose"
+montava o seu à mão, dentro da própria região `@cor-do-sistema` — e regra
+repetida em 47 lugares é regra que uma hora sai errada em um deles.
 
 Notas de comportamento que as primitivas garantem sozinhas:
 
@@ -221,6 +309,18 @@ Notas de comportamento que as primitivas garantem sozinhas:
 - `IconChip` é decorativo e sai da árvore de acessibilidade (`aria-hidden` /
   `accessibilityElementsHidden`): o significado está no rótulo ao lado.
 - `StatCard` no mobile é lido de uma vez: "Peso, 78,4 kg, ontem".
+- `StatCard.hint` é `ReactNode`, não `string`: a leitura clínica precisa caber
+  aqui inteira (`<ClinicalRangeChip>` = tinta `neutro` + seta + frase). Quando
+  `hint` não for texto puro, passe `hintLabel` — é dele que sai o nome
+  acessível, nunca de `String(elemento)`.
+- `PanelCard` repassa `id`, `aria-labelledby` e `aria-label`. Com
+  `as="section"` o nome **não é opcional**: uma `<section>` sem nome não vira
+  landmark e some do menu de regiões do leitor de tela. Aponte para o `id` do
+  `<SectionHeader>` que já está dentro.
+- No mobile, `PanelCard` manda `style`/`layoutStyle` para o elemento **mais
+  externo** (o `PressableScale`, quando há `onPress`). É ele que a `StatRow`
+  estica — enquanto o `flex: 1` pousava na View interna, um cartão de valor
+  longo empurrava os vizinhos e a fileira deixava de ser grade.
 
 ---
 
@@ -371,11 +471,15 @@ Lateral recolhida: o rótulo some da tela, então cada item vira ícone + `title
 - [ ] Nenhuma cor de semáforo em dado do corpo. Se for do sistema, região
       `@cor-do-sistema` aberta, fechada e `EXCECOES_ESPERADAS` ajustado.
 - [ ] Data e número formatados por `@hubpatients/core`, **sem `Intl`**.
+- [ ] Nenhum `toISOString().slice(0, 10)` gravando dia (é UTC) — use `diaLocal()`.
+- [ ] Nenhuma primitiva ganhou `'use client'` sem precisar.
 - [ ] A tela existe nas duas plataformas (web + mobile em paridade).
 - [ ] `corepack pnpm -r --workspace-concurrency=1 run typecheck`
 - [ ] `corepack pnpm --filter @hubpatients/core run test`
 - [ ] `corepack pnpm --filter @hubpatients/mobile run test`
 - [ ] lint de web e mobile
+- [ ] **`corepack pnpm --filter @hubpatients/web run build`** — é o ÚNICO que
+      pega prop não-serializável cruzando a fronteira RSC
 
 ## 9. Anti-padrões (todos já aconteceram aqui)
 
@@ -388,6 +492,12 @@ Lateral recolhida: o rótulo some da tela, então cada item vira ícone + `title
 | `border-line` num campo de formulário | `border-line-strong` (≥3:1) |
 | `height: 44` num botão | `minHeight` — o botão precisa crescer |
 | `new Intl.DateTimeFormat(...)` no mobile | utilitários de data do `core` |
+| `new Intl.RelativeTimeFormat(...)` na web | `tempoRelativo()` do `core` |
+| `d.toISOString().slice(0, 10)` para gravar dia | `diaLocal(d)` |
+| `'use client'` numa primitiva sem hook | deixe universal; só `next build` avisa |
+| `hint={...}` só com texto quando cabia o chip | `hint` aceita `ReactNode` |
+| montar um chip de status à mão na tela | `<StatusChip>` |
+| montar linha de lista à mão | `<PanelRow>` |
 | `animation: … infinite` ao lado de conteúdo | limite de repetições (`LOOP_LIMIT`) |
 | carinha vermelha no humor | `<MoodScale>` |
 
@@ -403,6 +513,7 @@ packages/ui-tokens/src/motion.ts     ← durações, curvas, springs
 
 packages/core/src/data/mood-scale.ts ← escala de humor (forma + rótulo + rampa)
 packages/core/src/data/body-regions.ts ← rampa de dor (referência da regra)
+packages/core/src/utils/datas-pt.ts    ← data, hora e tempo relativo (sem Intl)
 
 apps/web/src/app/globals.css                  ← vars do Painel (:root/.dark/.hp-painel)
 apps/web/src/components/ui/painel/            ← primitivas (web)
@@ -410,7 +521,8 @@ apps/mobile/global.css + tailwind.config.js   ← vars do Painel (mobile)
 apps/mobile/src/theme.ts                      ← paleta, escala, Modo Sênior
 apps/mobile/src/components/painel/            ← primitivas (mobile)
 
-packages/core/src/utils/contraste-painel.test.ts   ← contraste medido
+packages/core/src/utils/contraste-painel.test.ts   ← contraste medido (matriz completa)
+packages/core/src/utils/datas-pt.test.ts           ← trava do "sem Intl"
 packages/core/src/utils/regra-cor-clinica.test.ts  ← regra de cor clínica
 apps/mobile/__tests__/painel-primitivas.test.tsx   ← Modo Sênior + alvo + humor
 ```
