@@ -23,6 +23,8 @@ export * from './water';
 export * from './body';
 export * from './meals';
 export * from './nutrition';
+export * from './diario-alimentar';
+export * from './datas-pt';
 export * from './data-export';
 export * from './exam-upload';
 export * from './farmacia-popular';

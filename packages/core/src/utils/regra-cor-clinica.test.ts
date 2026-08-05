@@ -72,10 +72,24 @@ const RAIZ = resolve(AQUI, '..', '..', '..', '..');
 const ARQUIVOS_AVULSOS = [
   'apps/web/src/app/(app)/dashboard/page.tsx',
   'apps/mobile/app/(tabs)/index.tsx',
+  /*
+   * Diário alimentar (web e mobile). Entrou na varredura junto com o redesenho:
+   * o mockup aprovado trazia anel e barras VERDES, e caloria é o pior caso da
+   * regra — verde ali afirma "você está indo bem" sobre o que a pessoa comeu,
+   * que é justamente o julgamento que o app não faz. O progresso passou a ser
+   * comprimento + número num matiz só, e este teste é o que impede o verde de
+   * voltar na próxima iteração do design.
+   */
+  'apps/web/src/app/(app)/diario-alimentar/page.tsx',
+  'apps/mobile/app/diario-alimentar.tsx',
 ];
 
 /** Pastas varridas por inteiro — arquivo novo aqui já nasce coberto. */
-const PASTAS = ['apps/web/src/components/dashboard'];
+const PASTAS = [
+  'apps/web/src/components/dashboard',
+  'apps/web/src/components/diario-alimentar',
+  'apps/mobile/src/components/diario-alimentar',
+];
 
 /** Abre uma região onde a cor pertence ao SISTEMA, com justificativa escrita. */
 const ABRE = '@cor-do-sistema';

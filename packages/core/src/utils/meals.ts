@@ -4,6 +4,13 @@ export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
 
 export const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 
+/**
+ * Ordem de EXIBIÇÃO: a ordem em que as refeições acontecem no dia.
+ * `MEAL_TYPES` segue a ordem histórica do banco e deixaria o lanche depois do
+ * jantar na tela — o diário tem que se parecer com o dia de quem o preenche.
+ */
+export const MEAL_TYPES_DO_DIA: MealType[] = ['breakfast', 'lunch', 'snack', 'dinner'];
+
 export const MEAL_TYPE_LABELS: Record<MealType, string> = {
   breakfast: 'Café da manhã',
   lunch: 'Almoço',
