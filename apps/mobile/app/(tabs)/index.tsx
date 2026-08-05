@@ -71,7 +71,7 @@ import { StepsCard } from '@/components/steps-card';
 import { BodyCompositionCard } from '@/components/body-composition-card';
 import { toast } from '@/components/toast';
 import { LineChart } from '@/components/charts';
-import { useColors, fonts, cardShadow, status } from '@/theme';
+import { useColors, fonts, cardShadow, status, useFontScaler } from '@/theme';
 
 function greeting(): string {
   const h = new Date().getHours();
@@ -806,6 +806,7 @@ function TrendIcon({ direction }: { direction: 'up' | 'down' | 'flat' }) {
  */
 function ClinicalRangeChip({ zone }: { zone: ClinicalZone }) {
   const { colorScheme } = useColorScheme();
+  const fs = useFontScaler();
   const tone = status[colorScheme === 'dark' ? 'dark' : 'light'].neutro;
   const { glyph, short, full } = ZONE_READING[zone];
   return (
@@ -821,13 +822,11 @@ function ClinicalRangeChip({ zone }: { zone: ClinicalZone }) {
       }}
       className="mt-1.5 flex-row items-center gap-1 self-start rounded-full px-2 py-0.5"
     >
-      <Text style={{ fontFamily: fonts.bold, color: tone.ink }} className="text-[11px]">
-        {glyph}
-      </Text>
-      <Text
-        style={{ fontFamily: fonts.semibold, color: tone.ink, flexShrink: 1 }}
-        className="text-[11px]"
-      >
+      {/* Leitura da faixa de referência de um dado do corpo. Estava a 11px, o
+          menor patamar do app, justamente onde mora a interpretação clínica.
+          O chip cresce e o rótulo quebra — o tile não trunca. */}
+      <Text style={[{ fontFamily: fonts.bold, color: tone.ink }, fs(11, 15)]}>{glyph}</Text>
+      <Text style={[{ fontFamily: fonts.semibold, color: tone.ink, flexShrink: 1 }, fs(11, 15)]}>
         {short}
       </Text>
     </View>

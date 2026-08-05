@@ -7,7 +7,7 @@ import {
   farmaciaPopularCategoryLabel,
   type FarmaciaPopularItem,
 } from '@hubpatients/core';
-import { useColors, fonts } from '@/theme';
+import { useColors, fonts, useFontScaler } from '@/theme';
 
 const CONTINUOUS = { borderCurve: 'continuous' as const };
 
@@ -26,6 +26,7 @@ export function FarmaciaPopularBadge({
   onFindPharmacies?: () => void;
 }) {
   const colors = useColors();
+  const fs = useFontScaler();
   const [open, setOpen] = useState(false);
 
   return (
@@ -39,7 +40,9 @@ export function FarmaciaPopularBadge({
         className="flex-row items-center gap-1.5 self-start rounded-full border border-health-400/40 bg-health-300/20 px-2.5 py-1 active:opacity-80"
       >
         <Store size={13} color={colors.ok} />
-        <Text style={{ fontFamily: fonts.semibold }} className="text-[11px] text-health-600">
+        {/* "Farmácia Popular" = o remédio sai de graça. É informação de acesso
+            a tratamento, não enfeite — tinha o mesmo 11px do resto. */}
+        <Text style={[{ fontFamily: fonts.semibold, flexShrink: 1 }, fs(11, 15)]} className="text-health-600">
           {FARMACIA_POPULAR_LABEL}
         </Text>
         <Info size={11} color={colors.ok} />
@@ -51,15 +54,16 @@ export function FarmaciaPopularBadge({
           className="mt-2 rounded-2xl border border-health-400/30 bg-health-300/10 p-3"
         >
           {item ? (
-            <Text style={{ fontFamily: fonts.semibold }} className="mb-1 text-[12px] text-health-600">
+            <Text style={[{ fontFamily: fonts.semibold }, fs(12, 16)]} className="mb-1 text-health-600">
               {item.activeIngredient} · {farmaciaPopularCategoryLabel(item)}
             </Text>
           ) : null}
-          <Text style={{ fontFamily: fonts.regular }} className="text-[12px] leading-[18px] text-fg-soft">
+          <Text style={[{ fontFamily: fonts.regular }, fs(12, 18)]} className="text-fg-soft">
             {FARMACIA_POPULAR_NOTE}
           </Text>
           {item?.note ? (
-            <Text style={{ fontFamily: fonts.regular }} className="mt-1.5 text-[11px] leading-4 text-muted">
+            // Apresentações cobertas pelo programa: concentração e forma.
+            <Text style={[{ fontFamily: fonts.regular }, fs(11, 16)]} className="mt-1.5 text-muted">
               {`Apresentações no elenco: ${item.note}.`}
             </Text>
           ) : null}

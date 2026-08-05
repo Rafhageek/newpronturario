@@ -36,7 +36,7 @@ export default function ConfiguracoesPage() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const activeTheme = mounted ? theme : undefined;
-  const { fontScale, setFontScale, contrast, setContrast } = useAccessibility();
+  const { fontScale, setFontScale, contrast, setContrast, senior: seniorOn } = useAccessibility();
   const { data: settings } = useUserSettings(user?.id);
   const { data: profile } = useProfile(user?.id);
   const update = useUpdateSettings(userId);
@@ -61,12 +61,12 @@ export default function ConfiguracoesPage() {
 
   /**
    * "Modo simples" (Modo Sênior) = os dois ajustes que mais pesam para leitura
-   * de baixa visão, ligados de uma vez: letra maior (html a 125%) + alto
-   * contraste. NÃO duplica estado: é derivado do a11y-provider e persiste pelo
-   * mesmo localStorage/no-flash script já existentes.
+   * de baixa visão, ligados de uma vez: letra maior + alto contraste. NÃO
+   * duplica estado: `senior` vem do a11y-provider (que é quem deriva e publica
+   * `data-senior` no <html>) e persiste pelo mesmo localStorage/no-flash já
+   * existentes. É o `data-senior` que faz o CSS aplicar a base de 130% e o piso
+   * de alvo de toque — ver "Modo Sênior" em globals.css.
    */
-  const seniorOn = fontScale === 'xlarge' && contrast === 'high';
-
   function toggleSenior() {
     const next = !seniorOn;
     setFontScale(next ? 'xlarge' : 'normal');

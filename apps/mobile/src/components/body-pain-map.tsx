@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import Svg, { Path, Rect, Ellipse, G } from 'react-native-svg';
 import { BODY_REGIONS, bodyRegionLabel, type BodyView } from '@hubpatients/core';
-import { fonts, useColors } from '@/theme';
+import { fonts, useColors, useFontScaler } from '@/theme';
 
 /**
  * Mapa corporal de dor (mobile) — silhueta humana portada do componente web
@@ -166,6 +166,7 @@ export function BodyPainMap({
   selectedRegion?: string | null;
 }) {
   const colors = useColors();
+  const fs = useFontScaler();
   const [view, setView] = useState<BodyView>('front');
 
   const intensityByRegion = new Map<string, number>();
@@ -237,11 +238,13 @@ export function BodyPainMap({
 
       {/* Legenda de intensidade */}
       <View className="gap-1.5">
+        {/* Legenda da escala de dor (0–10). É o que dá sentido à faixa de cor;
+            sem ela o mapa vira enfeite. Estava em 11px / 10px fixos. */}
         <View className="flex-row justify-between">
-          <Text style={{ fontFamily: fonts.regular }} className="text-[11px] text-muted">
+          <Text style={[{ fontFamily: fonts.regular }, fs(11, 15)]} className="text-muted">
             Sem dor
           </Text>
-          <Text style={{ fontFamily: fonts.regular }} className="text-[11px] text-muted">
+          <Text style={[{ fontFamily: fonts.regular }, fs(11, 15)]} className="text-muted">
             Dor intensa
           </Text>
         </View>
@@ -255,7 +258,7 @@ export function BodyPainMap({
         </View>
         <View className="flex-row justify-between">
           {LEGEND_STOPS.map((i) => (
-            <Text key={i} style={{ fontFamily: fonts.regular }} className="text-[10px] text-faint">
+            <Text key={i} style={[{ fontFamily: fonts.regular }, fs(10, 14)]} className="text-faint">
               {i}
             </Text>
           ))}

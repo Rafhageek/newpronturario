@@ -65,7 +65,8 @@ export function IconMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
-        className={`relative flex h-9 w-9 items-center justify-center rounded-xl transition ${
+        // 36px era o menor alvo interativo do shell da web. Piso de 44px.
+        className={`relative flex min-h-11 min-w-11 items-center justify-center rounded-xl transition ${
           open ? 'bg-surface-2 text-fg' : 'text-muted hover:bg-surface-2 hover:text-fg'
         }`}
       >

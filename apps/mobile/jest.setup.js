@@ -5,7 +5,13 @@
 // Reanimated: usa o mock oficial da lib (worklets viram no-ops). Sem ele,
 // useSharedValue/useAnimatedStyle quebram fora da UI thread nativa.
 require('react-native-reanimated').setUpTests?.();
-jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
+jest.mock('react-native-reanimated', () => {
+  const mock = require('react-native-reanimated/mock');
+  // O mock oficial não traz `useReducedMotion` (usado por PressableScale, sheet
+  // e tab-bar). Sem isto, qualquer teste que renderize um botão do design
+  // system quebra com "useReducedMotion is not a function".
+  return { ...mock, useReducedMotion: () => false };
+});
 
 // Gesture Handler: setup oficial p/ jest (registra gestos/Swipeable em JSDOM/Node).
 require('react-native-gesture-handler/jestSetup');

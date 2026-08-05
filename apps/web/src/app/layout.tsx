@@ -69,7 +69,7 @@ export const viewport: Viewport = {
  * Aplica preferências de acessibilidade (escala de fonte / alto contraste) antes
  * da pintura, evitando flash. Lê o localStorage que o AccessibilityProvider grava.
  */
-const A11Y_INIT = `(function(){try{var d=document.documentElement;var f=localStorage.getItem('vl-font-scale');if(f&&f!=='normal')d.setAttribute('data-font-scale',f);var c=localStorage.getItem('vl-contrast');if(c==='high')d.setAttribute('data-contrast','high');}catch(e){}})();`;
+const A11Y_INIT = `(function(){try{var d=document.documentElement;var f=localStorage.getItem('vl-font-scale');if(f&&f!=='normal')d.setAttribute('data-font-scale',f);var c=localStorage.getItem('vl-contrast');if(c==='high')d.setAttribute('data-contrast','high');if(f==='xlarge'&&c==='high')d.setAttribute('data-senior','');}catch(e){}})();`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

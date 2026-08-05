@@ -13,7 +13,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronRight, ChevronLeft, CloudOff, RefreshCw, type LucideIcon } from 'lucide-react-native';
-import { useColors, cardShadow, shadowRaised, fonts, gradients } from '@/theme';
+import {
+  useColors,
+  cardShadow,
+  shadowRaised,
+  fonts,
+  gradients,
+  useType,
+  useTapTarget,
+  useFontScaler,
+  useFontScale,
+} from '@/theme';
 import { PressableScale } from './feedback';
 import { useTabBarSpace } from './tab-bar';
 
@@ -91,6 +101,11 @@ export function AppHeader({
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const colors = useColors();
+  const t = useType();
+  const fs = useFontScaler();
+  // O botão Voltar era 40×40 — abaixo do piso de projeto (44) mesmo com o Modo
+  // Sênior desligado. Agora acompanha o alvo (44 / 56).
+  const tap = useTapTarget();
   return (
     <View style={{ paddingTop: insets.top + 10 }} className="bg-bg px-4 pb-3">
       <View className="flex-row items-center justify-between">
@@ -101,13 +116,16 @@ export function AppHeader({
               accessibilityRole="button"
               accessibilityLabel="Voltar"
               hitSlop={8}
-              style={CONTINUOUS}
-              className="h-10 w-10 items-center justify-center rounded-2xl bg-surface-2 active:opacity-70"
+              style={[CONTINUOUS, { height: tap, width: tap }]}
+              className="items-center justify-center rounded-2xl bg-surface-2 active:opacity-70"
             >
               <ChevronLeft size={22} color={colors.fg} />
             </Pressable>
           ) : Icon ? (
-            <View style={CONTINUOUS} className="h-11 w-11 items-center justify-center rounded-2xl bg-trust-100">
+            <View
+              style={[CONTINUOUS, { height: tap, width: tap }]}
+              className="items-center justify-center rounded-2xl bg-trust-100"
+            >
               <Icon size={21} color={colors.primary} />
             </View>
           ) : null}
@@ -115,13 +133,15 @@ export function AppHeader({
             <Text
               accessibilityRole="header"
               maxFontSizeMultiplier={1.4}
-              style={{ fontFamily: fonts.displayX }}
-              className="text-[26px] leading-8 text-fg"
+              // 26px displayX não é token de `type` (o mais próximo, `display`,
+              // é 30). Escalamos o valor de projeto para não mudar o desenho.
+              style={[{ fontFamily: fonts.displayX }, fs(26, 32)]}
+              className="text-fg"
             >
               {title}
             </Text>
             {subtitle ? (
-              <Text maxFontSizeMultiplier={1.5} style={{ fontFamily: fonts.regular }} className="text-[13px] text-muted">
+              <Text maxFontSizeMultiplier={1.5} style={[t.caption, { color: colors.muted }]}>
                 {subtitle}
               </Text>
             ) : null}
@@ -134,9 +154,13 @@ export function AppHeader({
 }
 
 export function SectionTitle({ children, action }: { children: ReactNode; action?: ReactNode }) {
+  const fs = useFontScaler();
   return (
     <View className="mb-0.5 mt-1 flex-row items-center justify-between">
-      <Text style={{ fontFamily: fonts.display }} className="text-[17px] text-fg">
+      {/* 17px display não é token (`heading` é 20) — escalamos o valor atual.
+          `flex-1` + `shrink` para o título quebrar linha em vez de empurrar a
+          ação para fora da tela quando a fonte cresce. */}
+      <Text style={[{ fontFamily: fonts.display }, fs(17, 23)]} className="flex-1 text-fg">
         {children}
       </Text>
       {action}
@@ -236,18 +260,22 @@ export function ListRow({
   onPress?: () => void;
 }) {
   const colors = useColors();
+  const t = useType();
+  const fs = useFontScaler();
+  const tap = useTapTarget();
   const row = (
-    <View style={CONTINUOUS} className="flex-row items-center gap-3 rounded-2xl px-1 py-2.5">
+    // minHeight (não height): a linha CRESCE quando o texto cresce, em vez de
+    // cortar. Toda a linha é o alvo de toque, então precisa do piso.
+    <View
+      style={[CONTINUOUS, onPress ? { minHeight: tap } : null]}
+      className="flex-row items-center gap-3 rounded-2xl px-1 py-2.5"
+    >
       {icon ? <IconCircle icon={icon} tone={iconTone} size={42} /> : null}
       <View className="flex-1">
-        <Text style={{ fontFamily: fonts.semibold }} className="text-[15px] text-fg">
+        <Text style={[{ fontFamily: fonts.semibold }, fs(15, 20)]} className="text-fg">
           {title}
         </Text>
-        {subtitle ? (
-          <Text style={{ fontFamily: fonts.regular }} className="text-[13px] text-muted">
-            {subtitle}
-          </Text>
-        ) : null}
+        {subtitle ? <Text style={[t.caption, { color: colors.muted }]}>{subtitle}</Text> : null}
       </View>
       {right ?? (onPress ? <ChevronRight size={20} color={colors.faint} /> : null)}
     </View>
@@ -270,17 +298,23 @@ export function StatCard({
   icon?: LucideIcon;
   tone?: 'primary' | 'accent' | 'attention' | 'alert' | 'neutral';
 }) {
+  const fs = useFontScaler();
   return (
     <View style={[CONTINUOUS, cardShadow]} className="flex-1 rounded-3xl border border-line bg-surface p-4">
       {icon ? <IconCircle icon={icon} tone={tone} size={36} /> : null}
-      <Text style={{ fontFamily: fonts.displayX }} className="mt-2 text-[24px] text-fg">
+      {/* O valor é dado clínico: escala junto e nunca trunca. */}
+      <Text style={[{ fontFamily: fonts.displayX }, fs(24, 30)]} className="mt-2 text-fg">
         {value}
       </Text>
-      <Text style={{ fontFamily: fonts.medium }} className="text-[12px] text-muted">
+      <Text style={[{ fontFamily: fonts.medium }, fs(12, 16)]} className="text-muted">
         {label}
       </Text>
       {hint ? (
-        <Text maxFontSizeMultiplier={1.4} style={{ fontFamily: fonts.regular }} className="mt-0.5 text-[11px] text-muted">
+        <Text
+          maxFontSizeMultiplier={1.4}
+          style={[{ fontFamily: fonts.regular }, fs(11, 15)]}
+          className="mt-0.5 text-muted"
+        >
           {hint}
         </Text>
       ) : null}
@@ -308,14 +342,29 @@ export function Button({
   size?: 'md' | 'sm';
 }) {
   const colors = useColors();
+  const fs = useFontScaler();
+  const tap = useTapTarget();
   const gradient = variant === 'primary' || variant === 'accent';
   const iconColor = gradient ? colors.white : colors.fg;
-  const h = size === 'sm' ? 44 : 50; // ≥44dp: alvo de toque confortável (WCAG/HIG), importante p/ idosos
+  // Alvo de toque reativo (44 / 56 no Modo Sênior). `md` mantém a folga de 6px
+  // que o desenho já tinha sobre o piso.
+  const minHeight = size === 'sm' ? tap : tap + 6;
 
   const a11y = {
     accessibilityRole: 'button' as const,
     accessibilityLabel: label,
     accessibilityState: { disabled: !!(disabled || loading), busy: !!loading },
+  };
+
+  // minHeight + paddingVertical (não `height` fixa): com a fonte ampliada o
+  // botão CRESCE e o rótulo pode ir para duas linhas, em vez de ser cortado.
+  const box = {
+    minHeight,
+    paddingVertical: 8,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: 8,
   };
 
   const content = loading ? (
@@ -325,8 +374,10 @@ export function Button({
       {Icon ? <Icon size={18} color={iconColor} /> : null}
       <Text
         maxFontSizeMultiplier={1.4}
-        style={{ fontFamily: fonts.semibold }}
-        className={`text-[15px] ${gradient ? 'text-white' : 'text-fg'}`}
+        // `shrink` deixa o rótulo quebrar dentro do botão em vez de empurrar o
+        // ícone para fora quando o texto cresce.
+        style={[{ fontFamily: fonts.semibold, flexShrink: 1, textAlign: 'center' }, fs(15, 20)]}
+        className={gradient ? 'text-white' : 'text-fg'}
       >
         {label}
       </Text>
@@ -345,7 +396,7 @@ export function Button({
           colors={variant === 'accent' ? gradients.accent : gradients.brand}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
-          style={{ height: h, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+          style={[box, { paddingHorizontal: 16 }]}
         >
           {content}
         </LinearGradient>
@@ -361,8 +412,8 @@ export function Button({
       style={[{ borderRadius: 16 }, CONTINUOUS, disabled || loading ? { opacity: 0.6 } : null]}
     >
       <View
-        style={{ height: h }}
-        className={`flex-row items-center justify-center gap-2 rounded-2xl px-4 ${variant === 'outline' ? 'border border-line bg-surface' : ''}`}
+        style={box}
+        className={`rounded-2xl px-4 ${variant === 'outline' ? 'border border-line bg-surface' : ''}`}
       >
         {content}
       </View>
@@ -377,11 +428,21 @@ const MULTILINE_MIN_HEIGHT = 96;
 
 export function Input(props: TextInputProps & { label?: string; error?: string }) {
   const colors = useColors();
+  const fs = useFontScaler();
+  const tap = useTapTarget();
+  const { style: fontFactor } = useFontScale();
   const { label, error, style, multiline, ...rest } = props;
+  // Nunca abaixo do desenho atual (48) nem do alvo de toque (56 no Sênior).
+  const fieldMinHeight = Math.max(48, tap);
   return (
     <View className="gap-1.5">
       {label ? (
-        <Text maxFontSizeMultiplier={1.6} style={{ fontFamily: fonts.medium }} className="text-[13px] text-fg-soft">
+        // Rótulo de campo: diz o que a pessoa está preenchendo. Escala junto.
+        <Text
+          maxFontSizeMultiplier={1.6}
+          style={[{ fontFamily: fonts.medium }, fs(13, 18)]}
+          className="text-fg-soft"
+        >
           {label}
         </Text>
       ) : null}
@@ -394,28 +455,37 @@ export function Input(props: TextInputProps & { label?: string; error?: string }
         maxFontSizeMultiplier={1.5}
         multiline={multiline}
         style={[
-          { fontFamily: fonts.regular },
+          // Sem `lineHeight` aqui de propósito: no Android o TextInput corta as
+          // descidas (g, p, q) quando lineHeight é declarado. Só o fontSize escala.
+          { fontFamily: fonts.regular, ...fs(15) },
           CONTINUOUS,
           // Campo de várias linhas não pode ter altura FIXA: com `h-12` ele
           // mostrava só a primeira linha e o texto rolava dentro de 48px.
           // minHeight cresce com o conteúdo; textAlignVertical alinha no topo
           // (no Android o texto começaria no meio da caixa).
           multiline
-            ? { minHeight: MULTILINE_MIN_HEIGHT, paddingVertical: 12, textAlignVertical: 'top' as const }
-            : null,
+            ? {
+                // A caixa de várias linhas cresce junto com a fonte — senão as
+                // "3 linhas" viram 2 no Modo Sênior.
+                minHeight: Math.round(MULTILINE_MIN_HEIGHT * fontFactor),
+                paddingVertical: 12,
+                textAlignVertical: 'top' as const,
+              }
+            : { minHeight: fieldMinHeight },
           // O estilo de quem chama continua com a última palavra.
           style,
         ]}
-        className={`rounded-2xl border border-line bg-surface px-4 text-[15px] text-fg ${multiline ? '' : 'h-12'}`}
+        className="rounded-2xl border border-line bg-surface px-4 text-fg"
         {...rest}
       />
       {error ? (
+        // Mensagem de erro: é o que destrava o formulário. Nunca pode ficar ilegível.
         <Text
           accessibilityLiveRegion="assertive"
           accessibilityRole="alert"
           maxFontSizeMultiplier={1.6}
-          style={{ fontFamily: fonts.regular }}
-          className="text-xs text-semaphore-alert"
+          style={[{ fontFamily: fonts.regular }, fs(12, 16)]}
+          className="text-semaphore-alert"
         >
           {error}
         </Text>
@@ -433,6 +503,7 @@ export function Badge({
   children: ReactNode;
   tone?: 'neutral' | 'ok' | 'attention' | 'alert' | 'info';
 }) {
+  const fs = useFontScaler();
   const cls = {
     neutral: 'bg-surface-2 text-muted',
     ok: 'bg-health-300/30 text-health-600',
@@ -441,8 +512,11 @@ export function Badge({
     info: 'bg-trust-100 text-trust-700',
   }[tone];
   return (
-    <View className={`self-start rounded-full px-2.5 py-0.5 ${cls.split(' ')[0]}`}>
-      <Text style={{ fontFamily: fonts.semibold }} className={`text-[11px] ${cls.split(' ')[1]}`}>
+    // O badge carrega estado clínico ("Em dia", "Atrasado") a 11px — dos textos
+    // mais críticos do app e o que menos se lia. `shrink` deixa o chip quebrar
+    // linha em vez de vazar da tela quando o rótulo cresce.
+    <View className={`shrink self-start rounded-full px-2.5 py-0.5 ${cls.split(' ')[0]}`}>
+      <Text style={[{ fontFamily: fonts.semibold }, fs(11, 15)]} className={cls.split(' ')[1]}>
         {children}
       </Text>
     </View>
@@ -465,6 +539,8 @@ export function EmptyState({
   actionIcon?: LucideIcon;
 }) {
   const colors = useColors();
+  const t = useType();
+  const fs = useFontScaler();
   return (
     <View
       style={CONTINUOUS}
@@ -473,13 +549,11 @@ export function EmptyState({
       <View style={CONTINUOUS} className="h-14 w-14 items-center justify-center rounded-3xl bg-surface-2">
         <Icon size={26} color={colors.faint} />
       </View>
-      <Text style={{ fontFamily: fonts.semibold }} className="text-center text-[15px] text-fg">
+      <Text style={[{ fontFamily: fonts.semibold, textAlign: 'center' }, fs(15, 20)]} className="text-fg">
         {title}
       </Text>
       {subtitle ? (
-        <Text style={{ fontFamily: fonts.regular }} className="text-center text-[13px] text-muted">
-          {subtitle}
-        </Text>
+        <Text style={[t.caption, { color: colors.muted, textAlign: 'center' }]}>{subtitle}</Text>
       ) : null}
       {actionLabel && onAction ? (
         <View className="mt-2">
@@ -507,6 +581,8 @@ export function ErrorState({
   icon?: LucideIcon;
 }) {
   const colors = useColors();
+  const t = useType();
+  const fs = useFontScaler();
   return (
     <View
       style={CONTINUOUS}
@@ -515,12 +591,10 @@ export function ErrorState({
       <View style={CONTINUOUS} className="h-14 w-14 items-center justify-center rounded-3xl bg-surface-2">
         <Icon size={26} color={colors.muted} />
       </View>
-      <Text style={{ fontFamily: fonts.semibold }} className="text-center text-[15px] text-fg">
+      <Text style={[{ fontFamily: fonts.semibold, textAlign: 'center' }, fs(15, 20)]} className="text-fg">
         {title}
       </Text>
-      <Text style={{ fontFamily: fonts.regular }} className="text-center text-[13px] text-muted">
-        {subtitle}
-      </Text>
+      <Text style={[t.caption, { color: colors.muted, textAlign: 'center' }]}>{subtitle}</Text>
       {onRetry ? (
         <View className="mt-2">
           <Button label="Tentar novamente" icon={RefreshCw} variant="outline" onPress={onRetry} size="sm" />

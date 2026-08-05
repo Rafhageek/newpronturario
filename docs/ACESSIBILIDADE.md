@@ -73,43 +73,57 @@ Na interface o nome é **"Modo simples"** (linguagem do paciente, não jargão d
 
 | | Mobile | Web |
 | --- | --- | --- |
-| Texto | `type` × 1,3 (clamp total 1,0–2,0 junto com a fonte do sistema) | `html` a 125% — tudo em `rem` acompanha |
+| Texto | `type` × 1,3 (clamp total 1,0–2,0 junto com a fonte do sistema) | `html` a **130%** sob `[data-senior]` — tudo em `rem` acompanha |
 | Contraste | herda o alto contraste do SO | liga `data-contrast="high"` (tokens `--fg`/`--muted`/`--primary` reforçados) |
-| Alvo de toque | `useTapTarget()` → 56 px (aplicado tela a tela — ver pendências) | tudo medido em `rem` cresce junto: 44 px → ~55 px; `px` fixo ainda pendente |
-| Persistência | SecureStore `hubpatients.senior-mode` | `localStorage` `vl-font-scale` + `vl-contrast` |
+| Alvo de toque | `useTapTarget()` → 56 px — já nos componentes compartilhados; telas soltas pendentes | `[data-senior]` impõe `min-height/min-width: 2.75rem`, que a 130% vale ~57 px |
+| Persistência | SecureStore `hubpatients.senior-mode` | `localStorage` `vl-font-scale` + `vl-contrast` (deriva `data-senior`) |
+
+> **Fator alinhado (2026-08-04).** A web usava 125% e o mobile 1,3 — duas
+> promessas diferentes para o mesmo botão. Agora as duas usam o
+> `SENIOR_FONT_FACTOR = 1.3` de `@hubpatients/ui-tokens`. O ajuste fino A/A+/A++
+> continua em 100/112,5/125%; é outro controle.
 
 ---
 
-## 3. Pendente — aplicar tela a tela
-
-Nada abaixo foi feito ainda. **Cada tela migrada deve marcar seu item.**
+## 3. Aplicação — feito e pendente
 
 ### 3.1 Alvo de toque (56 px no Modo Sênior)
 
-- [ ] Mobile: **174 `<Pressable>`** no app; só **19** declaram `minHeight` e 84 usam
-      `hitSlop`. Migrar para `style={{ minHeight: useTapTarget() }}` — começando por
-      medicamentos, diário, exames e tab bar.
-- [ ] Mobile: `src/components/ui.tsx` — `Button`, `ListRow`, `Input` (hoje `h-12`),
-      botão de voltar do `AppHeader` (hoje `h-10 w-10` + `hitSlop={8}`).
-- [ ] Web: o alvo cresce **de graça** onde o tamanho está em `rem`/unidades Tailwind
-      (`h-11` = 2,75rem → ~55 px com `html` a 125%). O que **não** escala é `px` fixo:
-      auditar `style={{ height: N }}`, `h-[40px]`, ícones-botão e a barra inferior mobile.
-      Usar o helper `rem(a11y.tapTarget.min)` como na tela de Configurações.
-- [ ] Web: rede de segurança global — adicionar em `apps/web/src/app/globals.css`
-      (arquivo fora do escopo desta entrega):
-      ```css
-      html[data-senior] :is(button, a, [role='button'], [role='switch'], select) {
-        min-height: 3.5rem;
-      }
-      ```
-      e passar a marcar `data-senior` no `<html>` pelo `a11y-provider` + script
-      no-flash de `layout.tsx`, para o Modo simples ter um atributo próprio em vez
-      de ser derivado de `fontScale === 'xlarge' && contrast === 'high'`.
+- [x] Mobile: `src/components/ui.tsx` — `Button` (altura fixa → `minHeight` reativo),
+      `ListRow`, `Input` (era `h-12`), botão de voltar do `AppHeader` (era `h-10 w-10`
+      = 40 px, **abaixo do piso de 44 mesmo com o modo desligado**).
+- [x] Mobile: `src/components/sheet.tsx` — botão de fechar do painel.
+- [x] Web: rede de segurança global em `globals.css` sob `html[data-senior]`, e
+      `data-senior` publicado pelo `a11y-provider` + script no-flash do `layout.tsx`.
+      **O piso é `2.75rem`, não `3.5rem`**: como a base já está a 130%, 2,75rem vale
+      ~57 px. `3.5rem` daria ~73 px e estouraria as barras de ação.
+- [x] Web: `modal.tsx` (fechar, era 40 px), `icon-menu.tsx` (era 36 px),
+      `error-state.tsx` (era 40 px), `tabs.tsx` (sem altura declarada).
+- [ ] Mobile: os `<Pressable>` soltos dentro das telas (fora dos componentes
+      compartilhados) ainda não declaram `minHeight`.
+- [ ] Web: `slider.tsx` — o thumb tem 16 px. É um controle nativo; ampliar exige
+      redesenhar o componente, não só um `min-height`.
 - [ ] Manter **8 px de folga** (`tapTarget.gap`) entre alvos adjacentes.
 
 ### 3.2 Tipografia
 
-- [ ] Substituir `text-[Npx]` soltos por `useType()` (mobile) e classes em `rem` (web).
+- [x] Componentes compartilhados do mobile saíram de `text-[Npx]` para `style`
+      escalado — é o que faz o Modo Sênior valer nas 48 de 51 telas que os usam.
+- [x] Textos ≤ 11 px que carregam **dado clínico ou de ação**: apresentação/dose e
+      tarja no autocomplete de medicamento, chip de faixa de referência, badge de
+      status, rótulo e erro de formulário, adesão, aviso da Anvisa, banner de
+      interação medicamentosa, legenda da escala de dor, Farmácia Popular.
+- [ ] Restam **~795** `text-[Npx]` (698 nas telas, 97 em componentes) — esses
+      escalam com a fonte do SISTEMA, mas **não** com o Modo Sênior.
+
+> **Por que não dá para consertar tudo de uma vez.** Um `<Text className="text-[12px]">`
+> tem o tamanho resolvido pelo Tailwind/NativeWind em tempo de build; nenhum hook
+> alcança esse valor. As duas saídas globais foram avaliadas e descartadas:
+> `rem.set()` do NativeWind escalaria também as **1538** classes de espaçamento
+> (`p-4`, `w-10`…), quebrando ícones e larguras; e um `<Text>` interceptado por
+> `cssInterop` não é verificável fora do Metro (em Jest o `className` chega vazio),
+> o que é risco alto demais para um app de saúde. O caminho é migrar por
+> consequência: componente compartilhado primeiro, depois o texto clínico.
       Enquanto houver `px` fixo, o Modo Sênior não alcança aquele texto.
 - [ ] Corpo de texto nunca abaixo de 15 px no padrão / ~20 px no Modo Sênior.
 - [ ] **Hermes**: nunca usar `Intl.RelativeTimeFormat` no mobile — derruba o app.

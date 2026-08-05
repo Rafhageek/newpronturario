@@ -29,7 +29,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { X } from 'lucide-react-native';
-import { useColors, fonts, shadowRaised } from '@/theme';
+import { useColors, fonts, shadowRaised, useFontScaler, useTapTarget } from '@/theme';
 
 export type AppSheetHandle = { close: () => void };
 
@@ -47,6 +47,8 @@ export const AppSheet = forwardRef<AppSheetHandle, { onClose: () => void; title?
     const { height: screenH } = useWindowDimensions();
     const reduce = useReducedMotion();
     const colors = useColors();
+    const fs = useFontScaler();
+    const tap = useTapTarget();
 
     const ty = useSharedValue(screenH); // começa fora da tela (embaixo)
     const backdrop = useSharedValue(0);
@@ -169,21 +171,28 @@ export const AppSheet = forwardRef<AppSheetHandle, { onClose: () => void; title?
               </View>
             </GestureDetector>
 
-            <View className="mb-3 flex-row items-center justify-between">
+            <View className="mb-3 flex-row items-center justify-between gap-3">
               {title ? (
-                <Text accessibilityRole="header" maxFontSizeMultiplier={1.4} style={{ fontFamily: fonts.display }} className="text-[17px] text-fg">
+                <Text
+                  accessibilityRole="header"
+                  maxFontSizeMultiplier={1.4}
+                  // `flex-1` para o título quebrar linha em vez de empurrar o
+                  // botão de fechar para fora do painel com a fonte ampliada.
+                  style={[{ fontFamily: fonts.display }, fs(17, 23)]}
+                  className="flex-1 text-fg"
+                >
                   {title}
                 </Text>
               ) : (
-                <View />
+                <View className="flex-1" />
               )}
               <Pressable
                 onPress={close}
                 accessibilityRole="button"
                 accessibilityLabel={title ? `Fechar ${title}` : 'Fechar painel'}
                 hitSlop={8}
-                style={{ borderCurve: 'continuous' }}
-                className="h-11 w-11 items-center justify-center rounded-2xl bg-surface-2 active:opacity-70"
+                style={{ borderCurve: 'continuous', height: tap, width: tap }}
+                className="items-center justify-center rounded-2xl bg-surface-2 active:opacity-70"
               >
                 <X size={18} color={colors.fg} accessible={false} />
               </Pressable>

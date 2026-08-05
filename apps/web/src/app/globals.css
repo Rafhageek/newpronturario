@@ -276,6 +276,61 @@ html[data-font-scale='xlarge'] {
   font-size: 125%; /* ~20px base */
 }
 
+/* ══════════════════════ Modo Sênior ("Modo simples") ══════════════════════
+   O atributo `data-senior` é publicado pelo a11y-provider (e pelo script
+   no-flash do layout) quando fontScale=xlarge E contraste=alto. Até aqui o
+   modo só trocava cores e a base de fonte; a promessa da tela de Configurações
+   tem DUAS partes e a segunda não era cumprida em lugar nenhum:
+
+     "As letras ficam maiores em todas as telas."
+     "…os botões crescem junto: o alvo de 44 px passa para cerca de 56 px."
+
+   1) Letra — 130%, não 125%. É o `SENIOR_FONT_FACTOR = 1.3` de
+      @hubpatients/ui-tokens, o mesmo fator que o app mobile aplica. A web
+      usava 1.25 e ninguém batia com ninguém. Precisa vir DEPOIS da regra de
+      `data-font-scale='xlarge'` para vencer (mesma especificidade). */
+html[data-senior] {
+  font-size: 130%; /* 20.8px base — ui-tokens SENIOR_FONT_FACTOR (1.3) */
+}
+
+/* 2) Alvo de toque — a rede de segurança que faltava.
+      O piso é 2.75rem (= 44 px de PROJETO), não 3.5rem: como a base já está a
+      130%, 2.75rem VALE ~57 px aqui. Escrever 3.5rem daria ~73 px e estouraria
+      as barras de ação. É exatamente a mecânica que a tela promete — "o site é
+      medido em letra, então os botões crescem junto".
+
+      Só `min-height`/`min-width`: mexer em `display` para centralizar o
+      conteúdo quebraria os botões que dependem de block/w-full. Botão nativo
+      já centraliza sozinho, e o resto do app usa flex.
+
+      Escape hatch: `data-tap-exempt` para o caso raro que não pode crescer. */
+html[data-senior]
+  :is(
+    button,
+    a[href],
+    select,
+    summary,
+    input[type='checkbox'],
+    input[type='radio'],
+    [role='button'],
+    [role='switch'],
+    [role='tab'],
+    [role='menuitem'],
+    [role='option']
+  ):not([data-tap-exempt]) {
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+}
+
+/* Links dentro de texto corrido são a exceção óbvia: um link inline não é um
+   "alvo" isolado e esticá-lo abriria buracos no parágrafo. (`min-height` já é
+   ignorado em caixa inline, mas ser explícito evita surpresa quando alguém
+   colocar um link com `inline-block` no meio de um texto.) */
+html[data-senior] :is(p, li, label, span, h1, h2, h3, h4) a[href] {
+  min-height: 0;
+  min-width: 0;
+}
+
 /* ── Motion do painel de autenticação ───────────────────────────── */
 @keyframes vl-rotate {
   to {

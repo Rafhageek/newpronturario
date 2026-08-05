@@ -8,7 +8,7 @@ import {
   type MedicamentoBr,
   type MedicamentoTarja,
 } from '@hubpatients/core';
-import { useColors, fonts } from '@/theme';
+import { useColors, fonts, useFontScaler } from '@/theme';
 
 const CONTINUOUS = { borderCurve: 'continuous' as const };
 
@@ -62,6 +62,7 @@ export function MedicationAutocomplete({
   showDisclaimer?: boolean;
 }) {
   const colors = useColors();
+  const fs = useFontScaler();
   const [focused, setFocused] = useState(false);
   // Fecha a lista depois de escolher, sem apagar o texto do campo.
   const [dismissed, setDismissed] = useState(false);
@@ -144,28 +145,33 @@ export function MedicationAutocomplete({
                   <Pill size={16} color={colors.primary} style={{ marginTop: 2 }} />
                   <View className="flex-1">
                     <Text
-                      style={{ fontFamily: fonts.medium }}
-                      className="text-[14px] text-fg"
-                      numberOfLines={1}
+                      style={[{ fontFamily: fonts.medium }, fs(14, 19)]}
+                      className="text-fg"
+                      numberOfLines={2}
                     >
                       {med.activeIngredient}
                       {med.brand ? (
-                        <Text style={{ fontFamily: fonts.regular }} className="text-[12px] text-muted">
+                        <Text style={[{ fontFamily: fonts.regular }, fs(12, 16)]} className="text-muted">
                           {`  (${med.brand})`}
                         </Text>
                       ) : null}
                     </Text>
+                    {/* APRESENTAÇÃO = concentração e forma ("500 mg comprimido").
+                        É dose de medicamento: estava a 11px e cortada em UMA
+                        linha. Escala junto e pode ocupar duas linhas. */}
                     <Text
-                      style={{ fontFamily: fonts.regular }}
-                      className="mt-0.5 text-[11px] text-muted"
-                      numberOfLines={1}
+                      style={[{ fontFamily: fonts.regular }, fs(11, 15)]}
+                      className="mt-0.5 text-muted"
+                      numberOfLines={2}
                     >
                       {medicamentoPresentation(med)}
                     </Text>
                   </View>
+                  {/* Tarja (Venda livre / Receita / Receita retida) — informação
+                      de controle sanitário; 10px era o menor texto do app. */}
                   <Text
-                    style={{ fontFamily: fonts.semibold, color: toneColor[badge.tone] }}
-                    className="mt-0.5 text-[10px]"
+                    style={[{ fontFamily: fonts.semibold, color: toneColor[badge.tone], flexShrink: 1 }, fs(10, 14)]}
+                    className="mt-0.5"
                   >
                     {badge.label}
                   </Text>
@@ -177,13 +183,13 @@ export function MedicationAutocomplete({
       ) : null}
 
       {showEmpty ? (
-        <Text style={{ fontFamily: fonts.regular }} className="mt-1.5 text-[12px] text-muted">
+        <Text style={[{ fontFamily: fonts.regular }, fs(12, 16)]} className="mt-1.5 text-muted">
           Não achamos esse nome na nossa lista — pode digitar do seu jeito e salvar mesmo assim.
         </Text>
       ) : null}
 
       {showDisclaimer ? (
-        <Text style={{ fontFamily: fonts.regular }} className="mt-1.5 text-[11px] leading-4 text-muted">
+        <Text style={[{ fontFamily: fonts.regular }, fs(11, 16)]} className="mt-1.5 text-muted">
           {MEDICAMENTOS_BR_DISCLAIMER}
         </Text>
       ) : null}

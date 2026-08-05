@@ -469,6 +469,35 @@ export function useType(): TypeScale {
   return useMemo(() => scaledType(style), [style]);
 }
 
+/**
+ * Escala um tamanho de projeto (px) que ainda NÃO tem token equivalente em
+ * `type`. A escala cobre bem os tamanhos, mas não todas as combinações
+ * PESO×TAMANHO que os componentes usam de fato — 15px semibold (rótulo de
+ * lista, botão), 12px medium (rótulo de métrica) e 26px displayX (título do
+ * cabeçalho) não são tokens. Trocar esses valores pelo token mais próximo
+ * mudaria o desenho de todas as telas de uma vez, o que não é o objetivo aqui.
+ *
+ * NÃO é uma escala nova: é o MESMO fator que `useType()` aplica (Modo Sênior ×
+ * fonte do sistema, já com o clamp 1.0–2.0), só que sobre o valor de projeto.
+ * Com o Modo Sênior desligado e a fonte do sistema no padrão o fator é 1 e o
+ * resultado é idêntico ao de hoje — por isso é seguro adotar em massa.
+ *
+ * Uso: `const fs = useFontScaler(); <Text style={[{ fontFamily: fonts.semibold }, fs(15, 20)]}>`
+ */
+export function useFontScaler(): (fontSize: number, lineHeight?: number) => {
+  fontSize: number;
+  lineHeight?: number;
+} {
+  const { style } = useFontScale();
+  return useMemo(
+    () => (fontSize: number, lineHeight?: number) => ({
+      fontSize: Math.round(fontSize * style),
+      ...(lineHeight === undefined ? null : { lineHeight: Math.round(lineHeight * style) }),
+    }),
+    [style],
+  );
+}
+
 /** Altura/largura mínima de qualquer alvo tocável: 44 px, ou 56 px no Modo Sênior. */
 export function useTapTarget(): number {
   const { enabled } = useSeniorMode();

@@ -70,7 +70,7 @@ import { FadeInItem } from '@/components/motion';
 import { SwipeRow, AnimatedNumber, AnimatedBar, SkeletonList, haptics } from '@/components/feedback';
 import { flushDoseQueue, loadRemindersPref, scheduleMedicationReminders } from '@/lib/notifications';
 import { motion, status } from '@hubpatients/ui-tokens';
-import { useColors, fonts, useTapTarget } from '@/theme';
+import { useColors, fonts, useTapTarget, useFontScaler } from '@/theme';
 
 const FORM_OPTIONS: MedicationForm[] = ['tablet', 'capsule', 'liquid', 'drops', 'inhaler', 'injection', 'cream', 'other'];
 const CONTINUOUS = { borderCurve: 'continuous' as const };
@@ -778,6 +778,7 @@ function AdherencePanel({
   summary: DoseSummaryLike | undefined;
 }) {
   const colors = useColors();
+  const fs = useFontScaler();
 
   const timesPerDay = meds.reduce((sum, m) => sum + m.times.length, 0);
   const expected = expectedDosesInDays(timesPerDay, ADHERENCE_DAYS);
@@ -827,13 +828,15 @@ function AdherencePanel({
         </Text>
       ) : null}
 
+      {/* Adesão ao tratamento: quantas doses foram adiadas ou puladas. É o dado
+          que a pessoa leva para a consulta — não pode ficar em 11px fixo. */}
       {(summary?.snoozed ?? 0) > 0 || (summary?.skipped ?? 0) > 0 ? (
-        <Text style={{ fontFamily: fonts.regular }} className="text-[11px] leading-4 text-muted">
+        <Text style={[{ fontFamily: fonts.regular }, fs(11, 16)]} className="text-muted">
           {`Adiadas: ${summary?.snoozed ?? 0} · marcadas como puladas: ${summary?.skipped ?? 0}.`}
         </Text>
       ) : null}
 
-      <Text style={{ fontFamily: fonts.regular }} className="text-[11px] leading-4 text-muted">
+      <Text style={[{ fontFamily: fonts.regular }, fs(11, 16)]} className="text-muted">
         {ADHERENCE_DISCLAIMER}
       </Text>
     </Card>
@@ -863,6 +866,7 @@ function MedicationCard({
   onStock: () => void;
 }) {
   const colors = useColors();
+  const fs = useFontScaler();
   const router = useRouter();
   const today = new Date().toISOString().slice(0, 10);
   const stockDays = daysRemainingForMed(medication);
@@ -995,11 +999,13 @@ function MedicationCard({
           className="flex-row items-center gap-1.5 self-start rounded-lg active:opacity-70"
         >
           <ExternalLink size={14} color={colors.primary} />
-          <Text style={{ fontFamily: fonts.semibold }} className="text-[12px] text-primary">
+          <Text style={[{ fontFamily: fonts.semibold, flexShrink: 1 }, fs(12, 16)]} className="text-primary">
             Ver bula oficial (Anvisa)
           </Text>
         </Pressable>
-        <Text style={{ fontFamily: fonts.regular }} className="mt-1 text-[11px] leading-4 text-muted">
+        {/* Aviso de saída para o Bulário da Anvisa — a bula é a fonte oficial
+            de dose e contraindicação. */}
+        <Text style={[{ fontFamily: fonts.regular }, fs(11, 16)]} className="mt-1 text-muted">
           {ANVISA_EXIT_NOTICE}
         </Text>
       </View>
@@ -1180,6 +1186,7 @@ function InteractionBanner({
   isError: boolean;
 }) {
   const colors = useColors();
+  const fs = useFontScaler();
   if (isLoading) {
     return (
       <View
@@ -1247,10 +1254,12 @@ function InteractionBanner({
               >
                 {i.drug_a} + {i.drug_b} · {meta.label}
               </Text>
-              <Text style={{ fontFamily: fonts.regular }} className="mt-0.5 text-[12px] text-fg-soft">
+              <Text style={[{ fontFamily: fonts.regular }, fs(12, 17)]} className="mt-0.5 text-fg-soft">
                 {i.description}
               </Text>
-              <Text style={{ fontFamily: fonts.regular }} className="mt-1 text-[11px] text-muted">
+              {/* Interação medicamentosa: a orientação de procurar o médico é o
+                  desfecho de ação do banner. Era o texto menor do bloco. */}
+              <Text style={[{ fontFamily: fonts.regular }, fs(11, 16)]} className="mt-1 text-muted">
                 Converse com seu médico. O HubPatients não substitui avaliação profissional.
               </Text>
             </View>

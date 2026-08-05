@@ -64,7 +64,9 @@ export function Tabs<T extends string>({
             tabIndex={active ? 0 : -1}
             onKeyDown={(event) => handleKeyDown(event, index)}
             onClick={() => onChange(t.key)}
-            className={`relative rounded-lg px-3.5 py-2 text-sm font-medium transition ${
+            // A aba não declarava altura (~36px). `min-h-11` + inline-flex para
+            // o rótulo continuar centrado quando o piso passa a valer.
+            className={`relative inline-flex min-h-11 items-center justify-center rounded-lg px-3.5 py-2 text-sm font-medium transition ${
               active ? 'text-primary' : 'text-muted hover:text-fg'
             }`}
           >

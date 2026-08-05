@@ -126,7 +126,9 @@ export function Modal({
           >
             <button
               onClick={onClose}
-              className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-lg text-muted transition hover:bg-surface-2 hover:text-fg"
+              // min-h/min-w-11 (44px) em vez de h-10/w-10 (40px): estava abaixo
+              // do piso de projeto mesmo com o Modo simples desligado.
+              className="absolute right-3 top-3 flex min-h-11 min-w-11 items-center justify-center rounded-lg text-muted transition hover:bg-surface-2 hover:text-fg"
               aria-label="Fechar"
             >
               <X className="h-5 w-5" />

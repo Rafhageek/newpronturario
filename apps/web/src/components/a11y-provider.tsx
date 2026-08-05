@@ -10,6 +10,18 @@ interface A11yState {
   setFontScale: (v: FontScale) => void;
   contrast: Contrast;
   setContrast: (v: Contrast) => void;
+  /**
+   * Modo Sênior ("Modo simples") — continua DERIVADO de fontScale + contraste
+   * (não há um terceiro estado para sair de sincronia), mas agora é publicado
+   * no `<html>` como `data-senior`. Sem esse atributo o CSS não tinha como
+   * cumprir a parte da promessa que não é tamanho de letra: o alvo de toque.
+   */
+  senior: boolean;
+}
+
+/** Regra única de derivação — usada aqui e espelhada no script no-flash. */
+export function isSenior(fontScale: FontScale, contrast: Contrast): boolean {
+  return fontScale === 'xlarge' && contrast === 'high';
 }
 
 const A11yContext = createContext<A11yState | null>(null);
@@ -26,6 +38,17 @@ export function AccessibilityProvider({ children }: { children: ReactNode }) {
     setFontScaleState(f);
     setContrastState(c);
   }, []);
+
+  const senior = isSenior(fontScale, contrast);
+
+  // Publica `data-senior` no <html> sempre que a derivação mudar — inclusive na
+  // hidratação inicial, o que mantém o atributo alinhado com o que o script
+  // no-flash já pintou.
+  useEffect(() => {
+    const d = document.documentElement;
+    if (senior) d.setAttribute('data-senior', '');
+    else d.removeAttribute('data-senior');
+  }, [senior]);
 
   function setFontScale(v: FontScale) {
     setFontScaleState(v);
@@ -44,7 +67,7 @@ export function AccessibilityProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <A11yContext.Provider value={{ fontScale, setFontScale, contrast, setContrast }}>
+    <A11yContext.Provider value={{ fontScale, setFontScale, contrast, setContrast, senior }}>
       {children}
     </A11yContext.Provider>
   );
