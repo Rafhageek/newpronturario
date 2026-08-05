@@ -39,3 +39,10 @@ Thumbs.db
 *.log
 npm-debug.log*
 pnpm-debug.log*
+
+# Estado de execucao dos agentes (Ruflo/claude-flow) — binario, muda a cada run
+ruvector.db
+.swarm/memory.db
+.swarm/memory.db-shm
+.swarm/memory.db-wal
+.claude-flow/metrics/

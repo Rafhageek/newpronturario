@@ -16,6 +16,8 @@ export function ConstancyCard({ patientId }: { patientId?: string }) {
     <section className="vl-rise flex items-center gap-4 rounded-2xl border border-line bg-surface p-5">
       <Ring pct={c.score} />
       <div className="min-w-0 flex-1">
+        {/* @cor-do-sistema — o verde celebra o HÁBITO de registrar (engajamento
+            no app), não classifica nenhuma medida do corpo do paciente. */}
         <div className="flex flex-wrap items-center gap-2">
           <Sprout className="h-4 w-4 text-status-ok-ink" />
           <h3 className="text-sm font-semibold text-fg">Sua constância</h3>
@@ -28,6 +30,7 @@ export function ConstancyCard({ patientId }: { patientId?: string }) {
             </span>
           )}
         </div>
+        {/* @fim-cor-do-sistema */}
         <p className="mt-1 text-sm leading-relaxed text-muted">{c.message}</p>
       </div>
     </section>

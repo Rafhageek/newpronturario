@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { View, Text, Pressable, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, Pressable, ScrollView, RefreshControl, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -39,11 +39,24 @@ export default function PerfilScreen() {
   const router = useRouter();
   const { user, signOut } = useAuth();
   const pid = user?.id ?? '';
-  const { data: profile } = useProfile(user?.id);
-  const { data: allergies } = useAllergies(user?.id);
-  const { data: conditions } = useConditions(pid || undefined);
-  const { data: surgeries } = useSurgeries(pid || undefined);
-  const { data: familyHistory } = useFamilyHistory(pid || undefined);
+  const { data: profile, isSuccess: profileLoaded } = useProfile(user?.id);
+  /*
+   * `data` volta `undefined` tanto na falha quanto antes da consulta terminar,
+   * e nos dois casos a lista vira vazia. Vazio aqui alimentaria o QR de
+   * emergência e o PDF com "Alergias graves: nenhuma" — afirmação clínica que
+   * o app nunca recebeu. Por isso guardamos `isSuccess` de cada consulta:
+   * só se pode dizer "nenhuma" quando o servidor de fato respondeu isso.
+   */
+  const {
+    data: allergies,
+    isSuccess: allergiesLoaded,
+    isError: allergiesFailed,
+    isFetching: allergiesFetching,
+    refetch: refetchAllergies,
+  } = useAllergies(user?.id);
+  const { data: conditions, isSuccess: conditionsLoaded } = useConditions(pid || undefined);
+  const { data: surgeries, isSuccess: surgeriesLoaded } = useSurgeries(pid || undefined);
+  const { data: familyHistory, isSuccess: familyHistoryLoaded } = useFamilyHistory(pid || undefined);
   const { data: insuranceData } = useInsurance(pid || undefined);
   const insurance = Array.isArray(insuranceData) ? insuranceData[0] : insuranceData;
   const age = profile?.date_of_birth ? calculateAge(profile.date_of_birth) : null;
@@ -71,6 +84,15 @@ export default function PerfilScreen() {
         conditions: conditions ?? [],
         surgeries: surgeries ?? [],
         familyHistory: familyHistory ?? [],
+        // O PDF vai para a mão do médico: seção que não carregou precisa dizer
+        // isso, e não "Nenhuma ... registrada".
+        loaded: {
+          profile: profileLoaded,
+          allergies: allergiesLoaded,
+          conditions: conditionsLoaded,
+          surgeries: surgeriesLoaded,
+          familyHistory: familyHistoryLoaded,
+        },
       });
       const { uri } = await Print.printToFileAsync({ html });
       try {
@@ -164,12 +186,36 @@ export default function PerfilScreen() {
               ))}
             </View>
           ) : null}
-          <View className="mt-2 items-center gap-1.5 rounded-2xl border border-line bg-surface-2 p-3" style={{ borderCurve: 'continuous' }}>
-            <QRCode value={emergencyText} size={120} color={colors.fg} backgroundColor="transparent" />
-            <Text style={{ fontFamily: fonts.medium }} className="text-[11px] text-muted">
-              Cartão de emergência
-            </Text>
-          </View>
+          {/* Quem lê este QR é socorrista. Sem a lista de alergias confirmada,
+              o cartão não é gerado: ele diria "nenhuma" sem ter o dado. */}
+          {allergiesLoaded ? (
+            <View className="mt-2 items-center gap-1.5 rounded-2xl border border-line bg-surface-2 p-3" style={{ borderCurve: 'continuous' }}>
+              <QRCode value={emergencyText} size={120} color={colors.fg} backgroundColor="transparent" />
+              <Text style={{ fontFamily: fonts.medium }} className="text-[11px] text-muted">
+                Cartão de emergência
+              </Text>
+            </View>
+          ) : (
+            <View className="mt-2 w-full gap-2 rounded-2xl border border-line bg-surface-2 p-3.5" style={{ borderCurve: 'continuous' }}>
+              <Text style={{ fontFamily: fonts.semibold }} className="text-[13px] text-fg">
+                {allergiesFailed ? 'Cartão de emergência indisponível' : 'Preparando o cartão de emergência…'}
+              </Text>
+              <Text style={{ fontFamily: fonts.regular }} className="text-[12px] leading-4 text-muted">
+                {allergiesFailed
+                  ? 'Não foi possível carregar suas alergias. O cartão não é gerado sem essa lista: ele informaria “alergias graves: nenhuma” sem ter recebido esse dado.'
+                  : 'O cartão aparece assim que a lista de alergias terminar de carregar.'}
+              </Text>
+              {allergiesFailed ? (
+                <Button
+                  label="Tentar de novo"
+                  size="sm"
+                  variant="outline"
+                  loading={allergiesFetching}
+                  onPress={() => void refetchAllergies()}
+                />
+              ) : null}
+            </View>
+          )}
           <View className="mt-1 w-full">
             <Button
               label={isPlus ? 'Exportar PDF' : 'Exportar PDF (Plus)'}
@@ -220,7 +266,17 @@ type ProntuarioData = {
   conditions: NonNullable<ReturnType<typeof useConditions>['data']>;
   surgeries: NonNullable<ReturnType<typeof useSurgeries>['data']>;
   familyHistory: NonNullable<ReturnType<typeof useFamilyHistory>['data']>;
+  /** Quais consultas realmente responderam. Lista vazia só vira "nenhuma" se `true`. */
+  loaded: {
+    profile: boolean;
+    allergies: boolean;
+    conditions: boolean;
+    surgeries: boolean;
+    familyHistory: boolean;
+  };
 };
+
+const NAO_CARREGADO = '<p class="empty">Não foi possível carregar esta seção. O prontuário pode ter registros que não aparecem aqui.</p>';
 
 function buildProntuarioHtml(d: ProntuarioData): string {
   const { profile, age, insurance } = d;
@@ -255,33 +311,43 @@ function buildProntuarioHtml(d: ProntuarioData): string {
   const rowsHtml = (rows: [string, string][]) =>
     rows.map((r) => `<tr><th>${r[0]}</th><td>${r[1]}</td></tr>`).join('');
 
-  const allergiesHtml = d.allergies.length
-    ? `<ul>${d.allergies
-        .map((a) => `<li><strong>${esc(a.substance)}</strong> — ${esc(ALLERGY_SEVERITY[a.severity].label)}${a.reaction ? ` · ${esc(a.reaction)}` : ''}</li>`)
-        .join('')}</ul>`
-    : `<p class="empty">Nenhuma alergia registrada.</p>`;
+  const allergiesHtml = !d.loaded.allergies
+    ? NAO_CARREGADO
+    : d.allergies.length
+      ? `<ul>${d.allergies
+          .map((a) => `<li><strong>${esc(a.substance)}</strong> — ${esc(ALLERGY_SEVERITY[a.severity].label)}${a.reaction ? ` · ${esc(a.reaction)}` : ''}</li>`)
+          .join('')}</ul>`
+      : `<p class="empty">Nenhuma alergia registrada.</p>`;
 
-  const conditionsHtml = d.conditions.length
-    ? `<ul>${d.conditions
-        .map((c) => `<li><strong>${esc(c.name)}</strong>${c.cid10_code ? ` (${esc(c.cid10_code)})` : ''} — ${esc(CONDITION_STATUS_LABELS[c.status])}</li>`)
-        .join('')}</ul>`
-    : `<p class="empty">Nenhuma condição registrada.</p>`;
+  const conditionsHtml = !d.loaded.conditions
+    ? NAO_CARREGADO
+    : d.conditions.length
+      ? `<ul>${d.conditions
+          .map((c) => `<li><strong>${esc(c.name)}</strong>${c.cid10_code ? ` (${esc(c.cid10_code)})` : ''} — ${esc(CONDITION_STATUS_LABELS[c.status])}</li>`)
+          .join('')}</ul>`
+      : `<p class="empty">Nenhuma condição registrada.</p>`;
 
-  const surgeriesHtml = d.surgeries.length
-    ? `<ul>${d.surgeries
-        .map((s) => `<li><strong>${esc(s.procedure)}</strong> — ${fmtDate(s.performed_at)}${s.hospital ? ` · ${esc(s.hospital)}` : ''}</li>`)
-        .join('')}</ul>`
-    : `<p class="empty">Nenhuma cirurgia registrada.</p>`;
+  const surgeriesHtml = !d.loaded.surgeries
+    ? NAO_CARREGADO
+    : d.surgeries.length
+      ? `<ul>${d.surgeries
+          .map((s) => `<li><strong>${esc(s.procedure)}</strong> — ${fmtDate(s.performed_at)}${s.hospital ? ` · ${esc(s.hospital)}` : ''}</li>`)
+          .join('')}</ul>`
+      : `<p class="empty">Nenhuma cirurgia registrada.</p>`;
 
-  const familyHtml = d.familyHistory.length
-    ? `<ul>${d.familyHistory
-        .map((f) => `<li><strong>${esc(f.condition)}</strong> — ${esc(FAMILY_RELATIONSHIP_LABELS[f.relationship])}</li>`)
-        .join('')}</ul>`
-    : `<p class="empty">Nenhum antecedente registrado.</p>`;
+  const familyHtml = !d.loaded.familyHistory
+    ? NAO_CARREGADO
+    : d.familyHistory.length
+      ? `<ul>${d.familyHistory
+          .map((f) => `<li><strong>${esc(f.condition)}</strong> — ${esc(FAMILY_RELATIONSHIP_LABELS[f.relationship])}</li>`)
+          .join('')}</ul>`
+      : `<p class="empty">Nenhum antecedente registrado.</p>`;
 
-  const emergencyHtml = profile?.emergency_note
-    ? `<p>${esc(profile.emergency_note)}</p>`
-    : `<p class="empty">Nenhuma observação de emergência.</p>`;
+  const emergencyHtml = !d.loaded.profile
+    ? NAO_CARREGADO
+    : profile?.emergency_note
+      ? `<p>${esc(profile.emergency_note)}</p>`
+      : `<p class="empty">Nenhuma observação de emergência.</p>`;
 
   const generatedAt = new Date().toLocaleString('pt-BR');
 
@@ -360,6 +426,49 @@ function Chips<T extends string>({ value, options, onChange }: { value: T; optio
   );
 }
 
+/**
+ * Botão de remover um registro do prontuário (alergia, condição, cirurgia,
+ * antecedente).
+ *
+ * Antes era um ícone de 15px dentro de um `p-1`: cerca de 23px de área de
+ * toque, metade do piso de 44px do projeto, sem rótulo para o leitor de tela e
+ * sem confirmação — dá para apagar uma alergia grave por esbarrão, mirando o
+ * botão ao lado. Some com o dado, e o dado some do cartão de emergência.
+ *
+ * O ícone continua discreto (18px), mas a área de toque é de 44px e o gesto
+ * passa por uma pergunta que diz o que será apagado.
+ */
+function RemoveButton({
+  label,
+  title,
+  message,
+  onConfirm,
+}: {
+  /** Rótulo do leitor de tela; diga QUAL registro sai (ex.: "Remover alergia Penicilina"). */
+  label: string;
+  title: string;
+  message: string;
+  onConfirm: () => void;
+}) {
+  const colors = useColors();
+  return (
+    <Pressable
+      onPress={() =>
+        Alert.alert(title, message, [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Remover', style: 'destructive', onPress: onConfirm },
+        ])
+      }
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={8}
+      className="h-11 w-11 items-center justify-center rounded-full"
+    >
+      <Trash2 size={18} color={colors.faint} />
+    </Pressable>
+  );
+}
+
 /* ─────────────── Dados pessoais ─────────────── */
 type Address = {
   zip?: string;
@@ -414,7 +523,8 @@ function PersonalSection({ profile, userId }: { profile: ReturnType<typeof usePr
     }
   }
 
-  function save() {
+  async function save() {
+    if (update.isPending) return;
     // A tela usa DD/MM/AAAA; o banco guarda ISO. Converte aqui, na borda.
     const dobIso = dob.trim() === '' ? undefined : dateBRToIso(dob);
     if (dob.trim() !== '' && !dobIso) {
@@ -445,18 +555,31 @@ function PersonalSection({ profile, userId }: { profile: ReturnType<typeof usePr
     setCpfError(undefined);
 
     const address: Address = { zip, street, number, complement, neighborhood, city, state };
-    update.mutate({
-      full_name: name.trim() || undefined,
-      date_of_birth: dobIso ?? null,
-      biological_sex: sex,
-      blood_type: blood,
-      height_cm: height ? Number(height.replace(',', '.').trim()) : null,
-      phone: phone || null,
-      cpf: cpf ? formatCPF(cpf) : null,
-      address,
-      emergency_note: emergencyNote.trim() || null,
-    });
-    toast.success('Dados pessoais atualizados.');
+    /*
+     * Espera a gravação antes de dizer que salvou.
+     *
+     * Este formulário guarda tipo sanguíneo e observação de emergência — o que
+     * a pessoa espera que apareça no cartão de emergência. Avisar "atualizado"
+     * sem confirmação do banco fazia a tela contar uma coisa e o servidor
+     * guardar outra, sem ninguém ficar sabendo. A mutação já desfaz o
+     * otimismo local no erro; aqui só falta contar o que aconteceu.
+     */
+    try {
+      await update.mutateAsync({
+        full_name: name.trim() || undefined,
+        date_of_birth: dobIso ?? null,
+        biological_sex: sex,
+        blood_type: blood,
+        height_cm: height ? Number(height.replace(',', '.').trim()) : null,
+        phone: phone || null,
+        cpf: cpf ? formatCPF(cpf) : null,
+        address,
+        emergency_note: emergencyNote.trim() || null,
+      });
+      toast.success('Dados pessoais atualizados.');
+    } catch {
+      toast.error('Não foi possível salvar. Confira a conexão e toque em Salvar de novo.');
+    }
   }
 
   return (
@@ -535,7 +658,7 @@ function PersonalSection({ profile, userId }: { profile: ReturnType<typeof usePr
         placeholder="Ex.: marca-passo, anticoagulante…"
         multiline
       />
-      <Button label="Salvar" loading={update.isPending} onPress={save} />
+      <Button label="Salvar" loading={update.isPending} onPress={() => void save()} />
     </Section>
   );
 }
@@ -549,21 +672,34 @@ function InsuranceSection({ patientId }: { patientId: string }) {
   const [card, setCard] = useState('');
   const [valid, setValid] = useState('');
 
-  function save() {
+  async function save() {
+    if (upsert.isPending) return;
     const op = operator.trim() || ins?.operator;
     if (!op) {
       toast.info('Informe a operadora.');
       return;
     }
-    upsert.mutate({ operator: op, card_number: card || ins?.card_number || null, valid_until: valid || ins?.valid_until || null, is_primary: true });
-    toast.success('Convênio atualizado.');
+    // Mesma regra dos dados pessoais: "atualizado" só depois de gravado.
+    // Carteirinha errada no dia do atendimento é o tipo de erro que só aparece
+    // no balcão do hospital.
+    try {
+      await upsert.mutateAsync({
+        operator: op,
+        card_number: card || ins?.card_number || null,
+        valid_until: valid || ins?.valid_until || null,
+        is_primary: true,
+      });
+      toast.success('Convênio atualizado.');
+    } catch {
+      toast.error('Não foi possível salvar o convênio. Confira a conexão e tente de novo.');
+    }
   }
   return (
     <Section icon={CreditCard} title="Convênio" subtitle={ins?.operator ?? 'Plano de saúde'}>
       <Input label="Operadora" value={operator} onChangeText={setOperator} placeholder={ins?.operator ?? 'Ex.: Unimed'} />
       <Input label="Número da carteirinha" value={card} onChangeText={setCard} placeholder={ins?.card_number ?? '—'} />
       <DateInputBR label="Validade" value={valid} onChangeIso={setValid} placeholder="DD/MM/AAAA (opcional)" />
-      <Button label="Salvar convênio" loading={upsert.isPending} onPress={save} />
+      <Button label="Salvar convênio" loading={upsert.isPending} onPress={() => void save()} />
     </Section>
   );
 }
@@ -579,9 +715,22 @@ function AllergiesSection({ patientId }: { patientId: string }) {
   const list = data ?? [];
 
   function add() {
-    if (!substance.trim()) return;
-    m.create.mutate({ patient_id: patientId, substance: substance.trim(), severity, reaction: reaction || null });
-    setSubstance(''); setReaction('');
+    if (!substance.trim()) {
+      toast.info('Informe a substância.');
+      return;
+    }
+    // Os campos só são limpos quando o registro existe no banco: limpar antes
+    // apagava o que a pessoa digitou e ainda dava a impressão de ter salvo.
+    m.create.mutate(
+      { patient_id: patientId, substance: substance.trim(), severity, reaction: reaction || null },
+      {
+        onSuccess: () => {
+          setSubstance(''); setReaction('');
+          toast.success('Alergia adicionada.');
+        },
+        onError: () => toast.error('Não foi possível adicionar a alergia. Tente de novo.'),
+      },
+    );
   }
 
   return (
@@ -593,7 +742,17 @@ function AllergiesSection({ patientId }: { patientId: string }) {
             <AlertTriangle size={15} color={sev.tone === 'alert' ? colors.alert : colors.attention} />
             <Text style={{ fontFamily: fonts.semibold }} className="flex-1 text-[14px] text-fg">{a.substance}</Text>
             <Badge tone={sev.tone === 'alert' ? 'alert' : 'attention'}>{sev.label}</Badge>
-            <Pressable onPress={() => m.remove.mutate(a.id)} className="p-1"><Trash2 size={15} color={colors.faint} /></Pressable>
+            <RemoveButton
+              label={`Remover alergia ${a.substance}`}
+              title="Remover alergia?"
+              message={`"${a.substance}" sai do seu prontuário e do cartão de emergência.`}
+              onConfirm={() =>
+                m.remove.mutate(a.id, {
+                  onSuccess: () => toast.success('Alergia removida.'),
+                  onError: () => toast.error('Não foi possível remover. A alergia continua registrada.'),
+                })
+              }
+            />
           </View>
         );
       })}
@@ -608,7 +767,6 @@ function AllergiesSection({ patientId }: { patientId: string }) {
 
 /* ─────────────── Condições ─────────────── */
 function ConditionsSection({ patientId }: { patientId: string }) {
-  const colors = useColors();
   const { data } = useConditions(patientId || undefined);
   const m = useConditionMutations(patientId);
   const [name, setName] = useState('');
@@ -617,9 +775,20 @@ function ConditionsSection({ patientId }: { patientId: string }) {
   const list = data ?? [];
 
   function add() {
-    if (!name.trim()) return;
-    m.create.mutate({ patient_id: patientId, name: name.trim(), cid10_code: cid || null, status });
-    setName(''); setCid('');
+    if (!name.trim()) {
+      toast.info('Informe a condição.');
+      return;
+    }
+    m.create.mutate(
+      { patient_id: patientId, name: name.trim(), cid10_code: cid || null, status },
+      {
+        onSuccess: () => {
+          setName(''); setCid('');
+          toast.success('Condição adicionada.');
+        },
+        onError: () => toast.error('Não foi possível adicionar a condição. Tente de novo.'),
+      },
+    );
   }
   return (
     <Section icon={Stethoscope} title="Condições de saúde" subtitle={`${list.length} registrada(s)`}>
@@ -629,7 +798,17 @@ function ConditionsSection({ patientId }: { patientId: string }) {
             {c.name}{c.cid10_code ? ` (${c.cid10_code})` : ''}
           </Text>
           <Badge tone={c.status === 'active' ? 'attention' : c.status === 'resolved' ? 'ok' : 'info'}>{CONDITION_STATUS_LABELS[c.status]}</Badge>
-          <Pressable onPress={() => m.remove.mutate(c.id)} className="p-1"><Trash2 size={15} color={colors.faint} /></Pressable>
+          <RemoveButton
+            label={`Remover condição ${c.name}`}
+            title="Remover condição?"
+            message={`"${c.name}" sai do seu prontuário.`}
+            onConfirm={() =>
+              m.remove.mutate(c.id, {
+                onSuccess: () => toast.success('Condição removida.'),
+                onError: () => toast.error('Não foi possível remover. A condição continua registrada.'),
+              })
+            }
+          />
         </View>
       ))}
       <Divider />
@@ -643,7 +822,6 @@ function ConditionsSection({ patientId }: { patientId: string }) {
 
 /* ─────────────── Cirurgias ─────────────── */
 function SurgeriesSection({ patientId }: { patientId: string }) {
-  const colors = useColors();
   const { data } = useSurgeries(patientId || undefined);
   const m = useSurgeryMutations(patientId);
   const [procedure, setProcedure] = useState('');
@@ -652,9 +830,20 @@ function SurgeriesSection({ patientId }: { patientId: string }) {
   const list = data ?? [];
 
   function add() {
-    if (!procedure.trim()) return;
-    m.create.mutate({ patient_id: patientId, procedure: procedure.trim(), performed_at: date || null, hospital: hospital || null });
-    setProcedure(''); setDate(''); setHospital('');
+    if (!procedure.trim()) {
+      toast.info('Informe o procedimento.');
+      return;
+    }
+    m.create.mutate(
+      { patient_id: patientId, procedure: procedure.trim(), performed_at: date || null, hospital: hospital || null },
+      {
+        onSuccess: () => {
+          setProcedure(''); setDate(''); setHospital('');
+          toast.success('Cirurgia adicionada.');
+        },
+        onError: () => toast.error('Não foi possível adicionar a cirurgia. Tente de novo.'),
+      },
+    );
   }
   return (
     <Section icon={Scissors} title="Cirurgias" subtitle={`${list.length} registrada(s)`}>
@@ -664,7 +853,17 @@ function SurgeriesSection({ patientId }: { patientId: string }) {
             <Text style={{ fontFamily: fonts.semibold }} className="text-[14px] text-fg">{s.procedure}</Text>
             {s.performed_at ? <Text style={{ fontFamily: fonts.regular }} className="text-[12px] text-muted">{new Date(s.performed_at).toLocaleDateString('pt-BR')}{s.hospital ? ` · ${s.hospital}` : ''}</Text> : null}
           </View>
-          <Pressable onPress={() => m.remove.mutate(s.id)} className="p-1"><Trash2 size={15} color={colors.faint} /></Pressable>
+          <RemoveButton
+            label={`Remover cirurgia ${s.procedure}`}
+            title="Remover cirurgia?"
+            message={`"${s.procedure}" sai do seu prontuário.`}
+            onConfirm={() =>
+              m.remove.mutate(s.id, {
+                onSuccess: () => toast.success('Cirurgia removida.'),
+                onError: () => toast.error('Não foi possível remover. A cirurgia continua registrada.'),
+              })
+            }
+          />
         </View>
       ))}
       <Divider />
@@ -680,7 +879,6 @@ function SurgeriesSection({ patientId }: { patientId: string }) {
 
 /* ─────────────── Antecedentes familiares ─────────────── */
 function FamilySection({ patientId }: { patientId: string }) {
-  const colors = useColors();
   const { data } = useFamilyHistory(patientId || undefined);
   const m = useFamilyHistoryMutations(patientId);
   const [condition, setCondition] = useState('');
@@ -688,9 +886,20 @@ function FamilySection({ patientId }: { patientId: string }) {
   const list = data ?? [];
 
   function add() {
-    if (!condition.trim()) return;
-    m.create.mutate({ patient_id: patientId, condition: condition.trim(), relationship: rel });
-    setCondition('');
+    if (!condition.trim()) {
+      toast.info('Informe a condição.');
+      return;
+    }
+    m.create.mutate(
+      { patient_id: patientId, condition: condition.trim(), relationship: rel },
+      {
+        onSuccess: () => {
+          setCondition('');
+          toast.success('Antecedente adicionado.');
+        },
+        onError: () => toast.error('Não foi possível adicionar o antecedente. Tente de novo.'),
+      },
+    );
   }
   return (
     <Section icon={Users} title="Antecedentes familiares" subtitle={`${list.length} registrado(s)`}>
@@ -698,7 +907,17 @@ function FamilySection({ patientId }: { patientId: string }) {
         <View key={f.id} className="flex-row items-center gap-2">
           <Text style={{ fontFamily: fonts.semibold }} className="flex-1 text-[14px] text-fg">{f.condition}</Text>
           <Badge tone="info">{FAMILY_RELATIONSHIP_LABELS[f.relationship]}</Badge>
-          <Pressable onPress={() => m.remove.mutate(f.id)} className="p-1"><Trash2 size={15} color={colors.faint} /></Pressable>
+          <RemoveButton
+            label={`Remover antecedente ${f.condition}`}
+            title="Remover antecedente?"
+            message={`"${f.condition}" sai do histórico familiar.`}
+            onConfirm={() =>
+              m.remove.mutate(f.id, {
+                onSuccess: () => toast.success('Antecedente removido.'),
+                onError: () => toast.error('Não foi possível remover. O antecedente continua registrado.'),
+              })
+            }
+          />
         </View>
       ))}
       <Divider />

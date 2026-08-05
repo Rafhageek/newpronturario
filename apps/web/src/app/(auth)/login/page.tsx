@@ -72,12 +72,16 @@ function LoginForm() {
 
   return (
     <div className="vl-rise">
-      <div className="mb-8 text-center">
-        <span className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-trust-50 text-primary ring-1 ring-trust-100">
-          <Lock className="h-5 w-5" aria-hidden />
-        </span>
+      <div className="mb-7 text-center">
+        <div className="mb-6 flex justify-center lg:hidden">
+          <img
+            src="/wordmark.png"
+            alt="Hub Pacients"
+            className="h-14 w-auto object-contain"
+          />
+        </div>
         <h1
-          className="text-[2rem] font-bold tracking-[-0.035em] text-neutral-950 sm:text-4xl"
+          className="text-[1.85rem] font-bold tracking-[-0.035em] text-neutral-950 sm:text-[2.1rem]"
           style={{ fontFamily: 'var(--font-display)' }}
         >
           Bem-vindo de volta
@@ -87,18 +91,18 @@ function LoginForm() {
         </p>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2.5">
         <SocialButton icon={<GoogleIcon />} label="Continuar com Google" onClick={signInWithGoogle} />
         <AppleButton onClick={() => toast.info('Login com Apple chega em breve — estamos implementando! 🍎')} />
       </div>
 
-      <div className="my-6 flex items-center gap-3">
+      <div className="my-5 flex items-center gap-3">
         <span className="h-px flex-1 bg-neutral-200" />
         <span className="text-xs font-medium uppercase tracking-wider text-neutral-500">ou</span>
         <span className="h-px flex-1 bg-neutral-200" />
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
         <Field label="E-mail" htmlFor="email" error={errors.email?.message}>
           <div className="relative">
             <Mail className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-neutral-500" aria-hidden />
@@ -174,7 +178,7 @@ function LoginForm() {
         Acesso protegido · Privacidade conforme a LGPD
       </div>
 
-      <p className="mt-6 text-center text-sm text-neutral-500">
+      <p className="mt-5 text-center text-sm text-neutral-500">
         Não tem conta?{' '}
         <Link href="/cadastro" className="font-semibold text-primary hover:underline">
           Criar conta

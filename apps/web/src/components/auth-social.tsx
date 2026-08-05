@@ -37,11 +37,13 @@ export function AppleButton({ onClick }: { onClick: () => void }) {
       type="button"
       onClick={onClick}
       aria-label="Continuar com Apple — em breve"
-      className="flex h-[54px] w-full items-center justify-center gap-3 rounded-xl bg-black text-[15px] font-semibold text-white shadow-sm transition hover:bg-neutral-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-500"
+      className="relative flex h-[54px] w-full items-center justify-center gap-3 rounded-xl bg-neutral-950 px-16 text-[15px] font-semibold text-white shadow-sm transition hover:bg-neutral-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-500"
     >
       <AppleIcon />
       Continuar com Apple
-      <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold leading-none">em breve</span>
+      <span className="absolute right-3 rounded-full bg-white/15 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-white/80">
+        em breve
+      </span>
     </button>
   );
 }

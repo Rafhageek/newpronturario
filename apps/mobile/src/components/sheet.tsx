@@ -7,7 +7,17 @@ import {
   useMemo,
   useState,
 } from 'react';
-import { BackHandler, View, Text, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
+import {
+  BackHandler,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  useWindowDimensions,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -49,6 +59,10 @@ export const AppSheet = forwardRef<AppSheetHandle, { onClose: () => void; title?
     }, [backdrop, reduce, ty]);
 
     const close = useCallback(() => {
+      // Fecha o teclado JUNTO com a folha. Sem isso o painel desce enquanto o
+      // teclado ainda ocupa a tela, e a saída termina pela metade (o painel
+      // "para" em cima do teclado até ele sumir sozinho no desmonte).
+      Keyboard.dismiss();
       backdrop.value = withTiming(0, { duration: reduce ? 1 : 180 });
       ty.value = withTiming(sheetH + insets.bottom + 40, { duration: reduce ? 1 : 200 }, (finished) => {
         if (finished) scheduleOnRN(onClose);
@@ -101,68 +115,83 @@ export const AppSheet = forwardRef<AppSheetHandle, { onClose: () => void; title?
           <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="Fechar" accessibilityRole="button" />
         </Animated.View>
 
-        <Animated.View
-          accessibilityViewIsModal
-          accessibilityLabel={title ? `Painel: ${title}` : 'Painel'}
-          onAccessibilityEscape={close}
-          onLayout={(e) => {
-            const h = e.nativeEvent.layout.height;
-            if (h > 0) setSheetH(h);
-          }}
-          style={[
-            {
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              bottom: 0,
-              maxHeight: '90%',
-              backgroundColor: colors.bg,
-              borderTopLeftRadius: 28,
-              borderTopRightRadius: 28,
-              borderCurve: 'continuous',
-              borderTopWidth: 1,
-              borderColor: colors.line,
-              paddingHorizontal: 16,
-              paddingBottom: insets.bottom + 16,
-              paddingTop: 8,
-            },
-            shadowRaised,
-            panelStyle,
-          ]}
+        {/*
+          O painel vive dentro de um KeyboardAvoidingView de tela cheia, alinhado
+          embaixo — no lugar do antigo `position: absolute; bottom: 0`. Ancorado
+          no zero, o teclado simplesmente cobria o fim da folha: nas folhas curtas
+          (sem rolagem interna) o botão de salvar ficava INALCANÇÁVEL.
+          `box-none` é obrigatório: sem ele esta camada engoliria o toque no vazio
+          acima do painel, que é o que fecha a folha pelo fundo.
+        */}
+        <KeyboardAvoidingView
+          // iOS empurra por padding; no Android o ajuste de altura é o que
+          // funciona com o edge-to-edge do SDK 54, onde `adjustResize` já não
+          // redimensiona a janela sozinho. Nos dois casos o RN parte do frame
+          // REAL do componente na tela, então onde a janela ainda encolhe o
+          // deslocamento calculado é zero — não há compensação em dobro.
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          pointerEvents="box-none"
+          style={[StyleSheet.absoluteFill, { justifyContent: 'flex-end' }]}
         >
-          {/* Alça de arrastar */}
-          <GestureDetector gesture={pan}>
-            <View
-              accessible={false}
-              importantForAccessibility="no-hide-descendants"
-              style={{ paddingVertical: 8, alignItems: 'center' }}
-            >
-              <View style={{ width: 40, height: 5, borderRadius: 3, backgroundColor: colors.line }} />
+          <Animated.View
+            accessibilityViewIsModal
+            accessibilityLabel={title ? `Painel: ${title}` : 'Painel'}
+            onAccessibilityEscape={close}
+            onLayout={(e) => {
+              const h = e.nativeEvent.layout.height;
+              if (h > 0) setSheetH(h);
+            }}
+            style={[
+              {
+                maxHeight: '90%',
+                backgroundColor: colors.bg,
+                borderTopLeftRadius: 28,
+                borderTopRightRadius: 28,
+                borderCurve: 'continuous',
+                borderTopWidth: 1,
+                borderColor: colors.line,
+                paddingHorizontal: 16,
+                paddingBottom: insets.bottom + 16,
+                paddingTop: 8,
+              },
+              shadowRaised,
+              panelStyle,
+            ]}
+          >
+            {/* Alça de arrastar */}
+            <GestureDetector gesture={pan}>
+              <View
+                accessible={false}
+                importantForAccessibility="no-hide-descendants"
+                style={{ paddingVertical: 8, alignItems: 'center' }}
+              >
+                <View style={{ width: 40, height: 5, borderRadius: 3, backgroundColor: colors.line }} />
+              </View>
+            </GestureDetector>
+
+            <View className="mb-3 flex-row items-center justify-between">
+              {title ? (
+                <Text accessibilityRole="header" maxFontSizeMultiplier={1.4} style={{ fontFamily: fonts.display }} className="text-[17px] text-fg">
+                  {title}
+                </Text>
+              ) : (
+                <View />
+              )}
+              <Pressable
+                onPress={close}
+                accessibilityRole="button"
+                accessibilityLabel={title ? `Fechar ${title}` : 'Fechar painel'}
+                hitSlop={8}
+                style={{ borderCurve: 'continuous' }}
+                className="h-11 w-11 items-center justify-center rounded-2xl bg-surface-2 active:opacity-70"
+              >
+                <X size={18} color={colors.fg} accessible={false} />
+              </Pressable>
             </View>
-          </GestureDetector>
 
-          <View className="mb-3 flex-row items-center justify-between">
-            {title ? (
-              <Text accessibilityRole="header" maxFontSizeMultiplier={1.4} style={{ fontFamily: fonts.display }} className="text-[17px] text-fg">
-                {title}
-              </Text>
-            ) : (
-              <View />
-            )}
-            <Pressable
-              onPress={close}
-              accessibilityRole="button"
-              accessibilityLabel={title ? `Fechar ${title}` : 'Fechar painel'}
-              hitSlop={8}
-              style={{ borderCurve: 'continuous' }}
-              className="h-11 w-11 items-center justify-center rounded-2xl bg-surface-2 active:opacity-70"
-            >
-              <X size={18} color={colors.fg} accessible={false} />
-            </Pressable>
-          </View>
-
-          {children}
-        </Animated.View>
+            {children}
+          </Animated.View>
+        </KeyboardAvoidingView>
       </View>
     );
   },

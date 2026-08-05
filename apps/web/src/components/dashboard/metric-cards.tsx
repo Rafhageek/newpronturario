@@ -14,10 +14,11 @@ export const item = {
   show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 24 } },
 };
 
-export type Tone = 'ok' | 'attention' | 'alert' | 'neutral';
+export type SystemTone = 'ok' | 'attention' | 'alert' | 'neutral';
 
 /**
- * Ponte entre o `Tone` legado destes cartões e o sistema de status do redesign.
+ * Ponte entre o `SystemTone` legado destes cartões e o sistema de status do
+ * redesign.
  *
  * O `#10B981 / #F59E0B / #EF4444` que estava aqui dava 2,41 / 2,04 / 3,57:1 em
  * texto sobre o canvas creme — reprovava em AA nos três tons e não tinha versão
@@ -25,7 +26,7 @@ export type Tone = 'ok' | 'attention' | 'alert' | 'neutral';
  * (traço, ≥3:1) e `tint` (fundo), que é a única forma honesta de ter âmbar e
  * vermelho acessíveis. Ver `components/ui/status-chip.tsx`.
  */
-const TONE_STATUS: Record<Tone, StatusKind> = {
+const SYSTEM_TONE_STATUS: Record<SystemTone, StatusKind> = {
   ok: 'ok',
   attention: 'attention',
   alert: 'alert',
@@ -70,9 +71,23 @@ export function MetricCard({
   );
 }
 
-/** Chip de status clínico (faixa de referência — não diagnóstico). */
-export function StatusChip({ tone, label }: { tone: Tone; label: string }) {
-  const { ink, mark, tint } = statusVars(TONE_STATUS[tone]);
+/**
+ * Chip de status do SISTEMA: agenda, lembrete, upload, sincronização.
+ *
+ * ⚠️ NÃO USE PARA DADO DO CORPO DO PACIENTE (pressão, dor, peso, IMC, humor,
+ * tendência). Este chip é a única porta de âmbar/vermelho nestes cartões, e a
+ * regra do design system (`status` em `packages/ui-tokens/src/index.ts`) reserva
+ * essas duas tintas para o SISTEMA — semáforo em dado clínico é diagnóstico
+ * disfarçado, e o app não diagnostica.
+ *
+ * Ele já foi usado para pintar a pressão arterial (`tone={bpStatus.zone}`) — daí
+ * o nome novo e explícito. Para faixa de referência de medida clínica use
+ * `<ClinicalRangeChip>` (`components/dashboard/clinical-range-chip.tsx`), que é
+ * `neutro` + seta + texto. Há teste travando isso:
+ * `packages/core/src/utils/regra-cor-clinica.test.ts`.
+ */
+export function SystemStatusChip({ tone, label }: { tone: SystemTone; label: string }) {
+  const { ink, mark, tint } = statusVars(SYSTEM_TONE_STATUS[tone]);
   return (
     <span
       className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium"

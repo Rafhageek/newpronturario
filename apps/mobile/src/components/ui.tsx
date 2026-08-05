@@ -48,6 +48,14 @@ export function Screen({
       <ScrollView
         contentContainerStyle={{ padding: 16, paddingBottom: tabBarSpace, gap: 16 }}
         showsVerticalScrollIndicator={false}
+        // Sem isto, o PRIMEIRO toque em qualquer botão com o teclado aberto só
+        // fechava o teclado — o "Salvar" parecia não funcionar e a pessoa
+        // tocava de novo. Com "handled", o toque chega ao botão de primeira.
+        keyboardShouldPersistTaps="handled"
+        // iOS: recua o conteúdo pela altura do teclado, então o campo em foco e
+        // o botão logo abaixo dele continuam alcançáveis por rolagem. (No
+        // Android o ajuste vem da própria janela; a prop é ignorada lá.)
+        automaticallyAdjustKeyboardInsets
         refreshControl={
           onRefresh ? (
             <RefreshControl
@@ -364,9 +372,12 @@ export function Button({
 
 /* ──────────────────────────── Formulário ──────────────────────────── */
 
+/** Altura mínima do campo de várias linhas: ~3 linhas de 15px + folga. */
+const MULTILINE_MIN_HEIGHT = 96;
+
 export function Input(props: TextInputProps & { label?: string; error?: string }) {
   const colors = useColors();
-  const { label, error, ...rest } = props;
+  const { label, error, style, multiline, ...rest } = props;
   return (
     <View className="gap-1.5">
       {label ? (
@@ -381,8 +392,21 @@ export function Input(props: TextInputProps & { label?: string; error?: string }
         accessibilityLabel={label}
         accessibilityHint={error}
         maxFontSizeMultiplier={1.5}
-        style={[{ fontFamily: fonts.regular }, CONTINUOUS]}
-        className="h-12 rounded-2xl border border-line bg-surface px-4 text-[15px] text-fg"
+        multiline={multiline}
+        style={[
+          { fontFamily: fonts.regular },
+          CONTINUOUS,
+          // Campo de várias linhas não pode ter altura FIXA: com `h-12` ele
+          // mostrava só a primeira linha e o texto rolava dentro de 48px.
+          // minHeight cresce com o conteúdo; textAlignVertical alinha no topo
+          // (no Android o texto começaria no meio da caixa).
+          multiline
+            ? { minHeight: MULTILINE_MIN_HEIGHT, paddingVertical: 12, textAlignVertical: 'top' as const }
+            : null,
+          // O estilo de quem chama continua com a última palavra.
+          style,
+        ]}
+        className={`rounded-2xl border border-line bg-surface px-4 text-[15px] text-fg ${multiline ? '' : 'h-12'}`}
         {...rest}
       />
       {error ? (

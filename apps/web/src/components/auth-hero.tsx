@@ -13,14 +13,14 @@ import {
  * Painel institucional da autenticação.
  *
  * A ilustração é vetorial, decorativa e não contém PHI. Não há movimento em
- * loop: as únicas entradas vêm de `vl-rise`, que já respeita redução de
- * movimento no sistema global.
+ * loop. A composição usa uma grade de três áreas para permanecer estável em
+ * telas de notebook e monitores maiores.
  */
 export function AuthHero() {
   return (
     <aside
       aria-label="HubPatients — prontuário pessoal de saúde"
-      className="relative hidden min-h-screen overflow-hidden lg:flex lg:w-[54%] lg:min-w-[540px] lg:flex-col lg:justify-between lg:px-10 lg:py-9 xl:px-14 xl:py-10 2xl:px-16"
+      className="relative hidden min-h-dvh overflow-hidden lg:grid lg:w-[52%] lg:min-w-[520px] lg:grid-rows-[auto_minmax(240px,1fr)_auto] lg:gap-4 lg:px-10 lg:py-8 xl:px-14 xl:py-9 2xl:px-16"
       style={{
         background:
           'radial-gradient(75% 55% at 12% 12%, #0b4ff0 0%, transparent 68%), radial-gradient(55% 60% at 88% 38%, rgba(24,98,236,0.55), transparent 72%), linear-gradient(145deg, #0619d5 0%, #062f9f 48%, #061d64 100%)',
@@ -28,35 +28,29 @@ export function AuthHero() {
     >
       <HeroAtmosphere />
 
-      <div
-        className="vl-rise relative z-10 flex items-center gap-3"
-        style={{ animationDelay: '40ms' }}
-      >
-        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white p-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.2)] ring-1 ring-white/40">
-          <img src="/logo.png" alt="" aria-hidden className="h-full w-full object-contain" />
-        </span>
-        <span
-          className="text-2xl font-bold tracking-tight text-white"
-          style={{ fontFamily: 'var(--font-display)' }}
-        >
-          HubPatients
+      <div className="relative z-10">
+        <span className="inline-flex rounded-2xl border border-white/30 bg-white px-4 py-2.5 shadow-[0_14px_36px_rgba(0,12,76,0.24)]">
+          <img
+            src="/wordmark.png"
+            alt="Hub Pacients"
+            className="h-11 w-auto object-contain xl:h-12"
+          />
         </span>
       </div>
 
       <ClinicalVaultIllustration />
 
-      <div className="relative z-10 max-w-[620px]">
+      <div className="relative z-10 max-w-[580px] pb-1">
         <span
-          className="vl-rise inline-flex items-center gap-2 rounded-full border border-cyan-200/25 bg-cyan-300/10 px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-cyan-100 backdrop-blur-sm"
-          style={{ animationDelay: '120ms' }}
+          className="inline-flex items-center gap-2 rounded-full border border-cyan-200/25 bg-cyan-300/10 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-cyan-100 backdrop-blur-sm"
         >
           <ShieldCheck className="h-4 w-4 text-health-300" aria-hidden />
           Prontuário pessoal de saúde
         </span>
 
         <h1
-          className="vl-rise mt-5 text-[clamp(2.75rem,4.2vw,4.5rem)] font-extrabold leading-[0.98] tracking-[-0.045em] text-white"
-          style={{ fontFamily: 'var(--font-display)', animationDelay: '180ms' }}
+          className="mt-4 text-[clamp(2.5rem,3.6vw,3.75rem)] font-extrabold leading-[0.98] tracking-[-0.045em] text-white"
+          style={{ fontFamily: 'var(--font-display)' }}
         >
           Sua saúde,
           <br />
@@ -66,17 +60,13 @@ export function AuthHero() {
         </h1>
 
         <p
-          className="vl-rise mt-5 max-w-lg text-base leading-relaxed text-blue-100/85"
-          style={{ animationDelay: '240ms' }}
+          className="mt-4 max-w-lg text-[15px] leading-relaxed text-blue-100/85"
         >
           Organize sua jornada de saúde e compartilhe informações somente com quem
           você escolher, com segurança e privacidade.
         </p>
 
-        <div
-          className="vl-rise mt-7 flex flex-wrap gap-3"
-          style={{ animationDelay: '300ms' }}
-        >
+        <div className="mt-5 flex flex-wrap gap-3">
           <FeaturePill icon={NotebookPen} label="Diário clínico" />
           <FeaturePill icon={BarChart3} label="Análise de dados" />
         </div>
@@ -127,10 +117,10 @@ function HeroAtmosphere() {
 
 function ClinicalVaultIllustration() {
   return (
-    <div className="vl-rise relative z-10 mx-auto my-4 flex w-full max-w-[500px] flex-1 items-center justify-center py-2 2xl:max-w-[560px]">
+    <div className="relative z-10 mx-auto flex h-full min-h-0 w-full max-w-[450px] items-center justify-center 2xl:max-w-[490px]">
       <svg
         viewBox="0 0 560 390"
-        className="h-auto w-full"
+        className="max-h-[36vh] w-full"
         role="img"
         aria-label="Ilustração de um prontuário digital protegido"
       >

@@ -24,14 +24,29 @@ import { ConditionsSection } from '@/components/profile/conditions-section';
 import { AllergiesSection } from '@/components/profile/allergies-section';
 import { SurgeriesSection } from '@/components/profile/surgeries-section';
 import { FamilyHistorySection } from '@/components/profile/family-history-section';
-import { EmergencyQrModal } from '@/components/profile/emergency-qr-modal';
+import { EmergencyQrModal, type AllergiesStatus } from '@/components/profile/emergency-qr-modal';
 import { UpgradeModal } from '@/components/ui/upgrade-modal';
 
 export default function PerfilPage() {
   const { patientId } = useActiveProfile();
   const { data: profile, isLoading } = useProfile(patientId || undefined);
   const { data: insurance } = useInsurance(patientId || undefined);
-  const { data: allergies } = useAllergies(patientId || undefined);
+  /*
+   * O estado da consulta de alergias importa tanto quanto o resultado dela.
+   *
+   * `data` volta `undefined` em três situações diferentes — ainda carregando,
+   * consulta falhou, ou consulta deu certo e a pessoa não tem alergia. Tratar
+   * as três como lista vazia faz o cartão de emergência afirmar "Alergias
+   * graves: Nenhuma" para quem talvez tenha. Por isso o cartão só é liberado
+   * com `isSuccess`: ausência de dado não vira ausência de alergia.
+   */
+  const {
+    data: allergies,
+    isSuccess: allergiesLoaded,
+    isError: allergiesFailed,
+    isFetching: allergiesFetching,
+    refetch: refetchAllergies,
+  } = useAllergies(patientId || undefined);
 
   const [qrOpen, setQrOpen] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
@@ -45,6 +60,7 @@ export default function PerfilPage() {
   const initial = name.charAt(0).toUpperCase();
   const age = profile?.date_of_birth ? calculateAge(profile.date_of_birth) : null;
   const severe = (allergies ?? []).filter((a) => a.severity === 'severe');
+  const allergiesStatus: AllergiesStatus = allergiesLoaded ? 'ok' : allergiesFailed ? 'erro' : 'carregando';
 
   function handleExport() {
     if (!isPlus) setUpgradeOpen(true);
@@ -67,6 +83,10 @@ export default function PerfilPage() {
               {severe.map((a) => (
                 <Tag key={a.id} tone="alert" icon={<AlertTriangle className="h-3 w-3" />}>{a.substance}</Tag>
               ))}
+              {/* Sem esse aviso, a falha da consulta ficaria indistinguível de "não tem alergia grave". */}
+              {allergiesFailed && (
+                <Tag tone="alert" icon={<AlertTriangle className="h-3 w-3" />}>Alergias não carregadas</Tag>
+              )}
             </div>
           </div>
           <div className="flex gap-2">
@@ -128,6 +148,9 @@ export default function PerfilPage() {
         name={name}
         bloodType={profile?.blood_type}
         allergies={severe.map((a) => a.substance)}
+        allergiesStatus={allergiesStatus}
+        onRetry={() => void refetchAllergies()}
+        retrying={allergiesFetching}
       />
       <UpgradeModal open={upgradeOpen} reason="pdf_export" onClose={() => setUpgradeOpen(false)} />
     </div>

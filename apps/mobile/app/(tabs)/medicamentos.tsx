@@ -69,8 +69,8 @@ import { toast } from '@/components/toast';
 import { FadeInItem } from '@/components/motion';
 import { SwipeRow, AnimatedNumber, AnimatedBar, SkeletonList, haptics } from '@/components/feedback';
 import { flushDoseQueue, loadRemindersPref, scheduleMedicationReminders } from '@/lib/notifications';
-import { motion } from '@hubpatients/ui-tokens';
-import { useColors, fonts } from '@/theme';
+import { motion, status } from '@hubpatients/ui-tokens';
+import { useColors, fonts, useTapTarget } from '@/theme';
 
 const FORM_OPTIONS: MedicationForm[] = ['tablet', 'capsule', 'liquid', 'drops', 'inhaler', 'injection', 'cream', 'other'];
 const CONTINUOUS = { borderCurve: 'continuous' as const };
@@ -82,7 +82,13 @@ const CONTINUOUS = { borderCurve: 'continuous' as const };
  */
 const DOSE_BG_PENDING = 'rgba(217,225,255,1)'; // trust-100
 const DOSE_BG_DONE = 'rgba(110,231,183,0.25)'; // health-300 / 25%
-const DOSE_INK_DONE = '#059669'; // health-600
+/**
+ * Tinta do chip confirmado. Era `#059669` (health-600): 3,34:1 sobre esse verde
+ * claro — reprova o AA (4,5:1 exigido em texto pequeno). `status.light.ok.ink`
+ * é o verde de status já auditado dos tokens. Vem da rampa `light` de propósito:
+ * o fundo do chip acima também é fixo em claro, e ink e fundo têm que combinar.
+ */
+const DOSE_INK_DONE = status.light.ok.ink; // #007149
 
 /** Janela do painel de adesão e do alerta de reposição. */
 const ADHERENCE_DAYS = 30;
@@ -133,6 +139,7 @@ export default function MedicamentosScreen() {
   const [formOpen, setFormOpen] = useState(false);
   const [stockMed, setStockMed] = useState<Medication | null>(null);
   const [saving, setSaving] = useState(false);
+  const [undoing, setUndoing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const formSheetRef = useRef<AppSheetHandle>(null);
 
@@ -383,6 +390,88 @@ export default function MedicamentosScreen() {
     }
   }
 
+  /**
+   * Apaga o espelho da dose em `dose_events` (a fonte do painel de 30 dias).
+   * Silencioso pelo mesmo motivo de `mirrorDoseEvent`: a tomada já saiu do
+   * histórico principal, e uma falha aqui não pode virar erro na tela.
+   * `dose_events` ainda não está nos tipos gerados do Supabase — mesmo cast
+   * controlado que o pacote usa em `queries/doses.ts`.
+   */
+  async function undoDoseEvent(medicationId: string, scheduledFor: string | null) {
+    if (!selfView || !ownId || !scheduledFor) return;
+    type Filter = { eq: (column: string, value: string) => Filter } & PromiseLike<unknown>;
+    const doseEvents = client as unknown as { from: (name: 'dose_events') => { delete: () => Filter } };
+    try {
+      await doseEvents
+        .from('dose_events')
+        .delete()
+        .eq('user_id', ownId)
+        .eq('medication_id', medicationId)
+        .eq('scheduled_for', scheduledFor);
+      qc.invalidateQueries({ queryKey: ['dose-adherence', ownId] });
+      qc.invalidateQueries({ queryKey: ['dose-events', ownId] });
+    } catch {
+      // ver comentário acima: falha aqui não interrompe o desfazer
+    }
+  }
+
+  /**
+   * Desfaz uma tomada marcada por engano.
+   *
+   * Por que APAGAR e não gravar "pulei": "pulei" é outra informação clínica (a
+   * pessoa decidiu não tomar). Aqui o registro simplesmente não deveria existir,
+   * então some do histórico — e o gatilho da migração 0018 devolve a unidade ao
+   * estoque sozinho, por isso a lista de medicamentos também é invalidada.
+   *
+   * Apagamos pelo `id` da linha que já está em mãos, e não recalculando o
+   * horário previsto: o registro pode ter vindo da notificação, com um
+   * `scheduled_for` que não bate no segundo com o que esta tela derivaria.
+   */
+  async function undoRegister(intake: MedicationIntake) {
+    setUndoing(true);
+    try {
+      const { data, error } = await client
+        .from('medication_intakes')
+        .delete()
+        .eq('id', intake.id)
+        .select('id');
+      if (error) throw error;
+      // A RLS não devolve erro quando barra um DELETE: apaga zero linhas. Sem
+      // esta conferência o app diria "desfeito" com a dose ainda registrada.
+      if ((data ?? []).length === 0) {
+        toast.error('Não foi possível desfazer esta tomada.');
+        return;
+      }
+      await undoDoseEvent(intake.medication_id, intake.scheduled_for);
+      await Promise.all([
+        refetchIntakes(),
+        qc.invalidateQueries({ queryKey: queryKeys.medications(pid) }),
+        qc.invalidateQueries({ queryKey: queryKeys.dashboard(pid) }),
+      ]);
+      toast.success('Registro desfeito.');
+    } catch {
+      toast.error('Não foi possível desfazer esta tomada.');
+    } finally {
+      setUndoing(false);
+    }
+  }
+
+  /**
+   * Desfazer altera o histórico de adesão que a equipe de saúde pode ler, então
+   * pede confirmação consciente — igual ao alerta de alergia, e pelo mesmo
+   * motivo: `toast` some sozinho e não serve para decisão.
+   */
+  function confirmUndo(dose: { intake: MedicationIntake; label: string; medicationName: string }) {
+    Alert.alert(
+      'Desfazer esta tomada?',
+      `A dose das ${dose.label} de ${dose.medicationName} sai do seu histórico de adesão. Use se marcou sem querer — não use para registrar que pulou a dose.`,
+      [
+        { text: 'Manter registro', style: 'cancel' },
+        { text: 'Desfazer', style: 'destructive', onPress: () => void undoRegister(dose.intake) },
+      ],
+    );
+  }
+
   async function handleRegisterNow(medicationId: string) {
     const now = new Date();
     now.setSeconds(0, 0);
@@ -503,9 +592,15 @@ export default function MedicamentosScreen() {
                   <MedicationCard
                     medication={m}
                     intakes={(intakes ?? []).filter((it) => it.medication_id === m.id)}
-                    registering={registerIntake.isPending}
+                    busy={registerIntake.isPending || undoing}
+                    // Só o dono apaga a própria tomada: a RLS de
+                    // `medication_intakes` permite DELETE a quem tem
+                    // `patient_id = auth.uid()`. O cuidador registra, mas não
+                    // desfaz — então nem oferecemos a ação a ele.
+                    canUndo={selfView}
                     onRegister={(time) => handleRegister(m.id, time)}
                     onRegisterNow={() => handleRegisterNow(m.id)}
+                    onUndo={confirmUndo}
                     onStock={() => setStockMed(m)}
                   />
                 </SwipeRow>
@@ -591,7 +686,17 @@ export default function MedicamentosScreen() {
               </View>
               <View className="flex-row gap-3">
                 <View className="flex-1">
-                  <Input label="Dose" value={dosage} onChangeText={setDosage} placeholder="50" />
+                  {/* Campo numérico: sem `keyboardType` abria o teclado de letras
+                      e a pessoa tinha que caçar os números — no campo de maior
+                      consequência clínica do app. "decimal-pad" aceita a vírgula
+                      (dose fracionada: 0,5 comprimido, 2,5 ml). */}
+                  <Input
+                    label="Dose"
+                    value={dosage}
+                    onChangeText={setDosage}
+                    keyboardType="decimal-pad"
+                    placeholder="50"
+                  />
                 </View>
                 <View className="flex-1">
                   <Input label="Unidade" value={unit} onChangeText={setUnit} placeholder="mg" />
@@ -740,16 +845,21 @@ function AdherencePanel({
 function MedicationCard({
   medication,
   intakes,
-  registering,
+  busy,
+  canUndo,
   onRegister,
   onRegisterNow,
+  onUndo,
   onStock,
 }: {
   medication: Medication;
   intakes: MedicationIntake[];
-  registering?: boolean;
+  /** Alguma escrita de dose em andamento (registrar ou desfazer). */
+  busy?: boolean;
+  canUndo: boolean;
   onRegister: (time: string) => void;
   onRegisterNow: () => void;
+  onUndo: (dose: { intake: MedicationIntake; label: string; medicationName: string }) => void;
   onStock: () => void;
 }) {
   const colors = useColors();
@@ -772,14 +882,19 @@ function MedicationCard({
   const expected = medication.times.length * 7;
   const adherence = computeAdherence(takenLast7, expected);
 
-  const takenToday = (time: string) =>
-    intakes.some(
+  /**
+   * A LINHA da tomada de hoje naquele horário (null = ainda não registrada).
+   * Devolve a linha, e não só um booleano, porque é ela que torna o desfazer
+   * exato: apagamos pelo `id` que já veio do banco.
+   */
+  const intakeToday = (time: string): MedicationIntake | null =>
+    intakes.find(
       (i) =>
         i.status === 'taken' &&
         i.scheduled_for != null &&
         i.scheduled_for.slice(0, 10) === today &&
         i.scheduled_for.slice(11, 16) === time,
-    );
+    ) ?? null;
 
   return (
     <Card className="gap-3">
@@ -844,20 +959,29 @@ function MedicationCard({
             Doses de hoje
           </Text>
           <View className="flex-row flex-wrap gap-2">
-            {medication.times.map((t) => (
-              <DoseChip
-                key={t}
-                time={t}
-                done={takenToday(t)}
-                busy={registering}
-                medicationName={medication.name}
-                onPress={() => onRegister(t)}
-              />
-            ))}
+            {medication.times.map((t) => {
+              const intake = intakeToday(t);
+              return (
+                <DoseChip
+                  key={t}
+                  time={t}
+                  done={intake != null}
+                  busy={busy}
+                  canUndo={canUndo}
+                  medicationName={medication.name}
+                  onPress={() => onRegister(t)}
+                  onUndo={() => {
+                    if (intake) {
+                      onUndo({ intake, label: t.slice(0, 5), medicationName: medication.name });
+                    }
+                  }}
+                />
+              );
+            })}
           </View>
         </View>
       ) : (
-        <Button label="Registrar tomada agora" size="sm" variant="outline" icon={Check} onPress={onRegisterNow} disabled={registering} />
+        <Button label="Registrar tomada agora" size="sm" variant="outline" icon={Check} onPress={onRegisterNow} disabled={busy} />
       )}
 
       {/* Bula oficial Anvisa */}
@@ -886,7 +1010,13 @@ function MedicationCard({
 /* ──────────────────────────── Chip de dose do dia ──────────────────────────── */
 
 /**
- * Uma dose de hoje: pendente → confirmada.
+ * Uma dose de hoje: pendente ⇄ confirmada.
+ *
+ * O alvo tinha ~32px (padding 8 + fonte 12 + ícone 14) e nenhum hitSlop, num app
+ * cujo público tem tremor, artrose e visão baixa. Agora ele parte de
+ * `useTapTarget()` — 44px, 56px no Modo Sênior — e tocar num chip JÁ confirmado
+ * desfaz a tomada, com confirmação. Antes o chip virava `disabled` no toque:
+ * quem errasse de dose ficava com o registro errado no histórico, sem saída.
  *
  * A microinteração da ação mais importante do app. Antes ela era invisível — só
  * um `toast.success` no canto da tela, que quem estava olhando para o próprio
@@ -906,18 +1036,26 @@ function DoseChip({
   time,
   done,
   busy,
+  canUndo,
   medicationName,
   onPress,
+  onUndo,
 }: {
   time: string;
   done: boolean;
   busy?: boolean;
+  /** Tocar num chip confirmado desfaz? Só no próprio perfil (RLS). */
+  canUndo: boolean;
   medicationName: string;
   onPress: () => void;
+  onUndo: () => void;
 }) {
   const colors = useColors();
+  const tap = useTapTarget();
   const p = useSharedValue(done ? 1 : 0);
   const label = time.slice(0, 5);
+  // Confirmado sem poder desfazer (perfil de dependente) continua inerte.
+  const interactive = !busy && (done ? canUndo : true);
 
   useEffect(() => {
     p.value = withTiming(done ? 1 : 0, { duration: motion.duration.fast });
@@ -935,17 +1073,28 @@ function DoseChip({
   return (
     <Pressable
       onPress={() => {
-        if (!done && !busy) onPress();
+        if (busy) return;
+        if (done) {
+          if (canUndo) onUndo();
+        } else {
+          onPress();
+        }
       }}
-      disabled={done || busy}
+      disabled={!interactive}
+      // 4px = METADE do respiro de 8px entre os chips. Amplia o alvo sem que dois
+      // chips vizinhos disputem o mesmo ponto: na sobreposição quem vence é o
+      // último irmão desenhado, ou seja, um toque no meio registraria a dose
+      // ERRADA — justamente o engano que este chip agora permite desfazer.
+      hitSlop={4}
       accessibilityRole="button"
-      accessibilityState={{ selected: done, disabled: done || !!busy }}
+      accessibilityState={{ selected: done, disabled: !interactive, busy: !!busy }}
       accessibilityLabel={
         done
           ? `Dose das ${label} de ${medicationName} já registrada`
           : `Registrar dose das ${label} de ${medicationName}`
       }
-      className={done ? undefined : 'active:opacity-80'}
+      accessibilityHint={done && canUndo ? 'Desfaz o registro desta dose.' : undefined}
+      className={interactive ? 'active:opacity-80' : undefined}
     >
       <Animated.View
         style={[
@@ -953,27 +1102,33 @@ function DoseChip({
           {
             flexDirection: 'row',
             alignItems: 'center',
+            justifyContent: 'center',
             gap: 6,
             borderRadius: 12,
-            paddingHorizontal: 12,
-            paddingVertical: 8,
+            paddingHorizontal: 14,
+            // minHeight/minWidth em vez de padding fixo: o alvo obedece ao Modo
+            // Sênior (56px) e o conteúdo pode crescer com a fonte do sistema.
+            minHeight: tap,
+            minWidth: tap,
           },
           chipStyle,
         ]}
       >
         {/* Caixa de tamanho fixo: os dois ícones ocupam o MESMO ponto, então a
             troca é crossfade puro — o rótulo ao lado não se desloca. */}
-        <View style={{ width: 14, height: 14 }}>
+        <View style={{ width: 16, height: 16 }}>
           <Animated.View style={[StyleSheet.absoluteFill, clockStyle]}>
-            <Clock size={14} color={colors.primary} />
+            <Clock size={16} color={colors.primary} />
           </Animated.View>
           <Animated.View style={[StyleSheet.absoluteFill, checkStyle]}>
-            <Check size={14} color={colors.accent} />
+            {/* Mesma tinta do rótulo: o check é glifo de status e precisa dos
+                3:1 de contraste não-textual sobre o verde claro do chip. */}
+            <Check size={16} color={DOSE_INK_DONE} />
           </Animated.View>
         </View>
         <Animated.Text
           maxFontSizeMultiplier={1.4}
-          style={[{ fontFamily: fonts.semibold, fontSize: 12 }, textStyle]}
+          style={[{ fontFamily: fonts.semibold, fontSize: 14 }, textStyle]}
         >
           {label}
         </Animated.Text>

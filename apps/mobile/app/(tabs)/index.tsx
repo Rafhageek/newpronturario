@@ -9,6 +9,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useColorScheme } from 'nativewind';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import {
@@ -70,7 +71,7 @@ import { StepsCard } from '@/components/steps-card';
 import { BodyCompositionCard } from '@/components/body-composition-card';
 import { toast } from '@/components/toast';
 import { LineChart } from '@/components/charts';
-import { useColors, fonts, cardShadow } from '@/theme';
+import { useColors, fonts, cardShadow, status } from '@/theme';
 
 function greeting(): string {
   const h = new Date().getHours();
@@ -79,10 +80,23 @@ function greeting(): string {
   return 'Boa noite';
 }
 
-const ZONE_TONE: Record<ClinicalZone, { bg: string; text: string }> = {
-  ok: { bg: 'bg-health-300/30', text: 'text-health-600' },
-  attention: { bg: 'bg-amber-100', text: 'text-amber-700' },
-  alert: { bg: 'bg-rose-100', text: 'text-rose-700' },
+/**
+ * Leitura da faixa de referência — TEXTO e SETA, nunca semáforo.
+ *
+ * Aqui existia o `ZONE_TONE`, que pintava a pressão de `bg-amber-100` /
+ * `bg-rose-100`. Isso quebra a regra dura do design system (`status` em
+ * `packages/ui-tokens/src/index.ts`): vermelho e âmbar pertencem ao SISTEMA
+ * (remédio atrasado, erro de upload) e NUNCA ao corpo do paciente — semáforo em
+ * dado clínico é diagnóstico disfarçado, e o app não diagnostica.
+ *
+ * A informação não foi removida, só trocou de canal: `short` é o que aparece no
+ * cartão (largura de ~30% da tela), `full` é a frase que o leitor de tela
+ * anuncia, e `glyph` é o sinal NÃO-cromático (WCAG SC 1.4.1).
+ */
+const ZONE_READING: Record<ClinicalZone, { glyph: string; short: string; full: string }> = {
+  ok: { glyph: '•', short: 'Na faixa de referência', full: 'Dentro do intervalo de referência' },
+  attention: { glyph: '↑', short: 'No limite da faixa', full: 'No limite do intervalo de referência' },
+  alert: { glyph: '↑', short: 'Acima da faixa', full: 'Acima do intervalo de referência' },
 };
 
 const ptsOf = (vals: number[]) => vals.map((y, x) => ({ x, y }));
@@ -255,6 +269,9 @@ export default function InicioScreen() {
                     : `${greeting()}${firstName ? `, ${firstName}` : ''} 👋`}
                 </Text>
 
+                {/* Status do DIA (lembretes / aviso de alergia).
+                    @cor-do-sistema — domínio de agenda e segurança, não medida
+                    do corpo: aqui o vermelho é permitido pela regra. */}
                 <View
                   style={{ backgroundColor: 'rgba(13,148,136,0.10)', borderCurve: 'continuous' }}
                   className="mt-3 flex-row items-center gap-2 self-start rounded-full px-3.5 py-2"
@@ -280,6 +297,7 @@ export default function InicioScreen() {
                         : 'Tudo tranquilo por aqui hoje'}
                   </Text>
                 </View>
+                {/* @fim-cor-do-sistema */}
               </View>
 
               <View className="mt-1 flex-row items-center gap-2">
@@ -335,7 +353,13 @@ export default function InicioScreen() {
             <ErrorState onRetry={() => void refetch()} />
           ) : (
             <>
-              {/* 1) SEGURANÇA: alerta de alergia grave primeiro */}
+              {/* 1) SEGURANÇA: alerta de alergia grave primeiro.
+                  @cor-do-sistema — o vermelho aqui é permitido e intencional.
+                  Não é a MEDIDA de um corpo sendo classificada em bom/ruim: é um
+                  aviso de segurança acionável ("você registrou uma alergia grave,
+                  confira antes de tomar algo"), da mesma família de "remédio
+                  atrasado" e "erro de upload". A regra de `ui-tokens` reserva
+                  âmbar/vermelho exatamente para este papel. */}
               {severeAllergies.length > 0 ? (
                 <Pressable
                   onPress={isViewingDependent ? undefined : () => router.push('/perfil')}
@@ -364,6 +388,7 @@ export default function InicioScreen() {
                   {!isViewingDependent ? <ChevronRight size={18} color={colors.alert} /> : null}
                 </Pressable>
               ) : null}
+              {/* @fim-cor-do-sistema */}
 
               {/* 3) AÇÃO PRINCIPAL: Lembretes de hoje (tomadas pendentes registráveis) */}
               <SectionTitle
@@ -485,7 +510,9 @@ export default function InicioScreen() {
               <SectionTitle>Resumo de hoje</SectionTitle>
               <View className="flex-row flex-wrap gap-3">
                 {/* Última pressão */}
-                <MetricCard icon={HeartPulse} accent="alert" label="Última pressão" index={0}>
+                {/* Ícone em tinta primária, não na do semáforo: ele identifica a
+                    CATEGORIA do cartão, não a gravidade do valor medido. */}
+                <MetricCard icon={HeartPulse} accent="primary" label="Última pressão" index={0}>
                   <View className="mt-1 flex-row items-center gap-1.5">
                     <Text style={{ fontFamily: fonts.bold }} className="text-[20px] text-fg">
                       {bp ? formatVital(bp) : '—'}
@@ -493,16 +520,7 @@ export default function InicioScreen() {
                     {bp ? <TrendIcon direction={trend} /> : null}
                   </View>
                   {bpStatus ? (
-                    <View
-                      className={`mt-1.5 self-start rounded-full px-2.5 py-0.5 ${ZONE_TONE[bpStatus.zone].bg}`}
-                    >
-                      <Text
-                        style={{ fontFamily: fonts.semibold }}
-                        className={`text-[11px] ${ZONE_TONE[bpStatus.zone].text}`}
-                      >
-                        {bpStatus.label}
-                      </Text>
-                    </View>
+                    <ClinicalRangeChip zone={bpStatus.zone} />
                   ) : (
                     <Text style={{ fontFamily: fonts.regular }} className="text-[12px] text-muted">
                       Sem registros
@@ -510,13 +528,16 @@ export default function InicioScreen() {
                   )}
                 </MetricCard>
 
-                {/* Próxima consulta */}
+                {/* Próxima consulta.
+                    @cor-do-sistema — âmbar em cartão de AGENDA (compromisso a
+                    cumprir), não em medida do corpo. */}
                 <MetricCard
                   icon={CalendarDays}
                   accent="attention"
                   label="Próxima consulta"
                   index={1}
                 >
+                  {/* @fim-cor-do-sistema */}
                   {nextAppt ? (
                     <>
                       <Text
@@ -628,13 +649,24 @@ export default function InicioScreen() {
                       </Text>
                     </View>
                   ) : null}
+                  {/* Faixa de referência NEUTRA e rotulada, não semáforo. As três
+                      bandas verde/âmbar/vermelha que existiam aqui classificavam o
+                      corpo do paciente em "bom / atenção / ruim". A web já tinha
+                      corrigido isso (components/dashboard/bp-chart.tsx); esta é a
+                      paridade. Faixa 90–130 mmHg: Diretrizes Brasileiras de
+                      Hipertensão Arterial 2020 (SBC/SBH/SBN), mesma fonte de
+                      `referenceBandFor('pressao_sistolica')` na web. */}
                   <LineChart
                     yMin={40}
                     yMax={200}
+                    showZoneLabels
                     zones={[
-                      { from: 40, to: 130, color: colors.ok },
-                      { from: 130, to: 140, color: colors.attention },
-                      { from: 140, to: 200, color: colors.alert },
+                      {
+                        from: 90,
+                        to: 130,
+                        color: colors.muted,
+                        label: 'sistólica — referência 90 a 130 mmHg',
+                      },
                     ]}
                     series={[
                       { points: ptsOf(range.map((v) => v.value_primary)), color: colors.primary },
@@ -732,11 +764,74 @@ function MetricCard({
   );
 }
 
+/**
+ * Seta de tendência entre duas medições.
+ *
+ * SEM SEMÁFORO de propósito. Antes, "subiu" saía em VERMELHO (`colors.alert`) e
+ * "caiu" em VERDE (`colors.ok`) — ou seja, o app dizia ao paciente que subir é
+ * ruim e cair é bom. "Tendência" é justamente um dos casos citados na regra:
+ * vermelho/âmbar (e o verde que os acompanha) são do SISTEMA, nunca do corpo do
+ * paciente. Subir de peso ou de pressão não é "ruim" por si só — quem interpreta
+ * é o médico.
+ *
+ * A direção continua inteira: está na FORMA da seta e no rótulo lido em voz alta
+ * (SC 1.4.1). Gêmeo web: `Trend` em `apps/web/src/components/dashboard/metric-cards.tsx`.
+ */
+const TREND_READING = {
+  up: { Icon: TrendingUp, label: 'acima da medição anterior' },
+  down: { Icon: TrendingDown, label: 'abaixo da medição anterior' },
+  flat: { Icon: Minus, label: 'igual à medição anterior' },
+} as const;
+
 function TrendIcon({ direction }: { direction: 'up' | 'down' | 'flat' }) {
   const colors = useColors();
-  if (direction === 'up') return <TrendingUp size={16} color={colors.alert} />;
-  if (direction === 'down') return <TrendingDown size={16} color={colors.ok} />;
-  return <Minus size={16} color={colors.faint} />;
+  const { Icon, label } = TREND_READING[direction];
+  return (
+    <View accessible accessibilityRole="image" accessibilityLabel={label}>
+      <Icon size={16} color={direction === 'flat' ? colors.muted : colors.primary} />
+    </View>
+  );
+}
+
+/**
+ * Chip da faixa de referência de um dado do CORPO — tinta `neutro`, glifo e
+ * texto. Substitui o `ZONE_TONE` âmbar/vermelho (ver `ZONE_READING` no topo).
+ *
+ * A gramática (tint de fundo + mark na borda + ink no texto + glifo obrigatório)
+ * é a mesma de `src/components/clinical-value.tsx`, que é o componente canônico
+ * de valor clínico. Não usamos o `ClinicalValue` inteiro aqui porque este cartão
+ * tem ~30% da largura da tela e já desenha o próprio rótulo no cabeçalho —
+ * empilhar o rótulo dele de novo, em 15px, estouraria o tile. O que importa (os
+ * tokens e a regra "cor nunca sozinha") vem do mesmo lugar.
+ */
+function ClinicalRangeChip({ zone }: { zone: ClinicalZone }) {
+  const { colorScheme } = useColorScheme();
+  const tone = status[colorScheme === 'dark' ? 'dark' : 'light'].neutro;
+  const { glyph, short, full } = ZONE_READING[zone];
+  return (
+    <View
+      accessible
+      accessibilityRole="text"
+      accessibilityLabel={full}
+      style={{
+        borderCurve: 'continuous',
+        borderWidth: 1,
+        backgroundColor: tone.tint,
+        borderColor: tone.mark,
+      }}
+      className="mt-1.5 flex-row items-center gap-1 self-start rounded-full px-2 py-0.5"
+    >
+      <Text style={{ fontFamily: fonts.bold, color: tone.ink }} className="text-[11px]">
+        {glyph}
+      </Text>
+      <Text
+        style={{ fontFamily: fonts.semibold, color: tone.ink, flexShrink: 1 }}
+        className="text-[11px]"
+      >
+        {short}
+      </Text>
+    </View>
+  );
 }
 
 function LegendDot({ color, label }: { color: string; label: string }) {

@@ -55,7 +55,8 @@ import { WaterCard } from '@/components/dashboard/water-card';
 import { TrendChip } from '@/components/dashboard/trend-chip';
 import { Spinner } from '@/components/ui/spinner';
 import { ErrorState } from '@/components/ui/error-state';
-import { StatusChip, Trend } from '@/components/dashboard/metric-cards';
+import { SystemStatusChip, Trend } from '@/components/dashboard/metric-cards';
+import { ClinicalRangeChip } from '@/components/dashboard/clinical-range-chip';
 import { toast } from 'sonner';
 
 const BloodPressureChart = dynamic(
@@ -250,6 +251,8 @@ export default function DashboardPage() {
             Aqui está seu resumo de saúde, organizado para uma leitura rápida.
           </p>
         </div>
+        {/* @cor-do-sistema — verde de garantia de PRIVACIDADE (estado do sistema),
+            não avaliação de nenhum dado do corpo. */}
         <Link
           href="/consentimento"
           className="inline-flex min-h-11 w-fit items-center gap-2 rounded-full bg-status-ok-tint px-4 text-sm font-semibold text-status-ok-ink transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
@@ -257,6 +260,7 @@ export default function DashboardPage() {
           <ShieldCheck className="h-4 w-4" aria-hidden />
           Dados protegidos · LGPD
         </Link>
+        {/* @fim-cor-do-sistema */}
       </header>
 
       <motion.section
@@ -268,7 +272,7 @@ export default function DashboardPage() {
       >
         <OverviewCard
           icon={HeartPulse}
-          iconTone="rose"
+          iconTone="blue"
           label="Pressão arterial"
           href="/analise"
           value={
@@ -283,7 +287,9 @@ export default function DashboardPage() {
           }
           detail={
             bpStatus ? (
-              <StatusChip tone={bpStatus.zone} label={bpStatus.label} />
+              /* `neutro` + seta + texto: a faixa da pressão NÃO é semáforo.
+                 Ver clinical-range-chip.tsx. */
+              <ClinicalRangeChip zone={bpStatus.zone} />
             ) : (
               'Toque para registrar'
             )
@@ -291,7 +297,7 @@ export default function DashboardPage() {
         />
         <OverviewCard
           icon={Scale}
-          iconTone="blue"
+          iconTone="teal"
           label="Peso / altura"
           href="/composicao-corporal"
           value={
@@ -316,7 +322,7 @@ export default function DashboardPage() {
         />
         <OverviewCard
           icon={Droplets}
-          iconTone="teal"
+          iconTone="violet"
           label="Tipo sanguíneo"
           href="/perfil"
           value={
@@ -328,7 +334,7 @@ export default function DashboardPage() {
         />
         <OverviewCard
           icon={FileHeart}
-          iconTone="amber"
+          iconTone="neutro"
           label="Condições de saúde"
           href="/perfil"
           value={
@@ -347,7 +353,7 @@ export default function DashboardPage() {
         />
         <OverviewCard
           icon={AlertTriangle}
-          iconTone="rose"
+          iconTone="neutro"
           label="Alergias"
           href="/perfil"
           value={
@@ -655,17 +661,28 @@ function OverviewCard({
   href,
 }: {
   icon: LucideIcon;
-  iconTone: 'rose' | 'blue' | 'teal' | 'amber';
+  iconTone: 'blue' | 'teal' | 'violet' | 'neutro';
   label: string;
   value: ReactNode;
   detail: ReactNode;
   href: string;
 }) {
+  /**
+   * Tinta do ícone — DECORATIVA: identifica a CATEGORIA do cartão, nunca a
+   * gravidade do dado.
+   *
+   * Antes, "Pressão arterial" e "Alergias" vinham em `rose` (vermelho) e
+   * "Condições de saúde" em `amber`, fixos — o cartão nascia "grave" antes de
+   * qualquer valor ser lido. Isso quebra a regra do design system (`status` em
+   * `packages/ui-tokens/src/index.ts`): vermelho e âmbar são do SISTEMA, nunca
+   * do corpo do paciente. A paleta abaixo é a neutra-clínica dos gráficos
+   * (`--chart-*`, sem verde nem vermelho) mais o `neutro` do sistema de status.
+   */
   const tone = {
-    rose: 'bg-status-alert-tint text-status-alert-ink',
     blue: 'bg-status-info-tint text-status-info-ink',
     teal: 'bg-[color-mix(in_srgb,var(--chart-2)_12%,transparent)] text-[var(--chart-2)]',
-    amber: 'bg-status-attention-tint text-status-attention-ink',
+    violet: 'bg-[color-mix(in_srgb,var(--chart-3)_14%,transparent)] text-[var(--chart-3)]',
+    neutro: 'bg-status-neutro-tint text-status-neutro-ink',
   }[iconTone];
 
   return (
@@ -753,6 +770,8 @@ function TimelineRow({
   title: string;
   description: string;
   status: string;
+  /* Status de AGENDA/SISTEMA ("Próxima", "Realizada", falha de importação) —
+     é o domínio em que âmbar/vermelho são permitidos. */
   tone: 'ok' | 'attention' | 'alert';
 }) {
   return (
@@ -764,7 +783,7 @@ function TimelineRow({
         <p className="truncate text-sm font-bold text-fg">{title}</p>
         <p className="mt-0.5 truncate text-xs text-muted">{description}</p>
       </div>
-      <StatusChip tone={tone} label={status} />
+      <SystemStatusChip tone={tone} label={status} />
     </li>
   );
 }
