@@ -120,25 +120,32 @@ select is(
   'cuidador autorizado pode ler a criança'
 );
 
+-- NOTA (teste corrigido, não o código): os dois blocos abaixo escreviam a CTE
+-- de escrita DENTRO de uma subconsulta escalar — `select is((with x as (update
+-- …) select count(*) from x), 0, …)`. O Postgres recusa isso ("WITH clause
+-- containing a data-modifying statement must be at the top level"), o psql
+-- abortava o arquivo aqui e os 22 subtestes seguintes nunca rodavam. A CTE
+-- subiu para o topo do comando; a afirmação é a mesma: o UPDATE/DELETE é
+-- executado de fato como o cuidador e precisa atingir 0 linhas.
+with changed as (
+  update public.children set full_name = 'Alteração indevida'
+   where id = '90000000-0000-0000-0000-000000000009'
+   returning id
+)
 select is(
-  (with changed as (
-     update public.children set full_name = 'Alteração indevida'
-      where id = '90000000-0000-0000-0000-000000000009'
-      returning id
-   ) select count(*)::int from changed),
-  0,
+  count(*)::int, 0,
   'cuidador não pode alterar a criança'
-);
+) from changed;
 
+with removed as (
+  delete from public.children
+   where id = '90000000-0000-0000-0000-000000000009'
+   returning id
+)
 select is(
-  (with removed as (
-     delete from public.children
-      where id = '90000000-0000-0000-0000-000000000009'
-      returning id
-   ) select count(*)::int from removed),
-  0,
+  count(*)::int, 0,
   'cuidador não pode excluir a criança'
-);
+) from removed;
 
 select throws_ok(
   $$ insert into public.child_growth_measurements

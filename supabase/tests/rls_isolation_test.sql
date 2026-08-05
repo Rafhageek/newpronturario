@@ -359,57 +359,69 @@ select is_empty(
 
 -- ── 3) Escrita cruzada: A não altera nem apaga a linha de B ─────────────────
 -- RLS filtra o UPDATE/DELETE: a operação "passa" mas não atinge nenhuma linha.
+--
+-- NOTA (teste corrigido, não o código): os cinco blocos abaixo escreviam a CTE
+-- de escrita DENTRO de uma subconsulta escalar — `select is((with x as (update
+-- …) select count(*) from x), 0, …)`. O Postgres recusa isso ("WITH clause
+-- containing a data-modifying statement must be at the top level"), o psql
+-- abortava o arquivo na primeira ocorrência e os 10 subtestes seguintes nunca
+-- rodavam. A CTE subiu para o topo do comando; a afirmação é a mesma: o
+-- UPDATE/DELETE é executado de fato como o titular A e precisa atingir 0 linhas.
 select set_config(
   'request.jwt.claims',
   '{"sub":"b1000000-0000-0000-0000-000000000001","email":"rls-a@test.local","role":"authenticated"}',
   true
 );
 
+with alterado as (
+  update public.water_logs set ml = 1
+   where id = '0000000b-0000-0000-0000-000000000001'
+   returning id
+)
 select is(
-  (with alterado as (
-     update public.water_logs set ml = 1
-      where id = '0000000b-0000-0000-0000-000000000001'
-      returning id
-   ) select count(*)::int from alterado),
-  0,
+  count(*)::int, 0,
   'water_logs — A não altera a hidratação de B'
-);
+) from alterado;
+
+with removido as (
+  delete from public.water_logs
+   where id = '0000000b-0000-0000-0000-000000000001'
+   returning id
+)
 select is(
-  (with removido as (
-     delete from public.water_logs
-      where id = '0000000b-0000-0000-0000-000000000001'
-      returning id
-   ) select count(*)::int from removido),
-  0,
+  count(*)::int, 0,
   'water_logs — A não apaga a hidratação de B'
-);
+) from removido;
+
+with alterado as (
+  update public.vitals set value_primary = 1
+   where id = '0000000b-0000-0000-0000-000000000007'
+   returning id
+)
 select is(
-  (with alterado as (
-     update public.vitals set value_primary = 1
-      where id = '0000000b-0000-0000-0000-000000000007'
-      returning id
-   ) select count(*)::int from alterado),
-  0,
+  count(*)::int, 0,
   'vitals — A não altera o sinal vital de B'
-);
+) from alterado;
+
+with removido as (
+  delete from public.medications
+   where id = '0000000b-0000-0000-0000-000000000009'
+   returning id
+)
 select is(
-  (with removido as (
-     delete from public.medications
-      where id = '0000000b-0000-0000-0000-000000000009'
-      returning id
-   ) select count(*)::int from removido),
-  0,
+  count(*)::int, 0,
   'medications — A não apaga o medicamento de B'
-);
+) from removido;
+
+with alterado as (
+  update public.food_entries set grams = 1
+   where id = '0000000b-0000-0000-0000-000000000005'
+   returning id
+)
 select is(
-  (with alterado as (
-     update public.food_entries set grams = 1
-      where id = '0000000b-0000-0000-0000-000000000005'
-      returning id
-   ) select count(*)::int from alterado),
-  0,
+  count(*)::int, 0,
   'food_entries — A não altera o item alimentar de B'
-);
+) from alterado;
 
 -- ── 4) Papel anônimo: nenhuma leitura de dado clínico ───────────────────────
 reset role;
