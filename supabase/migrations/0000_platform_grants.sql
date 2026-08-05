@@ -1,0 +1,66 @@
+-- ============================================================================
+-- 0000 — Linha de base de privilégios da plataforma Supabase.
+--
+-- POR QUE ESTE ARQUIVO EXISTE, E POR QUE ELE É O PRIMEIRO
+--
+-- Nenhuma migration deste projeto concede privilégio de TABELA a `anon` /
+-- `authenticated`. No projeto hospedado isso nunca doeu: a plataforma Supabase
+-- já traz um ALTER DEFAULT PRIVILEGES no schema `public` que concede as tabelas
+-- recém-criadas a esses papéis. É esse default que faz o PostgREST conseguir
+-- ler qualquer tabela em produção — o app depende dele sem nunca tê-lo escrito.
+--
+-- Esse default NÃO existe num banco levantado só a partir destas migrations
+-- (`supabase start` + `supabase db reset`), que é exatamente o que o CI faz.
+-- Resultado observado no CI: `authenticated` não tinha privilégio NENHUM na
+-- maioria das tabelas, e as consultas morriam com "permission denied for
+-- table X" antes sequer de chegar na RLS.
+--
+-- Isso tinha dois efeitos, e o segundo é o grave:
+--
+--   1) Testes legítimos quebravam. `rls_isolation_test.sql` morria no primeiro
+--      SELECT de `water_logs` (levando junto 40 dos 43 subtestes) e
+--      `authorization_integrity_p0_test.sql` morria em `children` (levando 23
+--      dos 26).
+--
+--   2) PIOR: todo teste que afirma "fulano NÃO consegue fazer X" passava de
+--      graça. Não porque a RLS barrou — porque faltava o GRANT. Os `throws_ok`
+--      da suíte aceitam qualquer erro, e "permission denied" é um erro. Ou
+--      seja: um furo real de RLS passaria despercebido no CI, com o portão
+--      verde. Um teste de permissão que passa pelo motivo errado é decoração.
+--
+-- O QUE ESTE ARQUIVO FAZ
+--
+-- Replica a linha de base da plataforma ANTES de qualquer tabela existir.
+-- Assim toda a cadeia 0001→0044 nasce com os mesmos privilégios que tem em
+-- produção, e a RLS volta a ser a única coisa que separa um paciente do outro
+-- — que é justamente o que a suíte pgTAP se propõe a provar.
+--
+-- NADA É AFROUXADO. ALTER DEFAULT PRIVILEGES só afeta objetos criados DEPOIS
+-- dele; todo `revoke` de endurecimento do projeto (0022, 0032, 0033, 0035,
+-- 0037…) roda mais tarde na mesma ordem de sempre e continua valendo. Ex.:
+-- `consents` e `audit_log` seguem sem INSERT/UPDATE/DELETE para `authenticated`
+-- (0032), `account_deletion_requests` segue só-leitura (0033), e
+-- `ai_invocations` segue só-leitura (0037).
+--
+-- ESCOPO DELIBERADO
+--
+--   * Só TABELAS e SEQUENCES. Funções ficam de fora de propósito: no
+--     PostgreSQL o EXECUTE de função já é concedido a PUBLIC por padrão, então
+--     `anon`/`authenticated` já executam funções tanto aqui quanto em
+--     produção. Mexer nisso mudaria o estado de privilégio de função no CI sem
+--     necessidade — os testes que exercitam funções já passam.
+--
+--   * `grant all` (e não uma lista curta) porque é literalmente o que a
+--     plataforma concede em produção. Fazer o CI mais restrito que a produção
+--     recriaria o problema nº 2 acima, só que ao contrário: um teste passaria
+--     no CI e a realidade de produção seria outra.
+--
+-- APLICAÇÃO EM PRODUÇÃO: inócuo. O baseline já está lá, e ALTER DEFAULT
+-- PRIVILEGES não altera privilégio de tabela nenhuma que já exista.
+-- ============================================================================
+
+alter default privileges in schema public
+  grant all on tables to anon, authenticated, service_role;
+
+alter default privileges in schema public
+  grant all on sequences to anon, authenticated, service_role;

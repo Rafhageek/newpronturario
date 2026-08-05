@@ -7,12 +7,31 @@
 begin;
 select plan(19);
 
-select has_check(
-  'public', 'vitals', 'vitals_physical_possibility_ck',
+-- NOTA (teste corrigido, não o código): estas duas asserções chamavam
+-- `has_check(schema, tabela, constraint, descrição)`. Essa assinatura não
+-- existe no pgTAP — `has_check` só aceita (schema, tabela, descrição) e apenas
+-- responde "esta tabela tem ALGUMA constraint CHECK", sem olhar o nome. A
+-- chamada de 4 argumentos derrubava o arquivo inteiro no primeiro comando
+-- ("function has_check(unknown, unknown, unknown, unknown) does not exist"),
+-- levando junto os outros 18 testes deste arquivo.
+--
+-- A troca abaixo é mais ESTRITA que o `has_check` correto teria sido: em vez
+-- de "existe alguma CHECK", exige a CHECK com aquele nome exato, naquela
+-- tabela. As constraints em si vêm da migration 0036 e não foram tocadas.
+select is(
+  (select count(*)::integer from pg_constraint
+    where conname = 'vitals_physical_possibility_ck'
+      and conrelid = 'public.vitals'::regclass
+      and contype = 'c'),
+  1,
   'vitals possui guarda de possibilidade física'
 );
-select has_check(
-  'public', 'medications', 'medications_stock_nonnegative_ck',
+select is(
+  (select count(*)::integer from pg_constraint
+    where conname = 'medications_stock_nonnegative_ck'
+      and conrelid = 'public.medications'::regclass
+      and contype = 'c'),
+  1,
   'estoque possui guarda não negativa'
 );
 select has_function(

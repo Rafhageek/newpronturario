@@ -14,7 +14,10 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  reporter: 'list',
+  // No CI também gera o relatório HTML em playwright-report/, que é o diretório
+  // que o job `e2e-web` sobe como artefato. Sem ele o upload não achava nada e o
+  // trace de uma falha (trace: 'on-first-retry') ficava inacessível.
+  reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL,
     trace: 'on-first-retry',

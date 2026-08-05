@@ -8,10 +8,14 @@ test.describe('Autenticação', () => {
 
   test('a tela de login renderiza o formulário', async ({ page }) => {
     await page.goto('/login');
-    await expect(page.getByRole('heading', { name: 'Entrar' })).toBeVisible();
+    // O título do cartão de login é "Bem-vindo de volta" desde o commit inicial —
+    // o teste procurava um heading "Entrar", que nunca existiu nesta tela (só o
+    // botão de submit se chama "Entrar"). Continua sendo uma asserção real: se o
+    // heading sumir, mudar de nível ou perder o texto, o teste quebra.
+    await expect(page.getByRole('heading', { level: 1, name: 'Bem-vindo de volta' })).toBeVisible();
     await expect(page.getByLabel('E-mail')).toBeVisible();
     await expect(page.getByLabel('Senha')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Entrar' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Entrar', exact: true })).toBeVisible();
   });
 
   test('valida e-mail inválido no cliente', async ({ page }) => {
