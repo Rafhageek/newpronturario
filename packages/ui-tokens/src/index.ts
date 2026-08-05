@@ -9,6 +9,10 @@
  */
 
 export * from './motion';
+export * from './contrast';
+export * from './painel';
+
+import { spacePx } from './painel';
 
 /**
  * ============================================================================
@@ -208,24 +212,36 @@ export const semanticColors = {
   border: colors.neutral[200],
 } as const;
 
-/** Escala de espaçamento (rem-friendly, base 4px). */
+/**
+ * Escala de espaçamento em rem — DERIVADA de `spacePx` (painel.ts), que é a
+ * fonte única. Antes esta tabela e a `space` do mobile eram escritas à mão em
+ * arquivos diferentes e batiam por sorte; agora divergir é impossível.
+ * Os valores são os mesmos de antes (4px = 0.25rem, base 16).
+ */
 export const spacing = {
   px: '1px',
   0: '0',
-  1: '0.25rem',
-  2: '0.5rem',
-  3: '0.75rem',
-  4: '1rem',
-  5: '1.25rem',
-  6: '1.5rem',
-  8: '2rem',
-  10: '2.5rem',
-  12: '3rem',
-  16: '4rem',
-  20: '5rem',
-  24: '6rem',
+  1: `${spacePx[1] / 16}rem`,
+  2: `${spacePx[2] / 16}rem`,
+  3: `${spacePx[3] / 16}rem`,
+  4: `${spacePx[4] / 16}rem`,
+  5: `${spacePx[5] / 16}rem`,
+  6: `${spacePx[6] / 16}rem`,
+  7: `${spacePx[7] / 16}rem`,
+  8: `${spacePx[8] / 16}rem`,
+  10: `${spacePx[10] / 16}rem`,
+  12: `${spacePx[12] / 16}rem`,
+  16: `${spacePx[16] / 16}rem`,
+  20: `${spacePx[20] / 16}rem`,
+  24: `${spacePx[24] / 16}rem`,
 } as const;
 
+/**
+ * ⚠️ LEGADO — não use em código novo. Aqui `md` vale 8px; no Painel (e no
+ * mobile) `md` é o raio de CARTÃO, 16px. Os dois nomes coexistem porque há
+ * código web consumindo este mapa. Em código novo use `radiusPx` de painel.ts
+ * (ou as vars `--painel-radius-*` na web).
+ */
 export const radius = {
   sm: '0.25rem',
   md: '0.5rem',
@@ -359,6 +375,9 @@ export const tokens = {
   typography,
   a11y,
 } as const;
+
+/* Camada visual "Painel" (2026-08): superfícies, chips pastel, elevação e
+   métricas da casca. Ver ./painel.ts e docs/DESIGN.md. */
 
 export type Tokens = typeof tokens;
 export default tokens;

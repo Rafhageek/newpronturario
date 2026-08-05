@@ -34,11 +34,35 @@ module.exports = {
         'semaphore-mark': { ok: '#009460', attention: '#b17700', alert: '#ea4746' },
         // `tint` — fundo de chip (o texto vai em `semaphore-*`).
         'semaphore-tint': { ok: '#e4fbee', attention: '#fff2e2', alert: '#fff1ef' },
-        'surface-3': '#eae7e0',
-        'line-strong': '#87837c',
-        hint: '#6c675e',
+
+        // ⚠️ Estes três eram HEX ESTÁTICO do tema claro, embora `global.css` já
+        // declarasse `--color-surface-3`, `--color-line-strong` e `--color-hint`
+        // nos DOIS temas (a web sempre foi correta). Resultado: no tema escuro,
+        // `bg-surface-3` pintava creme claro e `text-hint` ficava cinza-claro
+        // sobre preto. Agora seguem o tema, como na web.
+        'surface-3': 'rgb(var(--color-surface-3) / <alpha-value>)',
+        'line-strong': 'rgb(var(--color-line-strong) / <alpha-value>)',
+        hint: 'rgb(var(--color-hint) / <alpha-value>)',
+
+        // ── Camada "Painel": chips pastel de CATEGORIA (nunca de gravidade).
+        // Mesmos nomes da web (`bg-chip-azul-tint`, `text-chip-azul-ink`, …).
+        chip: {
+          'azul-tint': 'rgb(var(--color-chip-azul-tint) / <alpha-value>)',
+          'azul-ink': 'rgb(var(--color-chip-azul-ink) / <alpha-value>)',
+          'indigo-tint': 'rgb(var(--color-chip-indigo-tint) / <alpha-value>)',
+          'indigo-ink': 'rgb(var(--color-chip-indigo-ink) / <alpha-value>)',
+          'violeta-tint': 'rgb(var(--color-chip-violeta-tint) / <alpha-value>)',
+          'violeta-ink': 'rgb(var(--color-chip-violeta-ink) / <alpha-value>)',
+          'ameixa-tint': 'rgb(var(--color-chip-ameixa-tint) / <alpha-value>)',
+          'ameixa-ink': 'rgb(var(--color-chip-ameixa-ink) / <alpha-value>)',
+          'turquesa-tint': 'rgb(var(--color-chip-turquesa-tint) / <alpha-value>)',
+          'turquesa-ink': 'rgb(var(--color-chip-turquesa-ink) / <alpha-value>)',
+          'ardosia-tint': 'rgb(var(--color-chip-ardosia-tint) / <alpha-value>)',
+          'ardosia-ink': 'rgb(var(--color-chip-ardosia-ink) / <alpha-value>)',
+        },
       },
-      borderRadius: { '4xl': '28px', xs: '8px' },
+      // `card` = 16px, o raio de cartão do Painel (radiusPx.md em ui-tokens).
+      borderRadius: { '4xl': '28px', xs: '8px', card: '16px', chip: '12px' },
     },
   },
   plugins: [],

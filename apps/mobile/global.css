@@ -29,6 +29,24 @@
     --color-faint: 108 103 94; /* alias de hint (era #847e74 = 3,82:1, reprovava) */
     --color-primary: 4 66 191; /* #0442bf — 6,70:1 AAA */
     --color-accent: 196 41 60; /* #c4293c — 4,56:1 (era #d12f3e = 4,76, falhava em surface-3) */
+
+    /* ══ Camada "Painel" (2026-08) — espelha `painel` de @hubpatients/ui-tokens
+       e as vars de apps/web/globals.css. Chips pastel = cor de CATEGORIA; a
+       paleta inteira vive entre 165° e 320° de matiz, então não há verde,
+       âmbar nem vermelho para escolher por engano. Pares medidos ≥5,18:1 em
+       packages/core/src/utils/contraste-painel.test.ts. ══ */
+    --color-chip-azul-tint: 228 236 253;
+    --color-chip-azul-ink: 4 66 191;
+    --color-chip-indigo-tint: 234 232 251;
+    --color-chip-indigo-ink: 70 52 173;
+    --color-chip-violeta-tint: 241 233 250;
+    --color-chip-violeta-ink: 107 47 158;
+    --color-chip-ameixa-tint: 246 230 244;
+    --color-chip-ameixa-ink: 141 33 112;
+    --color-chip-turquesa-tint: 223 242 243;
+    --color-chip-turquesa-ink: 13 110 116;
+    --color-chip-ardosia-tint: 232 237 244;
+    --color-chip-ardosia-ink: 61 74 95;
   }
 
   .dark {
@@ -45,5 +63,19 @@
     --color-faint: 144 147 152; /* alias de hint (era #7d7d7d) */
     --color-primary: 139 169 255; /* #8ba9ff — 6,21:1 (o royal #0442bf dava 2,3:1 aqui) */
     --color-accent: 253 138 139; /* #fd8a8b */
+
+    /* Camada "Painel" no escuro. */
+    --color-chip-azul-tint: 22 36 61;
+    --color-chip-azul-ink: 147 178 255;
+    --color-chip-indigo-tint: 30 27 58;
+    --color-chip-indigo-ink: 176 166 255;
+    --color-chip-violeta-tint: 38 26 53;
+    --color-chip-violeta-ink: 203 163 240;
+    --color-chip-ameixa-tint: 47 20 40;
+    --color-chip-ameixa-ink: 231 162 221;
+    --color-chip-turquesa-tint: 15 42 44;
+    --color-chip-turquesa-ink: 127 214 220;
+    --color-chip-ardosia-tint: 29 34 43;
+    --color-chip-ardosia-ink: 169 182 201;
   }
 }

@@ -62,7 +62,9 @@ import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
+import { CHIP_TONES } from '@hubpatients/ui-tokens';
 import { painIntensityColor } from '../data/body-regions';
+import { MOOD_RAMP, MOOD_SCALE, MOOD_VALUES } from '../data/mood-scale';
 
 const AQUI = dirname(fileURLToPath(import.meta.url));
 /** packages/core/src/utils → raiz do monorepo. */
@@ -89,6 +91,15 @@ const PASTAS = [
   'apps/web/src/components/dashboard',
   'apps/web/src/components/diario-alimentar',
   'apps/mobile/src/components/diario-alimentar',
+  /*
+   * Primitivas do Painel (2026-08), web e mobile. Entraram na varredura porque
+   * são a BASE de ~49 rotas e ~47 telas: um `bg-rose-100` que nasça aqui não
+   * afeta uma tela, afeta 96. É o lugar do repositório onde a trava rende mais.
+   *
+   * Nenhuma exceção foi aberta junto — `EXCECOES_ESPERADAS` continua em 5.
+   */
+  'apps/web/src/components/ui/painel',
+  'apps/mobile/src/components/painel',
 ];
 
 /** Abre uma região onde a cor pertence ao SISTEMA, com justificativa escrita. */
@@ -303,5 +314,57 @@ describe('regra de cor clínica: o lado que já estava certo não pode regredir'
     const tokens = readFileSync(join(RAIZ, 'packages/ui-tokens/src/index.ts'), 'utf8');
     expect(tokens).toContain('vermelho e âmbar pertencem ao SISTEMA');
     expect(tokens).toContain('NUNCA ao corpo do paciente');
+  });
+
+  /**
+   * O humor era o buraco da regra. `painIntensityColor` (dor) sempre foi uma
+   * rampa de um matiz, e `MOOD_PIXEL` — o "ano em cores" do humor — era um
+   * semáforo COMPLETO: coral, âmbar, cinza, azul e VERDE. Dois dados
+   * autorrelatados sobre o próprio corpo, tratados de formas opostas, e nenhum
+   * teste segurando o segundo.
+   */
+  it('o humor segue a MESMA regra da dor: rampa de um matiz, sem verde nem vermelho', () => {
+    for (const valor of MOOD_VALUES) {
+      const hex = MOOD_RAMP[valor];
+      expect(hex).toMatch(/^#[0-9a-f]{6}$/i);
+
+      const r = Number.parseInt(hex.slice(1, 3), 16);
+      const g = Number.parseInt(hex.slice(3, 5), 16);
+      const b = Number.parseInt(hex.slice(5, 7), 16);
+
+      // Mesma prova usada na dor: azul manda, e o vermelho nunca passa o verde.
+      expect(b, `degrau ${valor} (${hex}) deixou de ser azul`).toBeGreaterThanOrEqual(g);
+      expect(g, `degrau ${valor} (${hex}) puxou para o quente`).toBeGreaterThanOrEqual(r);
+    }
+  });
+
+  it('a escala de humor é distinguível SEM cor — a ordem está na forma e na palavra', () => {
+    // Boca e olhos diferentes em cada degrau: quem não enxerga a cor (ou
+    // imprime o prontuário) continua conseguindo ordenar as cinco opções.
+    expect(new Set(MOOD_SCALE.map((o) => o.caminhos.boca)).size).toBe(MOOD_SCALE.length);
+    expect(new Set(MOOD_SCALE.map((o) => o.caminhos.olhoEsquerdo)).size).toBe(MOOD_SCALE.length);
+    // E todo degrau tem rótulo VISÍVEL, não só `aria-label`.
+    for (const opcao of MOOD_SCALE) {
+      expect(opcao.rotulo.trim().length, `degrau ${opcao.valor} sem rótulo`).toBeGreaterThan(0);
+    }
+  });
+
+  /**
+   * As primitivas do Painel são a base de tudo. Se o chip de ícone ganhar um
+   * tom "alerta"/"grave", cada tela que usar `<StatCard>` passa a poder pintar
+   * um dado do corpo de vermelho sem violar nenhum regex — a porta ficaria
+   * aberta pelo lado de dentro.
+   */
+  it('o chip de ícone não oferece nenhum tom de GRAVIDADE para escolher', () => {
+    const proibidos = /\b(alert|attention|danger|warning|critical|ok|success|grave|risco)\b/i;
+    for (const tom of CHIP_TONES) {
+      expect(tom, `o tom "${tom}" nomeia gravidade, não categoria`).not.toMatch(proibidos);
+    }
+    // E nenhum tom é verde/âmbar/vermelho — a checagem de matiz vive em
+    // `contraste-painel.test.ts`, que mede os graus; aqui só garantimos que a
+    // lista de tons continua sendo a de categoria.
+    expect([...CHIP_TONES].sort()).toEqual(
+      ['ameixa', 'ardosia', 'azul', 'indigo', 'turquesa', 'violeta'].sort(),
+    );
   });
 });

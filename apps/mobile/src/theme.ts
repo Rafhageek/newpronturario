@@ -13,6 +13,16 @@ import {
   statusMeta as sharedStatusMeta,
   chart as sharedChart,
   elevationDark as sharedElevationDark,
+  spacePx,
+  radiusPx,
+  chipPastel as sharedChipPastel,
+  painelSurfaceLight,
+  painelSurfaceDark,
+  painelInkLight,
+  painelInkDark,
+  shadowPainel,
+  shadowToRn,
+  type ChipTone,
 } from '@hubpatients/ui-tokens';
 
 /**
@@ -225,24 +235,56 @@ export const type = {
 // Ritmo de espaçamento 4/8pt — usar no lugar de números soltos.
 // 7/12/16/20 (28/48/64/80) cobrem o respiro vertical entre SEÇÕES, que o redesign
 // pede generoso (Whoop): antes só existia até 40 e viravam números soltos.
-export const space = {
-  1: 4,
-  2: 8,
-  3: 12,
-  4: 16,
-  5: 20,
-  6: 24,
-  7: 28,
-  8: 32,
-  10: 40,
-  12: 48,
-  16: 64,
-  20: 80,
-} as const;
+//
+// Vem de `spacePx` (@hubpatients/ui-tokens): a MESMA tabela de onde a web deriva
+// os rem. Antes eram duas listas escritas à mão em arquivos diferentes — batiam
+// por sorte, e sorte não é fonte única.
+export const space = spacePx;
 
 // Raios padronizados (cantos contínuos) — fim do 16/20/26/28/30 espalhado.
 // `xs` (8) é o canto de chip/input: em elemento pequeno, 12 já lê como pílula.
-export const radius = { xs: 8, sm: 12, md: 16, lg: 20, xl: 24, '2xl': 28, full: 999 } as const;
+// `md` (16) é o cartão do Painel. Fonte: `radiusPx` de @hubpatients/ui-tokens.
+export const radius = radiusPx;
+
+/* ══════════════════════════════ Camada "Painel" ══════════════════════════════
+ * Superfícies frias, chips pastel e elevação da casca nova (2026-08). Os
+ * valores saem de @hubpatients/ui-tokens — não escreva hex aqui.
+ * Detalhe e regras de uso: docs/DESIGN.md
+ * ========================================================================== */
+
+/** Chips pastel por tema. Cor de CATEGORIA, jamais de gravidade. */
+export const chipPastel = sharedChipPastel;
+export type { ChipTone };
+
+/** Paleta de chips reativa ao tema. */
+export function useChipPastel(): Record<ChipTone, { tint: string; ink: string }> {
+  const { colorScheme } = useColorScheme();
+  return colorScheme === 'dark' ? sharedChipPastel.dark : sharedChipPastel.light;
+}
+
+/** Superfícies + tinta do Painel (claro e escuro). */
+export const painel = {
+  light: { ...painelSurfaceLight, ...painelInkLight },
+  dark: { ...painelSurfaceDark, ...painelInkDark },
+} as const;
+
+/**
+ * Sombra do cartão do Painel — tinta fria (#233554), não preto puro.
+ *
+ * ⚠️ SÓ no tema claro. No escuro use `elevationDark` (degrau tonal + hairline):
+ * sombra não se lê sobre preto.
+ */
+export const painelCardShadow = shadowToRn(shadowPainel.card);
+export const painelRaisedShadow = shadowToRn(shadowPainel.raised);
+
+/** Elevação certa para o tema atual, sem a tela ter que lembrar da regra. */
+export function usePainelShadow(level: 'card' | 'raised' = 'card') {
+  const { colorScheme } = useColorScheme();
+  if (colorScheme === 'dark') {
+    return level === 'raised' ? sharedElevationDark.raised : sharedElevationDark.card;
+  }
+  return level === 'raised' ? painelRaisedShadow : painelCardShadow;
+}
 
 /* ══════════════════════════ Modo Sênior (acessibilidade) ══════════════════════════
  * Público majoritariamente idoso/crônico + cuidadores. Base de evidência:
