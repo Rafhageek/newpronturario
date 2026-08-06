@@ -45,13 +45,13 @@ export default function RespirarPage() {
   const ss = String(secs % 60).padStart(2, '0');
 
   return (
-    <div className="mx-auto flex min-h-[72vh] max-w-md flex-col items-center justify-center gap-10 text-center">
+    <div className="hp-page hp-page--wellbeing hp-breathe mx-auto flex max-w-xl flex-col items-center justify-center gap-10 text-center">
       <h1 className="text-2xl font-bold text-fg" style={{ fontFamily: 'var(--font-display)' }}>
         {phase === 'in' ? 'Inspire…' : 'Expire…'}
       </h1>
 
       <motion.div
-        className="flex h-56 w-56 items-center justify-center rounded-full shadow-xl"
+        className="hp-breathe-orb flex h-56 w-56 items-center justify-center rounded-full"
         style={{ background: 'linear-gradient(135deg,#0442bf,#0511f2)' }}
         animate={{ scale: phase === 'in' ? 1 : 0.62 }}
         transition={{ duration: (phase === 'in' ? INHALE : EXHALE) / 1000, ease: 'easeInOut' }}

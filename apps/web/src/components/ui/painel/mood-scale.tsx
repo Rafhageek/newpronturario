@@ -78,6 +78,7 @@ export interface MoodScaleProps {
   /** `name` do grupo de rádio — obrigatório se houver duas escalas na página. */
   name?: string;
   disabled?: boolean;
+  variant?: 'cards' | 'compact';
   className?: string;
 }
 
@@ -97,27 +98,47 @@ export function MoodScale({
   question = MOOD_QUESTION,
   name,
   disabled,
+  variant = 'cards',
   className,
 }: MoodScaleProps) {
   const autoName = useId();
   const grupo = name ?? autoName;
 
   return (
-    <fieldset className={cx('min-w-0', className)} disabled={disabled}>
-      <legend className="text-label font-semibold text-fg">{question}</legend>
-      <div className="mt-3 flex flex-wrap gap-2">
+    <fieldset
+      className={cx(
+        'min-w-0',
+        variant === 'compact' && 'flex flex-wrap items-center justify-between gap-3 rounded-card border border-line bg-surface-2 px-4 py-2',
+        className,
+      )}
+      disabled={disabled}
+    >
+      <legend
+        className={cx(
+          'text-label font-semibold text-fg',
+          variant === 'compact' && 'float-left mr-3 py-2 text-caption font-medium text-muted',
+        )}
+      >
+        {question}
+      </legend>
+      <div className={cx('flex flex-wrap gap-2', variant === 'cards' ? 'mt-3' : 'ml-auto')}>
         {MOOD_SCALE.map((opcao) => {
           const escolhida = value === opcao.valor;
           return (
             <label
               key={opcao.valor}
               className={cx(
-                'group relative flex min-h-11 flex-1 basis-24 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-card border px-2 py-3 text-center transition-colors',
+                'group relative flex min-h-11 cursor-pointer flex-col items-center justify-center text-center transition-colors',
+                variant === 'cards'
+                  ? 'flex-1 basis-24 gap-1.5 rounded-card border px-2 py-3'
+                  : 'min-w-11 rounded-full border border-transparent px-2 py-1',
                 // COR = ESTADO, nunca posição na escala. O 1º e o 5º degrau
                 // usam exatamente as mesmas duas cores.
                 escolhida
                   ? 'border-primary bg-nav-active-tint text-mood-ink'
-                  : 'border-line bg-surface text-fg-soft hover:border-line-strong',
+                  : variant === 'cards'
+                    ? 'border-line bg-surface text-fg-soft hover:border-line-strong'
+                    : 'text-fg-soft hover:bg-surface',
               )}
             >
               <input
@@ -141,11 +162,12 @@ export function MoodScale({
                 // A carinha escolhida engrossa o traço: mais um canal de forma,
                 // legível em preto e branco e para quem não enxerga a cor.
                 strokeWidth={escolhida ? 2.1 : 1.6}
-                className="h-9 w-9"
+                className={variant === 'cards' ? 'h-9 w-9' : 'h-7 w-7'}
               />
               <span
                 className={cx(
                   'text-caption leading-tight',
+                  variant === 'compact' && 'sr-only',
                   escolhida ? 'font-semibold' : 'font-medium text-muted',
                 )}
               >

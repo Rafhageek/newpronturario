@@ -68,7 +68,7 @@ export default function CicloPage() {
   // Durante gestação ativa, o acompanhamento do ciclo é pausado.
   if (pregnancy) {
     return (
-      <div className="mx-auto max-w-3xl space-y-5">
+      <div className="mx-auto max-w-3xl space-y-5 hp-page hp-page--journey">
         <div className="rounded-2xl border border-line bg-surface p-6 text-center">
           <p className="text-sm font-semibold text-fg">
             Acompanhamento do ciclo pausado durante a gestação.
@@ -88,7 +88,7 @@ export default function CicloPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
+    <div className="mx-auto max-w-3xl space-y-5 hp-page hp-page--journey">
       <PrivacyBanner />
 
       <div className="flex items-center justify-between gap-3">

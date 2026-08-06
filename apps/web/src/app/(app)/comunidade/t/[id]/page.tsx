@@ -103,7 +103,7 @@ export default function CommunityTopicPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5">
+    <div className="mx-auto max-w-2xl space-y-5 hp-page hp-page--community">
       <div className="flex items-center justify-between gap-3">
         <Link href="/comunidade" className="inline-flex items-center gap-2 text-sm text-muted hover:text-fg">
           <ArrowLeft className="h-5 w-5" /> Comunidade

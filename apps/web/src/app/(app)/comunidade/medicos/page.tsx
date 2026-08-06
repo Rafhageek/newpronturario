@@ -13,7 +13,7 @@ export default function CommunityDoctorsPage() {
   const { data: doctors, isLoading } = useCommunityDoctors();
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5">
+    <div className="mx-auto max-w-2xl space-y-5 hp-page hp-page--community">
       <Link href="/comunidade" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg">
         <ArrowLeft className="h-4 w-4" /> Comunidade
       </Link>

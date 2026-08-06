@@ -20,7 +20,7 @@ export default function RedeSocialForumPage() {
   const { createTopic } = useForumMutations(userId);
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5">
+    <div className="mx-auto max-w-2xl space-y-5 hp-page hp-page--community">
       <header className="flex items-center gap-2.5">
         <MessagesSquare className="h-6 w-6 text-primary" />
         <div>

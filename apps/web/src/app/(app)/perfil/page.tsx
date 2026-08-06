@@ -53,7 +53,7 @@ export default function PerfilPage() {
   const isPlus = false; // Free por padrão (Fase 2 define o plano real)
 
   if (isLoading) {
-    return <div className="mx-auto max-w-3xl space-y-4">{[0, 1, 2].map((i) => <div key={i} className="h-20 animate-pulse rounded-2xl bg-surface-2" />)}</div>;
+    return <div className="mx-auto max-w-3xl space-y-4 hp-page">{[0, 1, 2].map((i) => <div key={i} className="h-20 animate-pulse rounded-2xl bg-surface-2" />)}</div>;
   }
 
   const name = profile?.full_name ?? 'Paciente';
@@ -67,7 +67,7 @@ export default function PerfilPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
+    <div className="mx-auto max-w-5xl space-y-5 hp-page">
       {/* Cabeçalho */}
       <header className="vl-rise rounded-2xl border border-line bg-surface p-6">
         <div className="flex flex-wrap items-center gap-4">

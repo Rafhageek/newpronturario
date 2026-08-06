@@ -744,3 +744,180 @@ body {
   --hint: #909398;
   --faint: var(--hint);
 }
+
+/* Mancha atmosférica do mockup: atravessa o topo e o início do conteúdo sem
+   competir com a leitura. A barra translúcida mantém a divisória nítida. */
+.hp-app-workspace::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  top: -150px;
+  right: 10%;
+  width: min(42vw, 620px);
+  height: 270px;
+  border-radius: 0 0 55% 55%;
+  background:
+    radial-gradient(circle at 64% 48%, rgb(40 205 204 / 0.23), transparent 55%),
+    radial-gradient(circle at 20% 70%, rgb(65 136 236 / 0.12), transparent 64%);
+  pointer-events: none;
+}
+
+.dark .hp-app-workspace::before {
+  opacity: 0.42;
+}
+
+/* ========================================================================== *
+ * PÁGINAS DO APP — "atlas clínico calmo"
+ *
+ * `hp-page` é aplicado à raiz das rotas autenticadas. Ele cria continuidade
+ * visual sem apagar a identidade de cada módulo: introdução editorial, ritmo
+ * vertical de 24 px, superfícies frias e controles com hierarquia inequívoca.
+ * ========================================================================== */
+.hp-page {
+  --hp-page-accent: 4 66 191;
+  position: relative;
+  isolation: isolate;
+  padding-bottom: 2.5rem;
+}
+
+.hp-page--wellbeing {
+  --hp-page-accent: 13 110 116;
+}
+
+.hp-page--journey {
+  --hp-page-accent: 141 33 112;
+}
+
+.hp-page--community {
+  --hp-page-accent: 70 52 173;
+}
+
+.hp-page--privacy {
+  --hp-page-accent: 61 74 95;
+}
+
+.hp-page::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: -1.5rem;
+  right: -1rem;
+  width: min(38vw, 30rem);
+  height: 13rem;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(var(--hp-page-accent) / 0.07), transparent 68%);
+  pointer-events: none;
+}
+
+.hp-page > header,
+.hp-page .hp-page-hero {
+  position: relative;
+  overflow: hidden;
+  min-height: 7.5rem;
+  padding: 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-painel-lg);
+  background:
+    linear-gradient(115deg, rgb(var(--hp-page-accent) / 0.075), transparent 48%),
+    var(--surface);
+  box-shadow: var(--painel-shadow-card);
+}
+
+.hp-page > header::after,
+.hp-page .hp-page-hero::after {
+  content: '';
+  position: absolute;
+  right: -3.5rem;
+  bottom: -5rem;
+  width: 15rem;
+  height: 11rem;
+  border: 1px solid rgb(var(--hp-page-accent) / 0.1);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.hp-page > header h1,
+.hp-page .hp-page-hero h1 {
+  font-family: var(--font-bricolage), 'Bricolage Grotesque', system-ui, sans-serif;
+  font-size: clamp(1.75rem, 1.55rem + 0.7vw, 2.25rem);
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+}
+
+.hp-page > header p,
+.hp-page .hp-page-hero p {
+  max-width: 62ch;
+  margin-top: 0.4rem;
+  font-size: var(--text-body-sm);
+  color: var(--muted);
+}
+
+.hp-page [class*='rounded-2xl'][class*='border-line'][class*='bg-surface'] {
+  box-shadow: var(--painel-shadow-card);
+}
+
+.hp-page a[class*='rounded-2xl'][class*='border-line'][class*='bg-surface'],
+.hp-page button[class*='rounded-2xl'][class*='border-line'][class*='bg-surface'] {
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.hp-page a[class*='rounded-2xl'][class*='border-line'][class*='bg-surface']:hover,
+.hp-page button[class*='rounded-2xl'][class*='border-line'][class*='bg-surface']:hover {
+  border-color: rgb(var(--hp-page-accent) / 0.32);
+  box-shadow: var(--painel-shadow-raised);
+  transform: translateY(-1px);
+}
+
+.hp-page input:not([type='checkbox']):not([type='radio']),
+.hp-page select,
+.hp-page textarea {
+  border-color: var(--line-strong);
+  background-color: color-mix(in srgb, var(--surface) 82%, var(--surface-2));
+}
+
+.hp-page button[class*='bg-gradient-to-r'] {
+  border-radius: 999px;
+  background: var(--primary);
+  box-shadow: 0 8px 22px rgb(4 66 191 / 0.18);
+}
+
+.hp-page button[class*='bg-gradient-to-r']:hover {
+  background: var(--primary-hover);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hp-page a,
+  .hp-page button {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (max-width: 639px) {
+  .hp-page > header,
+  .hp-page .hp-page-hero {
+    min-height: auto;
+    padding: 1.125rem;
+  }
+}
+
+.hp-breathe {
+  min-height: min(72vh, 46rem);
+  padding: 2rem;
+  border: 1px solid var(--line);
+  border-radius: 2rem;
+  background:
+    radial-gradient(circle at 50% 38%, rgb(13 110 116 / 0.12), transparent 34%),
+    linear-gradient(160deg, var(--surface), var(--surface-2));
+  box-shadow: var(--painel-shadow-card);
+}
+
+.hp-breathe-orb {
+  position: relative;
+  background:
+    radial-gradient(circle at 35% 28%, rgb(255 255 255 / 0.28), transparent 25%),
+    linear-gradient(145deg, #0d9298, #0442bf) !important;
+  box-shadow:
+    0 0 0 1.25rem rgb(13 146 152 / 0.07),
+    0 0 0 2.5rem rgb(4 66 191 / 0.045),
+    0 24px 60px rgb(4 66 191 / 0.22);
+}

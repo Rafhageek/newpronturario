@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronDown, type LucideIcon } from 'lucide-react';
 
@@ -21,11 +21,15 @@ export function SectionCard({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const contentId = useId();
   return (
-    <div className="overflow-hidden rounded-2xl border border-line bg-surface">
+    <section className="overflow-hidden rounded-card border border-line bg-surface shadow-card">
       <button
+        type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center gap-3 px-5 py-4 text-left transition hover:bg-surface-2"
+        aria-expanded={open}
+        aria-controls={contentId}
+        className="flex min-h-16 w-full items-center gap-3 px-5 py-4 text-left transition hover:bg-surface-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary"
       >
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-500/15 text-primary">
           <Icon className="h-[18px] w-[18px]" />
@@ -45,10 +49,10 @@ export function SectionCard({
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.25, ease: 'easeInOut' }}
           >
-            <div className="border-t border-line px-5 py-5">{children}</div>
+            <div id={contentId} className="border-t border-line px-5 py-5">{children}</div>
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </section>
   );
 }

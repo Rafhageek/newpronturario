@@ -62,7 +62,7 @@ export default function PlanoSaudePage() {
   );
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
+    <div className="mx-auto max-w-3xl space-y-5 hp-page">
       <header className="flex items-start gap-3">
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sky-500/15 text-primary">
           <CreditCard className="h-6 w-6" />

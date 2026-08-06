@@ -10,6 +10,7 @@ import { useActiveProfile } from '@/components/profile-context';
 import { TimelineEntry } from '@/components/diary/timeline-entry';
 import { ListSkeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/ui/painel';
 
 const PERIODS = [
   { days: 7, label: '7 dias' },
@@ -55,12 +56,14 @@ export default function DiarioPage() {
   }, [entries, period, symptom]);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-fg" style={{ fontFamily: 'var(--font-display)' }}>
-          Diário clínico
-        </h1>
-        <div className="flex items-center gap-2">
+    <div className="mx-auto max-w-5xl space-y-5 hp-page hp-page--wellbeing">
+      <PageHeader
+        eyebrow="Seu dia em contexto"
+        title="Diário clínico"
+        subtitle="Humor, energia, sintomas e sinais vitais reunidos para ajudar você a perceber padrões."
+        icon={NotebookPen}
+        tone="violeta"
+        right={<div className="flex flex-wrap items-center justify-end gap-2">
           <Link
             href="/diario/dor"
             className="inline-flex h-10 items-center gap-2 rounded-xl border border-line px-3 text-sm font-medium text-fg-soft transition hover:bg-surface-2"
@@ -73,8 +76,8 @@ export default function DiarioPage() {
           >
             <Plus className="h-4 w-4" /> Novo registro
           </Link>
-        </div>
-      </header>
+        </div>}
+      />
 
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-3">

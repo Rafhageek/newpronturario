@@ -78,7 +78,7 @@ export function AppSearch() {
   }
 
   return (
-    <div ref={rootRef} className="relative hidden w-full max-w-[520px] md:block">
+    <div ref={rootRef} className="relative hidden w-full max-w-[544px] md:block">
       <Search
         className="pointer-events-none absolute left-3.5 top-1/2 z-10 h-[18px] w-[18px] -translate-y-1/2 text-muted"
         aria-hidden
@@ -119,7 +119,7 @@ export function AppSearch() {
             inputRef.current?.blur();
           }
         }}
-        className="min-h-11 w-full rounded-chip border border-line-strong bg-surface-2 py-2 pl-10 pr-24 text-body-sm text-fg outline-none transition-colors placeholder:text-hint focus:border-primary focus:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        className="min-h-12 w-full rounded-chip border border-line bg-surface/90 py-2 pl-10 pr-24 text-body-sm text-fg shadow-xs outline-none transition-colors placeholder:text-hint focus:border-primary focus:bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       />
 
       {query ? (

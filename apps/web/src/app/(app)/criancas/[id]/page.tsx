@@ -57,7 +57,7 @@ export default function ChildDetailPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
+    <div className="mx-auto max-w-3xl space-y-5 hp-page hp-page--journey">
       {/* Header */}
       <div className="flex items-center gap-3">
         <Link href="/criancas" className="rounded-lg p-1.5 text-muted hover:bg-surface-2 hover:text-fg" aria-label="Voltar">

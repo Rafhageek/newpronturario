@@ -13,6 +13,7 @@ import { UploadExamModal } from '@/components/exams/upload-exam-modal';
 import { UpgradeModal, type UpgradeReason } from '@/components/ui/upgrade-modal';
 import { ListSkeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/ui/painel';
 
 const PERIODS = [
   { days: 0, label: 'Tudo' },
@@ -47,23 +48,26 @@ export default function ExamesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-fg" style={{ fontFamily: 'var(--font-display)' }}>Exames</h1>
-          <p className="text-xs text-muted">Sua Narrativa de Saúde — exames em linguagem simples.</p>
-        </div>
-        <div className="flex items-center gap-2">
+    <div className="mx-auto max-w-5xl space-y-5 hp-page">
+      <PageHeader
+        eyebrow="Meu prontuário"
+        title="Exames"
+        subtitle="Resultados organizados em uma narrativa simples, sempre preservando o documento original."
+        icon={FlaskConical}
+        tone="turquesa"
+        right={
+          <div className="flex flex-wrap items-center justify-end gap-2">
           {!isPlus && <span className="text-xs text-muted">{usedThisMonth}/{FREE_UPLOAD_LIMIT} este mês</span>}
-          <button onClick={() => (isPlus ? setUploadOpen(true) : setUpgrade('ocr_exams'))} className="inline-flex h-10 items-center gap-2 rounded-xl border border-line px-3.5 text-sm font-medium text-fg transition hover:bg-surface-2">
+          <button type="button" onClick={() => (isPlus ? setUploadOpen(true) : setUpgrade('ocr_exams'))} className="inline-flex h-10 items-center gap-2 rounded-xl border border-line px-3.5 text-sm font-medium text-fg transition hover:bg-surface-2">
             <Camera className="h-4 w-4 text-primary" /> Foto (IA)
             {!isPlus && <span className="rounded bg-sky-500/20 px-1.5 py-0.5 text-[10px] font-bold text-primary">PLUS</span>}
           </button>
-          <button onClick={handleUpload} className="inline-flex h-10 items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-400 px-4 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 transition hover:opacity-90">
+          <button type="button" onClick={handleUpload} className="inline-flex h-10 items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-400 px-4 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 transition hover:opacity-90">
             <Upload className="h-4 w-4" /> Upload
           </button>
-        </div>
-      </header>
+          </div>
+        }
+      />
 
       <ExamDisclaimer />
 

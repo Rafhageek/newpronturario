@@ -27,8 +27,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         disabled={disabled || loading}
         aria-busy={loading || undefined}
         className={cx(
-          'inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-white shadow-sm shadow-primary/15',
-          'transition-colors hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
+          'inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-primary px-5 text-label font-semibold text-white shadow-[0_8px_22px_rgb(4_66_191_/_0.18)]',
+          'transition-[background-color,box-shadow,transform] hover:-translate-y-px hover:bg-primary-hover hover:shadow-raised focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transform-none',
           'disabled:cursor-not-allowed disabled:opacity-60',
           className,
         )}
@@ -47,8 +47,8 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
       <input
         ref={ref}
         className={cx(
-          'h-11 w-full rounded-xl border border-line bg-surface-2 px-3 text-sm text-fg',
-          'placeholder:text-muted focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20',
+          'min-h-11 w-full rounded-chip border border-line-strong bg-surface px-3 text-body-sm text-fg shadow-xs',
+          'placeholder:text-hint focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20',
           className,
         )}
         {...props}
@@ -97,7 +97,7 @@ export function Card({ children, className }: { children: React.ReactNode; class
   return (
     <div
       className={cx(
-        'rounded-2xl border border-line bg-surface p-5 text-fg',
+        'rounded-card border border-line bg-surface p-5 text-fg shadow-card',
         className,
       )}
     >

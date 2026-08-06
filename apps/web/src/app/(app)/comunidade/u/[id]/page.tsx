@@ -15,7 +15,7 @@ export default function PublicForumProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-2xl space-y-4">
+      <div className="mx-auto max-w-2xl space-y-4 hp-page hp-page--community">
         <Skeleton className="h-40 w-full" />
         <Skeleton className="h-24 w-full" />
       </div>
@@ -24,7 +24,7 @@ export default function PublicForumProfilePage() {
 
   if (!profile) {
     return (
-      <div className="mx-auto max-w-2xl space-y-4">
+      <div className="mx-auto max-w-2xl space-y-4 hp-page hp-page--community">
         <Link href="/comunidade" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg">
           <ArrowLeft className="h-4 w-4" /> Comunidade
         </Link>
@@ -42,7 +42,7 @@ export default function PublicForumProfilePage() {
   const memberSince = new Date(profile.memberSince).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5">
+    <div className="mx-auto max-w-2xl space-y-5 hp-page hp-page--community">
       <Link href="/comunidade" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg">
         <ArrowLeft className="h-4 w-4" /> Comunidade
       </Link>

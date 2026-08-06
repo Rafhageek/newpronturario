@@ -15,7 +15,7 @@ export default function CriancasPage() {
   const [modalOpen, setModalOpen] = useState(false);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
+    <div className="mx-auto max-w-3xl space-y-5 hp-page hp-page--journey">
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-fg" style={{ fontFamily: 'var(--font-display)' }}>

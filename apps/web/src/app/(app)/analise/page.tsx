@@ -19,6 +19,7 @@ import { ChartCard } from '@/components/analise/chart-card';
 import { StatSummary } from '@/components/analise/stat-summary';
 import { WeightAlertBanner } from '@/components/analise/weight-alert-banner';
 import { UpgradeModal } from '@/components/ui/upgrade-modal';
+import { PageHeader } from '@/components/ui/painel';
 
 const chartLoading = () => (
   <div className="flex h-48 items-center justify-center rounded-xl border border-line bg-surface-2 text-sm text-muted" role="status">
@@ -92,11 +93,14 @@ export default function AnalisePage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
-      <header>
-        <h1 className="text-2xl font-bold text-fg" style={{ fontFamily: 'var(--font-display)' }}>Análise</h1>
-        <p className="text-xs text-muted">Evolução da sua saúde ao longo do tempo.</p>
-      </header>
+    <div className="mx-auto max-w-6xl space-y-5 hp-page hp-page--wellbeing">
+      <PageHeader
+        eyebrow="Indicadores"
+        title="Análise da sua saúde"
+        subtitle="Compare seus registros ao longo do tempo sem transformar tendências em diagnóstico."
+        icon={Activity}
+        tone="turquesa"
+      />
 
       {/* Período */}
       <div className="flex flex-wrap rounded-xl border border-line bg-surface p-1">

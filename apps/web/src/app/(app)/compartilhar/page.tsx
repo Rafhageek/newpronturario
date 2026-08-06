@@ -158,7 +158,7 @@ export default function CompartilharPage() {
   const issuedExpired = issued != null && issuedLeft <= 0;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5">
+    <div className="mx-auto max-w-2xl space-y-5 hp-page">
       <Link
         href="/dashboard"
         className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg"

@@ -142,7 +142,7 @@ export default function NovoRegistroPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5">
+    <div className="mx-auto max-w-2xl space-y-5 hp-page hp-page--wellbeing">
       <div className="flex items-center gap-3">
         <Link href="/diario" className="rounded-lg p-1.5 text-muted hover:bg-surface-2 hover:text-fg">
           <ArrowLeft className="h-5 w-5" />

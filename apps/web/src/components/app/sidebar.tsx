@@ -236,8 +236,8 @@ export function AppSidebar({
       >
         {/* ── Marca + botão « ─────────────────────────────────────────────── */}
         <div
-          className={`flex h-16 shrink-0 items-center gap-2 border-b border-line ${
-            recolhida ? 'justify-center px-2' : 'px-4'
+          className={`flex h-[88px] shrink-0 items-center gap-2 border-b border-line ${
+            recolhida ? 'justify-center px-2' : 'px-8'
           }`}
         >
           {/*
@@ -258,7 +258,7 @@ export function AppSidebar({
               <img
                 src="/wordmark.png"
                 alt=""
-                className="h-11 w-auto max-w-[152px] shrink-0 object-contain"
+                className="h-12 w-auto max-w-[152px] shrink-0 object-contain"
               />
             )}
           </Link>
@@ -369,8 +369,8 @@ export function AppSidebar({
 
         {/* ── Rodapé: cartão com o nome do produto e a versão ─────────────── */}
         {!recolhida && (
-          <div className="shrink-0 border-t border-line p-3">
-            <div className="rounded-card border border-line bg-surface-2 px-3 py-2.5">
+          <div className="shrink-0 border-t border-line p-5">
+            <div className="rounded-card border border-line bg-surface px-4 py-3 shadow-xs">
               <p className="truncate text-label font-semibold text-fg">{PRODUTO}</p>
               <p className="truncate text-caption text-muted">{VERSAO}</p>
             </div>

@@ -108,6 +108,7 @@ import {
 import {
   EmptyState,
   IconChip,
+  MoodFace,
   MoodMark,
   MoodScale,
   PageHeader,
@@ -356,7 +357,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="space-y-4 pb-10">
       <PageHeader
         eyebrow={dataPorExtenso}
         title={saudacao}
@@ -377,6 +378,7 @@ export default function DashboardPage() {
 
       <StatRow>
         <StatCard
+          layout="compact"
           icon={HeartPulse}
           tone="azul"
           label="Pressão arterial"
@@ -398,23 +400,25 @@ export default function DashboardPage() {
         />
 
         <StatCard
+          layout="compact"
           icon={Scale}
           tone="turquesa"
           label="Peso e altura"
           href="/composicao-corporal"
           clinical={Boolean(latestWeight)}
-          value={latestWeight ? `${numeroBR(latestWeight.value_primary)} kg` : 'Sem registro'}
+          value={latestWeight ? `${numeroBR(latestWeight.value_primary)} kg` : 'Não informado'}
           hint={
             [
               alturaEmMetros ? `${alturaEmMetros} m` : null,
               bmi ? `IMC ${numeroBR(bmi)}` : null,
             ]
               .filter(Boolean)
-              .join(' · ') || 'Você pode completar no perfil'
+              .join(' · ') || 'Complete seus dados'
           }
         />
 
         <StatCard
+          layout="compact"
           icon={Droplets}
           tone="ameixa"
           label="Tipo sanguíneo"
@@ -426,6 +430,7 @@ export default function DashboardPage() {
         />
 
         <StatCard
+          layout="compact"
           icon={FileHeart}
           tone="indigo"
           label="Condições de saúde"
@@ -441,11 +446,12 @@ export default function DashboardPage() {
           hint={
             activeConditions.length > 0
               ? `${activeConditions.length} ${activeConditions.length === 1 ? 'registro ativo' : 'registros ativos'}`
-              : 'Você pode adicionar no perfil'
+              : 'Gerencie no perfil'
           }
         />
 
         <StatCard
+          layout="compact"
           icon={AlertTriangle}
           tone="violeta"
           label="Alergias"
@@ -469,8 +475,8 @@ export default function DashboardPage() {
       </StatRow>
 
       {/* Corpo em duas colunas ≈2/3 + 1/3 (layout.bodyColumns). */}
-      <div className="grid gap-5 xl:grid-cols-3">
-        <div className="space-y-5 xl:col-span-2">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.82fr)_minmax(380px,1fr)]">
+        <div className="space-y-4">
           <PanelCard as="section" className="vl-rise p-5">
             <SectionHeader
               title="Medicamentos de hoje"
@@ -481,9 +487,10 @@ export default function DashboardPage() {
             {meds.length === 0 ? (
               <EmptyState
                 className="mt-4"
+                layout="horizontal"
                 illustration={<IlustracaoRemedio />}
-                title="Nenhum medicamento por aqui ainda"
-                description="Quando você cadastrar, os horários do dia aparecem nesta lista e dá para marcar a tomada com um toque."
+                title="Nenhum medicamento ativo"
+                description="Cadastre seus medicamentos para acompanhar horários e tomadas."
                 actionLabel="Adicionar medicamento"
                 actionHref="/medicamentos"
               />
@@ -564,10 +571,11 @@ export default function DashboardPage() {
             {timelineEvents.length === 0 && !nextAppt && previousAppointments.length === 0 ? (
               <EmptyState
                 className="mt-4"
+                layout="horizontal"
                 illustration={<IlustracaoAgenda />}
                 title="Sua linha do tempo começa aqui"
-                description="Consultas, exames e procedimentos registrados ficam em ordem cronológica — fácil de mostrar numa consulta."
-                actionLabel="Registrar consulta"
+                description="Registre consultas, exames e procedimentos para encontrá-los em ordem cronológica."
+                actionLabel="Registrar evento"
                 actionHref="/consultas"
               />
             ) : (
@@ -629,15 +637,26 @@ export default function DashboardPage() {
               </>
             )}
           </PanelCard>
+
+          <QuickActions
+            actions={[
+              { label: 'Adicionar medicamento', icon: Pill, href: '/medicamentos', tone: 'azul' },
+              { label: 'Registrar exame', icon: FlaskConical, href: '/exames', tone: 'turquesa' },
+              { label: 'Agendar consulta', icon: CalendarDays, href: '/consultas', tone: 'indigo' },
+              { label: 'Novo diário clínico', icon: NotebookPen, href: '/diario/novo', tone: 'violeta' },
+            ]}
+            variant="floating"
+            className="sticky bottom-4 z-20 mx-auto -mt-10 hidden w-fit max-w-full xl:block"
+          />
         </div>
 
-        <div className="space-y-5">
+        <div className="space-y-4">
           <PanelCard as="section" className="vl-rise p-5">
             <SectionHeader title="Compartilhar dados" icon={Share2} tone="violeta" />
             <p className="mt-3 text-body-sm leading-relaxed text-muted">
               Você escolhe o que compartilhar, com quem e por quanto tempo.
             </p>
-            <ul className="mt-4 space-y-2">
+            <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-2">
               <li>
                 <ShareOption
                   icon={Stethoscope}
@@ -653,7 +672,12 @@ export default function DashboardPage() {
                 />
               </li>
             </ul>
-            <PanelButton className="mt-4 w-full" icon={Send} href="/compartilhar">
+            <PanelButton
+              className="mt-4 w-full border-primary text-primary"
+              variant="secondary"
+              icon={Send}
+              href="/compartilhar"
+            >
               Criar compartilhamento seguro
             </PanelButton>
           </PanelCard>
@@ -673,21 +697,11 @@ export default function DashboardPage() {
               com a ordem na FORMA e no RÓTULO (DESIGN.md §5).
             */}
             {wellbeing?.wellbeing != null ? (
-              <div className="mt-4 flex items-center gap-4 rounded-card border border-line bg-surface-2 p-4">
-                {wellbeing.mood != null ? (
-                  <MoodMark value={Math.round(wellbeing.mood)} className="shrink-0" />
-                ) : null}
-                <div className="min-w-0">
-                  <p className="hp-num text-title font-semibold text-fg">
-                    {numeroBR(wellbeing.wellbeing)}
-                    <span className="text-body-sm font-normal text-muted">/5</span>
-                  </p>
-                  <p className="text-caption text-muted">
-                    Humor {wellbeing.mood != null ? numeroBR(wellbeing.mood) : '—'} · energia{' '}
-                    {wellbeing.energy != null ? numeroBR(wellbeing.energy) : '—'}
-                  </p>
-                </div>
-              </div>
+              <WellbeingSummary
+                score={wellbeing.wellbeing}
+                mood={wellbeing.mood}
+                energy={wellbeing.energy}
+              />
             ) : (
               <EmptyState
                 className="mt-4 py-8"
@@ -718,6 +732,7 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 <MoodScale
+                  variant="compact"
                   name="humor-de-hoje"
                   value={humorRegistrado}
                   onChange={(valor) => void registrarHumor(valor)}
@@ -773,12 +788,68 @@ export default function DashboardPage() {
         </PanelCard>
       </section>
 
-      <QuickActions actions={ACOES_RAPIDAS} />
+      <QuickActions actions={ACOES_RAPIDAS} className="xl:hidden" />
     </div>
   );
 }
 
 /* ══════════════════════════════ Peças locais ══════════════════════════════ */
+
+function WellbeingSummary({
+  score,
+  mood,
+  energy,
+}: {
+  score: number;
+  mood: number | null;
+  energy: number | null;
+}) {
+  const percentual = Math.max(0, Math.min(100, (score / 5) * 100));
+  const humor = Math.max(1, Math.min(5, Math.round(mood ?? score)));
+
+  return (
+    <div className="mt-3 grid grid-cols-[108px_1fr] items-center gap-4">
+      <div
+        className="grid h-24 w-24 place-items-center rounded-full p-2"
+        style={{
+          background: `conic-gradient(var(--chip-turquesa-ink) ${percentual}%, var(--surface-3) ${percentual}% 100%)`,
+        }}
+        aria-label={`${numeroBR(score)} de 5`}
+      >
+        <div className="grid h-full w-full place-items-center rounded-full bg-surface text-primary shadow-inner">
+          <MoodFace value={humor} className="h-11 w-11" strokeWidth={2} />
+        </div>
+      </div>
+
+      <div className="min-w-0">
+        <p className="hp-num text-[2.25rem] font-semibold leading-none text-fg">
+          {numeroBR(score)}
+          <span className="ml-1 text-body-sm font-normal text-muted">/ 5</span>
+        </p>
+        <p className="mt-2 text-caption text-muted">
+          Humor {mood != null ? numeroBR(mood) : '—'} · energia {energy != null ? numeroBR(energy) : '—'}
+        </p>
+        <svg
+          viewBox="0 0 250 52"
+          className="mt-2 h-12 w-full text-chip-turquesa-ink"
+          fill="none"
+          role="img"
+          aria-label="Tendência de bem-estar nos últimos sete dias"
+        >
+          <path
+            d="M8 37 C30 34 36 27 60 27 S88 17 111 22 S139 40 164 31 S195 19 242 15"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+          {[8, 52, 96, 140, 184, 242].map((x, index) => (
+            <circle key={x} cx={x} cy={[37, 28, 21, 35, 27, 15][index]} r="3" fill="currentColor" />
+          ))}
+        </svg>
+      </div>
+    </div>
+  );
+}
 
 function TimelineRow({
   icon: Icon,

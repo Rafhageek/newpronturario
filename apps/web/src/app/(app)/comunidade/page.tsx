@@ -25,10 +25,10 @@ export default function ComunidadePage() {
   }, [categories]);
 
   return (
-    <div className="mx-auto grid max-w-5xl gap-5 lg:grid-cols-[1fr_240px]">
+    <div className="mx-auto grid max-w-5xl gap-5 hp-page hp-page--community lg:grid-cols-[1fr_240px]">
       <RulesOnboarding />
       <div className="space-y-5">
-        <header className="flex items-start justify-between gap-3">
+        <header className="hp-page-hero flex items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-fg" style={{ fontFamily: 'var(--font-display)' }}>
               Comunidade

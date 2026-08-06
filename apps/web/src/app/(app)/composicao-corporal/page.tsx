@@ -58,7 +58,7 @@ export default function ComposicaoCorporalPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5">
+    <div className="mx-auto max-w-4xl space-y-5 hp-page hp-page--wellbeing">
       <div className="flex items-center gap-3">
         <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-500/15 text-status-info-ink">
           <Scale className="h-5 w-5" />

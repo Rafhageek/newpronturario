@@ -87,10 +87,10 @@ export const layout = {
   sidebarWidth: 264,
   /** Lateral recolhida pelo botão «: só ícone, ainda ≥44 de alvo. */
   sidebarCollapsedWidth: 76,
-  /** Barra do topo (busca, tema, sino, avatar). */
-  topbarHeight: 64,
-  /** Largura máxima da área de conteúdo — linha de texto não passa de ~75ch. */
-  contentMaxWidth: 1280,
+  /** Barra do topo (busca, tema, sino, avatar), alinhada ao mockup desktop. */
+  topbarHeight: 88,
+  /** Largura máxima da área de conteúdo no painel amplo. */
+  contentMaxWidth: 1440,
   /** Respiro lateral do conteúdo: telefone / tablet / desktop. */
   gutter: { sm: spacePx[4], md: spacePx[6], lg: spacePx[8] },
   /** Coluna principal ÷ coluna lateral do corpo em duas colunas (≈2/3 + 1/3). */

@@ -28,7 +28,7 @@ export default function ExamReportPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
+    <div className="mx-auto max-w-3xl space-y-5 hp-page">
       <div className="flex items-center gap-3">
         <Link href="/exames" className="rounded-lg p-1.5 text-muted hover:bg-surface-2 hover:text-fg">
           <ArrowLeft className="h-5 w-5" />

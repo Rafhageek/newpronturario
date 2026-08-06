@@ -23,6 +23,7 @@ import { useActiveProfile } from '@/components/profile-context';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
 import { ListSkeleton } from '@/components/ui/skeleton';
+import { PageHeader } from '@/components/ui/painel';
 
 const EVENT_PRESENTATION: Record<
   ClinicalTimelineEventType,
@@ -77,20 +78,18 @@ export default function LinhaDoTempoPage() {
   const events = timeline.data?.pages.flatMap((page) => page.events) ?? [];
 
   return (
-    <main className="mx-auto max-w-3xl space-y-5">
-      <header className="space-y-1">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
-          Prontuário
-        </p>
-        <h1 className="text-2xl font-bold text-fg" style={{ fontFamily: 'var(--font-display)' }}>
-          Linha do tempo clínica
-        </h1>
-        <p className="text-sm text-muted">
-          {active.isSelf
+    <main className="mx-auto max-w-5xl space-y-5 hp-page">
+      <PageHeader
+        eyebrow="Prontuário"
+        title="Linha do tempo clínica"
+        subtitle={
+          active.isSelf
             ? 'Seus registros organizados pela data original.'
-            : `Registros de ${active.name}, conforme suas permissões de cuidado.`}
-        </p>
-      </header>
+            : `Registros de ${active.name}, conforme suas permissões de cuidado.`
+        }
+        icon={ClipboardList}
+        tone="azul"
+      />
 
       <aside className="flex items-start gap-2 rounded-2xl border border-line bg-surface px-4 py-3 text-xs leading-5 text-muted">
         <HeartPulse className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />

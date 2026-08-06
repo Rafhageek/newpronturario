@@ -47,7 +47,7 @@ export default function FamiliaPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5">
+    <div className="mx-auto max-w-2xl space-y-5 hp-page hp-page--privacy">
       <header className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-fg" style={{ fontFamily: 'var(--font-display)' }}>Família</h1>

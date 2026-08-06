@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useTheme } from 'next-themes';
 import {
-  Accessibility, Bell, Bot, Check, Contrast, Download, Globe, Laptop, Lock, LogOut, Moon, Palette, Stethoscope, Sun, Trash2, Type,
+  Accessibility, Bell, Bot, Check, Contrast, Download, Globe, Laptop, Lock, LogOut, Moon, Palette, Settings as SettingsIcon, Stethoscope, Sun, Trash2, Type,
 } from 'lucide-react';
 import { a11y } from '@hubpatients/ui-tokens';
 import { toast } from 'sonner';
@@ -16,6 +16,7 @@ import { TwoFactorSection } from '@/components/settings/two-factor-section';
 import { UpgradeModal } from '@/components/ui/upgrade-modal';
 import { CyclePrivacySection } from '@/components/cycle/cycle-privacy-section';
 import { CalendarSyncSection } from '@/components/settings/calendar-sync-section';
+import { PageHeader } from '@/components/ui/painel';
 
 /**
  * px → rem. Alvos de toque em `rem` acompanham a escala de fonte do usuário
@@ -79,8 +80,14 @@ export default function ConfiguracoesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5">
-      <h1 className="text-2xl font-bold text-fg" style={{ fontFamily: 'var(--font-display)' }}>Configurações</h1>
+    <div className="mx-auto max-w-5xl space-y-5 hp-page hp-page--privacy">
+      <PageHeader
+        eyebrow="Conta e privacidade"
+        title="Configurações"
+        subtitle="Ajuste leitura, aparência, notificações, segurança e integrações em um só lugar."
+        icon={SettingsIcon}
+        tone="ardosia"
+      />
 
       {/* Modo simples (Modo Sênior) — primeiro por ser o de maior impacto */}
       <section className={`rounded-2xl border bg-surface p-5 ${seniorOn ? 'border-primary' : 'border-line'}`}>

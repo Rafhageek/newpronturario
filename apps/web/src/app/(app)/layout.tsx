@@ -8,7 +8,7 @@
  * para AA. Continua valendo tudo o que já existia — Modo Sênior, escala de
  * fonte, alto contraste, tokens de status.
  *
- * A largura máxima do conteúdo (1280px, `layout.contentMaxWidth` em
+ * A largura máxima do conteúdo (1440px, `layout.contentMaxWidth` em
  * @hubpatients/ui-tokens) mora AQUI e não em cada rota: 49 telas escolhendo a
  * própria largura é como o app ficou com quatro larguras diferentes.
  */
@@ -32,11 +32,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <a href="#conteudo" className="vl-skip-link">Pular para o conteúdo</a>
       <div className="hp-clinical-shell vl-app-shell flex h-screen overflow-hidden bg-bg text-fg">
         <AppSidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="hp-app-workspace relative isolate flex min-w-0 flex-1 flex-col overflow-hidden">
           <AppTopbar onMenuClick={() => setMobileOpen(true)} />
           <CaregiverBanner />
-          <main id="conteudo" className="flex-1 overflow-y-auto">
-            <div className="mx-auto w-full max-w-[1280px] px-4 py-5 sm:px-6 sm:py-6 xl:px-8">
+          <main id="conteudo" className="relative z-10 flex-1 overflow-y-auto">
+            <div className="mx-auto w-full max-w-[1440px] px-4 py-5 sm:px-6 sm:py-6 xl:px-8">
               {children}
             </div>
           </main>

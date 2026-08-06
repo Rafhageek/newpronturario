@@ -7,6 +7,7 @@ import { useActiveProfile } from '@/components/profile-context';
 import { AppointmentCard } from '@/components/consultas/appointment-card';
 import { NewAppointmentModal } from '@/components/consultas/new-appointment-modal';
 import { ClinicalReportButton } from '@/components/clinical/report-button';
+import { PageHeader } from '@/components/ui/painel';
 
 export default function ConsultasPage() {
   const { patientId } = useActiveProfile();
@@ -31,13 +32,17 @@ export default function ConsultasPage() {
   const shown = tab === 'upcoming' ? upcoming : past;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-fg" style={{ fontFamily: 'var(--font-display)' }}>Consultas</h1>
-        <button onClick={() => setModalOpen(true)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-400 px-4 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 transition hover:opacity-90">
+    <div className="mx-auto max-w-5xl space-y-5 hp-page">
+      <PageHeader
+        eyebrow="Jornada de cuidado"
+        title="Consultas"
+        subtitle="Prepare o que levar, acompanhe próximos compromissos e mantenha o histórico reunido."
+        icon={CalendarDays}
+        tone="indigo"
+        right={<button type="button" onClick={() => setModalOpen(true)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-400 px-4 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 transition hover:opacity-90">
           <Plus className="h-4 w-4" /> Nova consulta
-        </button>
-      </header>
+        </button>}
+      />
 
       {/* Levar os registros para a consulta é o passo mais útil desta tela —
           por isso fica antes da lista, não escondido em um menu. */}

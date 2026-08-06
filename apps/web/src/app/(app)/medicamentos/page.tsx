@@ -30,6 +30,7 @@ import { StockModal } from '@/components/meds/stock-modal';
 import { Tabs } from '@/components/ui/tabs';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui';
+import { PageHeader } from '@/components/ui/painel';
 import { scheduledAtToday } from '@/lib/time';
 
 /** Janela do painel de adesão e do alerta de reposição (paridade com o mobile). */
@@ -130,18 +131,23 @@ export default function MedicamentosPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-fg" style={{ fontFamily: 'var(--font-display)' }}>Medicamentos</h1>
-        <div className="flex items-center gap-3">
+    <div className="mx-auto max-w-5xl space-y-5 hp-page">
+      <PageHeader
+        eyebrow="Meu prontuário"
+        title="Medicamentos"
+        subtitle="Organize horários, confirme tomadas e acompanhe quando será necessário repor o estoque."
+        icon={Pill}
+        tone="azul"
+        right={
           <button
+            type="button"
             onClick={handleNew}
             className="inline-flex h-10 items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-400 px-4 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 transition hover:opacity-90"
           >
             <Plus className="h-4 w-4" /> Novo
           </button>
-        </div>
-      </header>
+        }
+      />
 
       {/* Lembrete de reposição: quando acaba e em que data. */}
       {firstAlert && (

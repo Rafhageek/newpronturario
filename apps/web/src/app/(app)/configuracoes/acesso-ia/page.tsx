@@ -91,7 +91,7 @@ export default function AcessoIaPage() {
   );
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5">
+    <div className="mx-auto max-w-2xl space-y-5 hp-page hp-page--privacy">
       <Link href="/configuracoes" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-fg">
         <ArrowLeft className="h-4 w-4" /> Configurações
       </Link>

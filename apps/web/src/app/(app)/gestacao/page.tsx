@@ -115,7 +115,7 @@ function PregnancyDashboard({
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
+    <div className="mx-auto max-w-3xl space-y-5 hp-page hp-page--journey">
       <EmergencyContactBanner
         obstetricianPhone={journey.obstetrician_phone}
         maternityPhone={journey.maternity_phone}

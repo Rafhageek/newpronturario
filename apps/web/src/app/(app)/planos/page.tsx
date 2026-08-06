@@ -8,11 +8,11 @@ const featureList = Object.values(FEATURES);
 
 export default function PlanosPage() {
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="mx-auto max-w-5xl space-y-6 hp-page hp-page--privacy">
       <header className="text-center">
-        <h2 className="text-3xl font-bold tracking-tight text-fg" style={{ fontFamily: 'var(--font-display)' }}>
+        <h1 className="text-3xl font-bold tracking-tight text-fg" style={{ fontFamily: 'var(--font-display)' }}>
           Escolha seu plano
-        </h2>
+        </h1>
         <p className="mx-auto mt-2 max-w-lg text-sm text-muted">
           As features de <span className="font-semibold text-emerald-700 dark:text-emerald-300">segurança são gratuitas para sempre</span>. O
           Plus adiciona organização e interpretação didática.

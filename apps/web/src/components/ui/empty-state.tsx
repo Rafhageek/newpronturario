@@ -17,13 +17,13 @@ export function EmptyState({
 }) {
   return (
     <div
-      className={`flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-line px-6 py-14 text-center ${className}`}
+      className={`flex flex-col items-center justify-center gap-3 rounded-card border border-line bg-[linear-gradient(145deg,var(--surface-2),var(--surface))] px-6 py-14 text-center shadow-card ${className}`}
     >
-      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-surface-2">
-        <Icon className="h-7 w-7 text-faint" aria-hidden />
+      <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-chip-azul-tint text-chip-azul-ink shadow-sm">
+        <Icon className="h-7 w-7" aria-hidden />
       </span>
-      <p className="text-sm font-semibold text-fg-soft">{title}</p>
-      {description && <p className="max-w-xs text-xs text-muted">{description}</p>}
+      <p className="text-body font-semibold text-fg">{title}</p>
+      {description && <p className="max-w-md text-body-sm text-muted">{description}</p>}
       {action && <div className="mt-2">{action}</div>}
     </div>
   );

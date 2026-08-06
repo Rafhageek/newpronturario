@@ -24,7 +24,7 @@ export default function EducacaoPage() {
   const shown = tab === 'saved' ? saved : ordered;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5">
+    <div className="mx-auto max-w-2xl space-y-5 hp-page hp-page--community">
       <header className="flex items-start gap-3">
         <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-500/15 text-primary"><GraduationCap className="h-6 w-6" /></span>
         <div>

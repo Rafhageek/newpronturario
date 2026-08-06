@@ -331,13 +331,16 @@ export interface PageHeaderProps {
   /** Saudação grande ("Olá, Rafael! 👋"). */
   title: string;
   subtitle?: string;
+  /** Ícone de categoria opcional para cabeçalhos das rotas internas. */
+  icon?: Icone;
+  tone?: ChipTone;
   /** Canto direito: selo, ação, filtro. */
   right?: ReactNode;
   className?: string;
 }
 
 /** Cabeçalho de página: data, saudação, subtítulo, selo e a mancha decorativa. */
-export function PageHeader({ eyebrow, title, subtitle, right, className }: PageHeaderProps) {
+export function PageHeader({ eyebrow, title, subtitle, icon, tone, right, className }: PageHeaderProps) {
   return (
     <header className={cx('relative overflow-hidden', className)}>
       {/* Mancha de gradiente do canto. Decorativa e ESTÁTICA: movimento
@@ -351,7 +354,10 @@ export function PageHeader({ eyebrow, title, subtitle, right, className }: PageH
       <div className="flex flex-wrap items-start justify-between gap-4 py-2">
         <div className="min-w-0">
           {eyebrow ? <p className="text-caption font-semibold text-primary">{eyebrow}</p> : null}
-          <h1 className="mt-1 font-display text-title text-fg">{title}</h1>
+          <div className="mt-1 flex items-center gap-3">
+            {icon ? <IconChip icon={icon} tone={tone} seed={title} size="md" /> : null}
+            <h1 className="font-display text-title text-fg">{title}</h1>
+          </div>
           {subtitle ? <p className="mt-1 text-body-sm text-muted">{subtitle}</p> : null}
         </div>
         {right ? <div className="shrink-0">{right}</div> : null}
@@ -436,6 +442,8 @@ export interface StatCardProps {
    * aplica `hp-num`: Atkinson Mono, largura tabular, 1/l e 0/O inconfundíveis.
    */
   clinical?: boolean;
+  /** `compact` reproduz a métrica horizontal e baixa do dashboard. */
+  layout?: 'default' | 'compact';
   className?: string;
 }
 
@@ -455,12 +463,34 @@ export function StatCard({
   hintLabel,
   href,
   clinical,
+  layout = 'default',
   className,
 }: StatCardProps) {
   // `hint` pode ser um elemento (ex.: <ClinicalRangeChip>). Quando for, o texto
   // do leitor de tela vem de `hintLabel` — nunca de `String(elemento)`.
   const dicaLegivel = typeof hint === 'string' ? hint : hintLabel;
-  const corpo = (
+  const corpo = layout === 'compact' ? (
+    <div className="flex min-w-0 items-center gap-3">
+      <IconChip icon={icon} tone={tone} seed={label} size="md" />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-caption font-medium text-muted">{label}</p>
+        <p
+          className={cx(
+            'mt-0.5 truncate text-label font-semibold leading-tight text-fg',
+            clinical && 'hp-num',
+          )}
+        >
+          {value}
+        </p>
+        {hint ? (
+          <div className="mt-1 truncate text-caption leading-tight text-hint" aria-label={dicaLegivel || undefined}>
+            {hint}
+          </div>
+        ) : null}
+      </div>
+      {href ? <ChevronRight className="h-5 w-5 shrink-0 text-hint" aria-hidden="true" /> : null}
+    </div>
+  ) : (
     <>
       <div className="flex items-start justify-between gap-3">
         <IconChip icon={icon} tone={tone} seed={label} />
@@ -483,7 +513,8 @@ export function StatCard({
       <Link
         href={href}
         className={cx(
-          'group block rounded-card border border-line bg-surface p-5 shadow-card transition-colors hover:border-primary/40',
+          'group block rounded-card border border-line bg-surface shadow-card transition-colors hover:border-primary/40',
+          layout === 'compact' ? 'flex min-h-28 items-center p-4' : 'p-5',
           'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
           className,
         )}
@@ -492,7 +523,11 @@ export function StatCard({
       </Link>
     );
   }
-  return <PanelCard className={cx('p-5', className)}>{corpo}</PanelCard>;
+  return (
+    <PanelCard className={cx(layout === 'compact' ? 'flex min-h-28 items-center p-4' : 'p-5', className)}>
+      {corpo}
+    </PanelCard>
+  );
 }
 
 /** Fileira responsiva de cartões de métrica (5 no desktop do mockup). */
@@ -531,6 +566,8 @@ export interface EmptyStateProps {
    * de um `<PanelCard>` — senão vira borda dentro de borda.
    */
   variant?: 'boxed' | 'bare';
+  /** `horizontal` coloca ilustração e mensagem lado a lado em painéis largos. */
+  layout?: 'stacked' | 'horizontal';
   className?: string;
 }
 
@@ -551,8 +588,45 @@ export function EmptyState({
   actionHref,
   onAction,
   variant = 'boxed',
+  layout = 'stacked',
   className,
 }: EmptyStateProps) {
+  const visual = illustration ?? (icon ? <IconChip icon={icon} tone={tone} size="lg" /> : null);
+  const acao = actionLabel && (actionHref || onAction) ? (
+    <PanelButton
+      className="mt-2"
+      icon={Plus}
+      href={actionHref}
+      onClick={onAction}
+      size="sm"
+    >
+      {actionLabel}
+    </PanelButton>
+  ) : null;
+
+  if (layout === 'horizontal') {
+    return (
+      <div
+        className={cx(
+          'grid items-center gap-5 text-left sm:grid-cols-[minmax(170px,0.9fr)_minmax(260px,1.1fr)]',
+          variant === 'boxed'
+            ? 'rounded-card border border-line bg-[linear-gradient(115deg,var(--surface-2),var(--surface))] px-7 py-5'
+            : 'px-2 py-6',
+          className,
+        )}
+      >
+        <span aria-hidden="true" className="flex items-center justify-center text-hint">
+          {visual}
+        </span>
+        <div className="min-w-0">
+          <p className="text-label font-semibold text-fg">{title}</p>
+          {description ? <div className="mt-2 max-w-sm text-body-sm text-muted">{description}</div> : null}
+          {acao}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={cx(
@@ -564,21 +638,11 @@ export function EmptyState({
       )}
     >
       <span aria-hidden="true" className="text-hint">
-        {illustration ?? (icon ? <IconChip icon={icon} tone={tone} size="lg" /> : null)}
+        {visual}
       </span>
       <p className="text-body font-semibold text-fg-soft">{title}</p>
       {description ? <div className="max-w-sm text-body-sm text-muted">{description}</div> : null}
-      {actionLabel && (actionHref || onAction) ? (
-        <PanelButton
-          className="mt-2"
-          icon={Plus}
-          href={actionHref}
-          onClick={onAction}
-          size="sm"
-        >
-          {actionLabel}
-        </PanelButton>
-      ) : null}
+      {acao}
     </div>
   );
 }
@@ -762,14 +826,22 @@ export function QuickActions({
   actions,
   label = 'Ações rápidas',
   className,
+  variant = 'cards',
 }: {
   actions: QuickAction[];
   label?: string;
   className?: string;
+  variant?: 'cards' | 'floating';
 }) {
   return (
-    <nav aria-label={label} className={className}>
-      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <nav
+      aria-label={label}
+      className={cx(
+        variant === 'floating' && 'rounded-[22px] border border-line bg-surface p-1.5 shadow-raised',
+        className,
+      )}
+    >
+      <ul className={cx('grid grid-cols-2 sm:grid-cols-4', variant === 'cards' ? 'gap-3' : 'gap-0')}>
         {actions.map((acao) => {
           const conteudo = (
             <>
@@ -777,8 +849,12 @@ export function QuickActions({
               <span className="min-w-0 text-label font-medium text-fg">{acao.label}</span>
             </>
           );
-          const classes =
-            'flex min-h-11 w-full items-center gap-2.5 rounded-card border border-line bg-surface px-3 py-2.5 text-left transition-colors hover:border-primary/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary';
+          const classes = cx(
+            'flex min-h-11 w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
+            variant === 'cards'
+              ? 'rounded-card border border-line bg-surface hover:border-primary/40'
+              : 'rounded-2xl hover:bg-surface-2',
+          );
           return (
             <li key={acao.label}>
               {acao.href ? (

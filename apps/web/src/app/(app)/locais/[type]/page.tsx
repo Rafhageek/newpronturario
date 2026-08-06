@@ -81,7 +81,7 @@ export default function LocaisPage() {
   }, [places, search, only24h]);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5">
+    <div className="mx-auto max-w-5xl space-y-5 hp-page hp-page--community">
       <header className="flex items-center gap-3">
         <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-500/15 text-primary">
           <MapPin className="h-5 w-5" />

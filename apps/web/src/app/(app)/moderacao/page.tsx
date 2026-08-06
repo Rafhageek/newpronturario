@@ -35,7 +35,7 @@ export default function ModeracaoPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
+    <div className="mx-auto max-w-3xl space-y-5 hp-page">
       <header className="flex items-center gap-3">
         <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-500/15 text-primary">
           <Gavel className="h-5 w-5" />

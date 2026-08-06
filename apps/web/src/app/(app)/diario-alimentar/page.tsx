@@ -285,7 +285,7 @@ export default function DiarioAlimentarPage() {
   const semRegistroNoDia = podeAfirmarAusencia(estadoDia) && itens.length === 0;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5 pb-10">
+    <div className="mx-auto max-w-6xl space-y-5 pb-10 hp-page hp-page--wellbeing">
       {/* ─────────────────────────── Cabeçalho ─────────────────────────── */}
       <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex items-start gap-3">
