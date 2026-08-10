@@ -1,14 +1,14 @@
 // ============================================================================
-// HubPatients — Edge Function: process-exam (Plus)
+// HubPatients — Edge Function: process-exam
 //
-// SCAFFOLD — não deployado. Para usar:
-//   1. supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+// Para ligar:
+//   1. supabase secrets set ANTHROPIC_API_KEY=sk-ant-... AI_EXAM_ENABLED=true
 //   2. supabase functions deploy process-exam
 //
-// Recebe { examId, storagePath } → baixa o arquivo do bucket privado 'exams'
-// → pede ao Claude (vision) para EXTRAIR os valores numéricos do laudo
-// (apenas transcrição estruturada, NUNCA diagnóstico/interpretação)
-// → valida o JSON → grava em exam_metrics.
+// Recebe { examId, consent } → resolve o arquivo do exame do PRÓPRIO usuário
+// no bucket privado 'exams' → pede ao Claude (visão) para EXTRAIR os valores
+// do laudo (foto ou PDF; apenas transcrição estruturada, NUNCA
+// diagnóstico/interpretação) → valida → devolve para REVISÃO do usuário.
 //
 // A narrativa didática (resumo, explicações, perguntas) é montada no app a
 // partir do dicionário exam_metric_explanations — não vem do modelo.
@@ -33,9 +33,40 @@ Se não for um laudo laboratorial legível, retorne {"metrics":[]}.`;
 
 // Limites de consumo (OWASP LLM10 — Unbounded Consumption).
 const MAX_BYTES = 8 * 1024 * 1024; // 8 MB
-const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
-const AI_TIMEOUT_MS = 30_000;
+const ALLOWED_MIME = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+]);
+const AI_TIMEOUT_MS = 60_000;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Saída estruturada da API (json_schema): o modelo é OBRIGADO a devolver este
+// formato — o Zod abaixo continua validando limites que o schema não expressa.
+const EXTRACTION_SCHEMA = {
+  type: 'object',
+  properties: {
+    metrics: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          value: { anyOf: [{ type: 'number' }, { type: 'null' }] },
+          unit: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+          reference_min: { anyOf: [{ type: 'number' }, { type: 'null' }] },
+          reference_max: { anyOf: [{ type: 'number' }, { type: 'null' }] },
+        },
+        required: ['name', 'value', 'unit', 'reference_min', 'reference_max'],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ['metrics'],
+  additionalProperties: false,
+} as const;
 
 // Schema ESTRITO da resposta da IA (rejeita campos extras, limita tamanhos,
 // exige números finitos). Não confiar no modelo: validar tudo.
@@ -134,7 +165,10 @@ Deno.serve(async (req: Request) => {
 
     const mediaType = file.type || 'image/jpeg';
     if (!ALLOWED_MIME.has(mediaType)) {
-      return json({ error: 'Formato não suportado para leitura por IA (use JPG/PNG/WEBP).' }, 415);
+      return json(
+        { error: 'Formato não suportado para leitura por IA (use PDF, JPG, PNG ou WEBP).' },
+        415,
+      );
     }
     const bytes = new Uint8Array(await file.arrayBuffer());
     if (bytes.length > MAX_BYTES) {
@@ -142,7 +176,15 @@ Deno.serve(async (req: Request) => {
     }
     const base64 = toBase64(bytes);
 
-    // Extração via Claude (vision) — com timeout.
+    // PDF entra como bloco `document`; imagem como bloco `image`.
+    const fileBlock =
+      mediaType === 'application/pdf'
+        ? { type: 'document', source: { type: 'base64', media_type: mediaType, data: base64 } }
+        : { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } };
+
+    // Extração via Claude (visão) — com timeout. Saída estruturada garante o
+    // formato; `fallbacks: "default"` re-serve num modelo alternativo se o
+    // classificador de segurança recusar (laudo é benigno, mas há falso positivo).
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), AI_TIMEOUT_MS);
     let aiResp: Response;
@@ -153,18 +195,19 @@ Deno.serve(async (req: Request) => {
         headers: {
           'x-api-key': ANTHROPIC_API_KEY,
           'anthropic-version': '2023-06-01',
+          'anthropic-beta': 'server-side-fallback-2026-07-01',
           'content-type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 2048,
+          model: 'claude-opus-5',
+          // Teto de saída inclui o thinking adaptativo do modelo, não só o JSON.
+          max_tokens: 8192,
+          fallbacks: 'default',
+          output_config: { format: { type: 'json_schema', schema: EXTRACTION_SCHEMA } },
           messages: [
             {
               role: 'user',
-              content: [
-                { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
-                { type: 'text', text: EXTRACTION_PROMPT },
-              ],
+              content: [fileBlock, { type: 'text', text: EXTRACTION_PROMPT }],
             },
           ],
         }),
@@ -176,7 +219,17 @@ Deno.serve(async (req: Request) => {
       return json({ error: 'Falha na leitura do exame. Tente novamente.' }, 502);
     }
     const aiData = await aiResp.json();
-    const text: string = aiData?.content?.[0]?.text ?? '{"metrics":[]}';
+    if (aiData?.stop_reason === 'refusal') {
+      return json(
+        { error: 'Não foi possível ler este exame automaticamente. Adicione os valores manualmente.' },
+        422,
+      );
+    }
+    // O modelo pode emitir blocos de thinking antes do texto — localizar por tipo.
+    const textBlock = Array.isArray(aiData?.content)
+      ? aiData.content.find((b: { type?: string }) => b?.type === 'text')
+      : undefined;
+    const text: string = textBlock?.text ?? '{"metrics":[]}';
 
     let rawJson: unknown;
     try {
