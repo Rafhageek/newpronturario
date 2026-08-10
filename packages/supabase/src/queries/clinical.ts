@@ -8,6 +8,7 @@ import type {
   Surgery,
   UpdateRow,
 } from '@hubpatients/core';
+import { safeExamFileName, validateSurgeryReportUpload } from '@hubpatients/core';
 import type { HubPatientsClient } from '../types';
 
 // ── Consultas (appointments) ────────────────────────────────────────────────
@@ -131,8 +132,72 @@ export async function createSurgery(client: HubPatientsClient, row: InsertRow<'s
   return data;
 }
 export async function deleteSurgery(client: HubPatientsClient, id: string) {
+  // Lê o anexo antes de apagar a linha: o arquivo no storage não some em cascata.
+  const { data: existing } = await client.from('surgeries').select('report_path').eq('id', id).maybeSingle();
   const { error } = await client.from('surgeries').delete().eq('id', id);
   if (error) throw error;
+  if (existing?.report_path) {
+    try {
+      await client.storage.from('exams').remove([existing.report_path]);
+    } catch {
+      // Órfão no storage é aceitável; a linha já saiu do prontuário.
+    }
+  }
+}
+
+// ── Laudo (PDF) da cirurgia — arquivo no bucket 'exams', sob <dono>/cirurgias/ ──
+
+/** Web passa o File; mobile passa os bytes já lidos + metadados. */
+export type SurgeryReportSource =
+  | File
+  | { name: string; type: string; size: number; data: Uint8Array };
+
+export async function uploadSurgeryReportFile(
+  client: HubPatientsClient,
+  patientId: string,
+  file: SurgeryReportSource,
+): Promise<string> {
+  const validation = validateSurgeryReportUpload(file);
+  if (!validation.valid) throw new Error(validation.message);
+  const path = `${patientId}/cirurgias/${Date.now()}_${safeExamFileName(file.name)}`;
+  const body = 'data' in file ? file.data : file;
+  const { error } = await client.storage.from('exams').upload(path, body, {
+    contentType: validation.mime,
+    cacheControl: '3600',
+    upsert: false,
+  });
+  if (error) throw error;
+  return path;
+}
+
+export async function setSurgeryReport(
+  client: HubPatientsClient,
+  surgeryId: string,
+  reportPath: string | null,
+): Promise<Surgery> {
+  const { data, error } = await client
+    .from('surgeries')
+    .update({ report_path: reportPath })
+    .eq('id', surgeryId)
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function removeSurgeryReportFile(client: HubPatientsClient, storagePath: string) {
+  const { error } = await client.storage.from('exams').remove([storagePath]);
+  if (error) throw error;
+}
+
+export async function getSurgeryReportSignedUrl(
+  client: HubPatientsClient,
+  storagePath: string,
+  expiresIn = 60,
+): Promise<string | null> {
+  const { data, error } = await client.storage.from('exams').createSignedUrl(storagePath, expiresIn);
+  if (error) throw error;
+  return data?.signedUrl ?? null;
 }
 
 // ── Antecedentes familiares (family_history) ────────────────────────────────

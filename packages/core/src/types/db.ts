@@ -429,11 +429,12 @@ export interface Database {
           performed_at: string | null;
           hospital: string | null;
           notes: string | null;
+          report_path: string | null;
           created_at: string;
           updated_at: string;
         },
         'id' | 'created_at' | 'updated_at',
-        'performed_at' | 'hospital' | 'notes'
+        'performed_at' | 'hospital' | 'notes' | 'report_path'
       >;
       family_history: Table<
         {

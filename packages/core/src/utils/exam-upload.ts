@@ -43,6 +43,22 @@ export function validateExamUpload(file: {
   return { valid: true, mime, extension };
 }
 
+/** Laudo de cirurgia: mesma régua do exame, mas aceita SOMENTE PDF. */
+export const SURGERY_REPORT_ACCEPT = 'application/pdf';
+
+export function validateSurgeryReportUpload(file: {
+  name: string;
+  type: string | null | undefined;
+  size: number | null | undefined;
+}): ExamUploadValidation {
+  const base = validateExamUpload(file);
+  if (!base.valid) return base;
+  if (base.mime !== 'application/pdf') {
+    return { valid: false, code: 'mime', message: 'O laudo da cirurgia deve ser um arquivo PDF.' };
+  }
+  return base;
+}
+
 export function safeExamFileName(name: string): string {
   const normalized = name.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
   const safe = normalized.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/_{2,}/g, '_');

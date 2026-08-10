@@ -21,6 +21,11 @@ import {
   listSurgeries,
   createSurgery,
   deleteSurgery,
+  uploadSurgeryReportFile,
+  setSurgeryReport,
+  removeSurgeryReportFile,
+  getSurgeryReportSignedUrl,
+  type SurgeryReportSource,
   listFamilyHistory,
   createFamilyHistory,
   deleteFamilyHistory,
@@ -206,6 +211,41 @@ export function useSurgeryMutations(patientId: string) {
   return {
     create: useMutation({ mutationFn: (row: InsertRow<'surgeries'>) => createSurgery(client, row), onSuccess: invalidate }),
     remove: useMutation({ mutationFn: (id: string) => deleteSurgery(client, id), onSuccess: invalidate }),
+    attachReport: useMutation({
+      mutationFn: async ({
+        surgeryId,
+        file,
+        previousPath,
+      }: {
+        surgeryId: string;
+        file: SurgeryReportSource;
+        previousPath?: string | null;
+      }) => {
+        const path = await uploadSurgeryReportFile(client, patientId, file);
+        try {
+          const updated = await setSurgeryReport(client, surgeryId, path);
+          // Troca de laudo: o arquivo antigo sai por último e best-effort — órfão
+          // no storage é o mal menor frente a uma linha apontando pra arquivo morto.
+          if (previousPath) await removeSurgeryReportFile(client, previousPath).catch(() => undefined);
+          return updated;
+        } catch (error) {
+          await removeSurgeryReportFile(client, path).catch(() => undefined);
+          throw error;
+        }
+      },
+      onSuccess: invalidate,
+    }),
+    removeReport: useMutation({
+      mutationFn: async ({ surgeryId, reportPath }: { surgeryId: string; reportPath: string }) => {
+        const updated = await setSurgeryReport(client, surgeryId, null);
+        await removeSurgeryReportFile(client, reportPath).catch(() => undefined);
+        return updated;
+      },
+      onSuccess: invalidate,
+    }),
+    reportUrl: useMutation({
+      mutationFn: (reportPath: string) => getSurgeryReportSignedUrl(client, reportPath),
+    }),
   };
 }
 

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { View, Text, Pressable, ScrollView, RefreshControl, Alert } from 'react-native';
+import { View, Text, Pressable, ScrollView, RefreshControl, Alert, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -7,7 +7,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import QRCode from 'react-native-qrcode-svg';
 import {
   User, LogOut, ChevronDown, ChevronUp, Plus, Trash2, ShieldAlert, Stethoscope,
-  Scissors, Users, CreditCard, FileDown, type LucideIcon, AlertTriangle,
+  Scissors, Users, CreditCard, FileDown, FileText, type LucideIcon, AlertTriangle,
 } from 'lucide-react-native';
 import {
   useProfile, useUpdateProfile, useAllergies, useAllergyMutations, useConditions,
@@ -860,6 +860,7 @@ function ConditionsSection({ patientId }: { patientId: string }) {
 function SurgeriesSection({ patientId }: { patientId: string }) {
   const { data } = useSurgeries(patientId || undefined);
   const m = useSurgeryMutations(patientId);
+  const colors = useColors();
   const [procedure, setProcedure] = useState('');
   const [date, setDate] = useState('');
   const [hospital, setHospital] = useState('');
@@ -881,6 +882,18 @@ function SurgeriesSection({ patientId }: { patientId: string }) {
       },
     );
   }
+  // Abrir o laudo anexado (URL assinada, curta duração). Anexar é só na web por
+  // enquanto: escolher PDF exige expo-document-picker, que não está no APK 0.4.0.
+  async function openReport(reportPath: string) {
+    try {
+      const url = await m.reportUrl.mutateAsync(reportPath);
+      if (!url) throw new Error('sem URL');
+      await Linking.openURL(url);
+    } catch {
+      toast.error('Não foi possível abrir o laudo. Tente de novo.');
+    }
+  }
+
   return (
     <Section icon={Scissors} title="Cirurgias" subtitle={`${list.length} registrada(s)`}>
       {list.map((s) => (
@@ -888,6 +901,17 @@ function SurgeriesSection({ patientId }: { patientId: string }) {
           <View className="flex-1">
             <Text style={{ fontFamily: fonts.semibold }} className="text-[14px] text-fg">{s.procedure}</Text>
             {s.performed_at ? <Text style={{ fontFamily: fonts.regular }} className="text-[12px] text-muted">{new Date(s.performed_at).toLocaleDateString('pt-BR')}{s.hospital ? ` · ${s.hospital}` : ''}</Text> : null}
+            {s.report_path ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Abrir laudo em PDF da cirurgia ${s.procedure}`}
+                onPress={() => void openReport(s.report_path as string)}
+                className="mt-1 flex-row items-center gap-1 self-start rounded-lg px-1 py-1"
+              >
+                <FileText size={14} color={colors.primary} />
+                <Text style={{ fontFamily: fonts.semibold }} className="text-[13px] text-primary">Ver laudo (PDF)</Text>
+              </Pressable>
+            ) : null}
           </View>
           <RemoveButton
             label={`Remover cirurgia ${s.procedure}`}
