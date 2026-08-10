@@ -1,5 +1,6 @@
 'use client';
 
+import type { ChangeEvent } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -18,10 +19,22 @@ export function ConditionsSection({ patientId }: { patientId: string }) {
   const { data: conditions, isSuccess, isError } = useConditions(patientId);
   const { create, remove } = useConditionMutations(patientId);
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<ConditionInput>({
+  const { register, handleSubmit, reset, setValue, getValues, formState: { errors } } = useForm<ConditionInput>({
     resolver: zodResolver(conditionSchema),
     defaultValues: { status: 'active' },
   });
+
+  // Condição ↔ CID-10 andam juntos no catálogo do DATASUS: escolher um preenche o outro.
+  function preencheCidPelaCondicao(e: ChangeEvent<HTMLInputElement>) {
+    const match = CID10_COMMON.find((c) => c.label === e.target.value);
+    if (match) setValue('cid10Code', match.code);
+  }
+
+  function preencheCondicaoPeloCid(e: ChangeEvent<HTMLInputElement>) {
+    const code = e.target.value.trim().toUpperCase();
+    const match = CID10_COMMON.find((c) => c.code === code);
+    if (match && !getValues('name')) setValue('name', match.label);
+  }
 
   async function onAdd(values: ConditionInput) {
     try {
@@ -69,15 +82,34 @@ export function ConditionsSection({ patientId }: { patientId: string }) {
       )}
 
       <form onSubmit={handleSubmit(onAdd)} className="grid gap-3 rounded-xl border border-line bg-surface-2 p-3 sm:grid-cols-2" noValidate>
+        {/* autoComplete="off" + autoCorrect: sem isso o Safari sobrepõe contatos e cartões
+            salvos do usuário ao datalist clínico (visto em produção nos campos Condição e CID). */}
         <Field label="Condição" htmlFor="cond-name" error={errors.name?.message}>
-          <Input id="cond-name" list="cid10-list" {...register('name')} placeholder="Ex.: Hipertensão" />
+          <Input
+            id="cond-name"
+            list="cid10-list"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            {...register('name', { onChange: preencheCidPelaCondicao })}
+            placeholder="Ex.: Hipertensão"
+          />
           <datalist id="cid10-list">
             {CID10_COMMON.map((c) => (
               <option key={c.code} value={c.label}>{c.code}</option>
             ))}
           </datalist>
         </Field>
-        <Field label="CID-10" htmlFor="cond-cid"><Input id="cond-cid" {...register('cid10Code')} placeholder="Ex.: I10" /></Field>
+        <Field label="CID-10" htmlFor="cond-cid">
+          <Input
+            id="cond-cid"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            {...register('cid10Code', { onChange: preencheCondicaoPeloCid })}
+            placeholder="Ex.: I10"
+          />
+        </Field>
         <Field label="Status" htmlFor="cond-status">
           <select id="cond-status" {...register('status')} className="h-11 w-full rounded-xl border border-line bg-surface-2 px-3 text-sm text-fg">
             {Object.entries(CONDITION_STATUS_LABELS).map(([k, v]) => (<option key={k} value={k}>{v}</option>))}
