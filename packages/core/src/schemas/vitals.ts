@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { dataOpcional } from './data-opcional';
 
 const vitalTypeEnum = z.enum([
   'blood_pressure',
@@ -16,7 +17,7 @@ const vitalTypeEnum = z.enum([
 export const vitalSchema = z
   .object({
     type: vitalTypeEnum,
-    measuredAt: z.coerce.date().optional(),
+    measuredAt: dataOpcional,
     valuePrimary: z.number({ invalid_type_error: 'Informe um número.' }).positive('Valor deve ser positivo.'),
     valueSecondary: z.number().positive().optional(),
     note: z.string().trim().max(500).optional(),

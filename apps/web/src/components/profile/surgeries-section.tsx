@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { FileText, Paperclip, Trash2, X } from 'lucide-react';
@@ -25,6 +25,22 @@ export function SurgeriesSection({ patientId }: { patientId: string }) {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [attachTarget, setAttachTarget] = useState<{ id: string; previousPath: string | null } | null>(null);
+
+  /**
+   * Rede de segurança: reprovar não pode virar silêncio. Cada campo já mostra
+   * a própria mensagem, mas o aviso alcança quem não estava olhando para a
+   * parte do formulário que reprovou.
+   */
+  function onInvalid(erros: FieldErrors<SurgeryInput>) {
+    const primeira = Object.values(erros).find(
+      (e) => typeof e?.message === 'string' && e.message.length > 0,
+    )?.message;
+    toast.error(
+      typeof primeira === 'string'
+        ? `Não foi possível adicionar: ${primeira}`
+        : 'Não foi possível adicionar. Confira os campos com aviso e tente de novo.',
+    );
+  }
 
   async function onAdd(values: SurgeryInput) {
     try {
@@ -163,12 +179,19 @@ export function SurgeriesSection({ patientId }: { patientId: string }) {
         </p>
       )}
 
-      <form onSubmit={handleSubmit(onAdd)} className="grid gap-3 rounded-xl border border-line bg-surface-2 p-3 sm:grid-cols-2" noValidate>
+      <form onSubmit={handleSubmit(onAdd, onInvalid)} className="grid gap-3 rounded-xl border border-line bg-surface-2 p-3 sm:grid-cols-2" noValidate>
         <Field label="Procedimento" htmlFor="su-proc" error={errors.procedure?.message}>
           <Input id="su-proc" autoComplete="off" autoCorrect="off" spellCheck={false} {...register('procedure')} placeholder="Ex.: Apendicectomia" />
         </Field>
-        <Field label="Data" htmlFor="su-date"><Input id="su-date" type="date" {...register('performedAt')} /></Field>
-        <Field label="Hospital" htmlFor="su-hosp"><Input id="su-hosp" autoComplete="off" {...register('hospital')} /></Field>
+        {/* A data é opcional, mas uma data que não existe ("31/02") reprova de
+            propósito. Sem esta mensagem o clique em "Adicionar" volta a ser o
+            silêncio que gerou a queixa do cliente. */}
+        <Field label="Data" htmlFor="su-date" error={errors.performedAt?.message}>
+          <Input id="su-date" type="date" {...register('performedAt')} />
+        </Field>
+        <Field label="Hospital" htmlFor="su-hosp" error={errors.hospital?.message}>
+          <Input id="su-hosp" autoComplete="off" {...register('hospital')} />
+        </Field>
         <div className="sm:col-span-2 flex justify-end">
           <Button type="submit" disabled={create.isPending}>{create.isPending ? 'Adicionando…' : 'Adicionar cirurgia'}</Button>
         </div>

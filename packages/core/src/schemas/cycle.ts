@@ -1,8 +1,9 @@
 import { z } from 'zod';
+import { dataOpcional } from './data-opcional';
 
 /** Registro diário do ciclo. */
 export const cycleLogSchema = z.object({
-  logDate: z.coerce.date().optional(),
+  logDate: dataOpcional,
   flowLevel: z.coerce.number().int().min(0).max(3).default(0),
   symptoms: z.array(z.string()).default([]),
   mood: z.array(z.string()).default([]),

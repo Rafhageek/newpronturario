@@ -1,7 +1,7 @@
 'use client';
 
 import type { ChangeEvent } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Trash2 } from 'lucide-react';
@@ -34,6 +34,22 @@ export function ConditionsSection({ patientId }: { patientId: string }) {
     const code = e.target.value.trim().toUpperCase();
     const match = CID10_COMMON.find((c) => c.code === code);
     if (match && !getValues('name')) setValue('name', match.label);
+  }
+
+  /**
+   * Rede de segurança: reprovar não pode virar silêncio. Cada campo já mostra
+   * a própria mensagem, mas o aviso alcança quem não estava olhando para a
+   * parte do formulário que reprovou.
+   */
+  function onInvalid(erros: FieldErrors<ConditionInput>) {
+    const primeira = Object.values(erros).find(
+      (e) => typeof e?.message === 'string' && e.message.length > 0,
+    )?.message;
+    toast.error(
+      typeof primeira === 'string'
+        ? `Não foi possível adicionar: ${primeira}`
+        : 'Não foi possível adicionar. Confira os campos com aviso e tente de novo.',
+    );
   }
 
   async function onAdd(values: ConditionInput) {
@@ -81,7 +97,7 @@ export function ConditionsSection({ patientId }: { patientId: string }) {
         </p>
       )}
 
-      <form onSubmit={handleSubmit(onAdd)} className="grid gap-3 rounded-xl border border-line bg-surface-2 p-3 sm:grid-cols-2" noValidate>
+      <form onSubmit={handleSubmit(onAdd, onInvalid)} className="grid gap-3 rounded-xl border border-line bg-surface-2 p-3 sm:grid-cols-2" noValidate>
         {/* autoComplete="off" + autoCorrect: sem isso o Safari sobrepõe contatos e cartões
             salvos do usuário ao datalist clínico (visto em produção nos campos Condição e CID). */}
         <Field label="Condição" htmlFor="cond-name" error={errors.name?.message}>
@@ -100,7 +116,7 @@ export function ConditionsSection({ patientId }: { patientId: string }) {
             ))}
           </datalist>
         </Field>
-        <Field label="CID-10" htmlFor="cond-cid">
+        <Field label="CID-10" htmlFor="cond-cid" error={errors.cid10Code?.message}>
           <Input
             id="cond-cid"
             autoComplete="off"
@@ -110,12 +126,17 @@ export function ConditionsSection({ patientId }: { patientId: string }) {
             placeholder="Ex.: I10"
           />
         </Field>
-        <Field label="Status" htmlFor="cond-status">
+        <Field label="Status" htmlFor="cond-status" error={errors.status?.message}>
           <select id="cond-status" {...register('status')} className="h-11 w-full rounded-xl border border-line bg-surface-2 px-3 text-sm text-fg">
             {Object.entries(CONDITION_STATUS_LABELS).map(([k, v]) => (<option key={k} value={k}>{v}</option>))}
           </select>
         </Field>
-        <Field label="Diagnóstico em" htmlFor="cond-date"><Input id="cond-date" type="date" {...register('diagnosedAt')} /></Field>
+        {/* A data é opcional, mas uma data que não existe ("31/02") reprova de
+            propósito. Sem esta mensagem o clique em "Adicionar" volta a ser o
+            silêncio que gerou a queixa do cliente. */}
+        <Field label="Diagnóstico em" htmlFor="cond-date" error={errors.diagnosedAt?.message}>
+          <Input id="cond-date" type="date" {...register('diagnosedAt')} />
+        </Field>
         <div className="sm:col-span-2 flex justify-end">
           <Button type="submit" disabled={create.isPending}>{create.isPending ? 'Adicionando…' : 'Adicionar condição'}</Button>
         </div>

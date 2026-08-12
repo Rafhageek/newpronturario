@@ -10,7 +10,7 @@
  * `@/components/ui/painel`. Se você precisou de um hex, um `fontSize` ou um raio
  * AQUI, a peça está faltando na fundação — abra lá, não aqui.
  *
- * TRÊS COISAS QUE ESTA TELA PROTEGE (e que um redesenho desfaz sem querer):
+ * QUATRO COISAS QUE ESTA TELA PROTEGE (e que um redesenho desfaz sem querer):
  *
  * 1. NÃO AFIRMAR O QUE NÃO SE SABE. Quem decide se a tela pode dizer "nenhuma
  *    alergia registrada" é `estadoSecao`/`estadoAgregado`, não `isLoading`. As
@@ -24,12 +24,42 @@
  *    cartão está vazio a dica vira um caminho ("Você pode informar no perfil"),
  *    e nunca uma atribuição de autoria.
  *
- * 3. COR NUNCA NO CORPO DO PACIENTE. A faixa da pressão sai em PALAVRAS
+ * 3. O DESTAQUE É DO DADO QUE EXISTE. Cartão com mais de uma medida (peso e
+ *    altura) nunca põe "Não informado" no lugar grande enquanto houver algo
+ *    preenchido: mostra o que existe e usa a dica para pedir o que falta.
+ *    "Não informado" no destaque é só para o cartão inteiramente vazio.
+ *
+ * 4. COR NUNCA NO CORPO DO PACIENTE. A faixa da pressão sai em PALAVRAS
  *    (`leituraDaFaixa`) + seta neutra (`Trend`); os chips dos cartões são de
  *    CATEGORIA e a paleta não tem verde, âmbar nem vermelho para escolher. O
  *    humor usa `<MoodScale>`/`<MoodMark>`: forma + rótulo, um matiz só. Âmbar e
  *    vermelho aparecem apenas em status de AGENDA (`SystemStatusChip`), que é
  *    domínio do sistema. Trava: `packages/core/src/utils/regra-cor-clinica.test.ts`.
+ *
+ * A FILEIRA DO TOPO NÃO CORTA MAIS TEXTO — e esta nota existe para impedir que
+ * alguém volte a encurtar string por um motivo que já não existe.
+ *
+ * A fileira é medida pela COLUNA, não por breakpoint: `<StatRow>` perdeu o
+ * `xl:grid-cols-5` e hoje é `auto-fit` + `minmax(min(15rem, 100%), 1fr)` — a
+ * regra deixou de ser "cinco cartões sempre" e passou a ser "nenhuma coluna
+ * abaixo de 15rem" (~240px, ~312px no Modo Sênior, porque a medida é rem e
+ * acompanha a letra). Em tela larga voltam os cinco cartões do mockup; em
+ * 1280px a fileira cai sozinha para três em vez de espremer cinco.
+ *
+ * E `<StatCard layout="compact">` não tem `truncate` em texto NENHUM — rótulo,
+ * valor e dica quebram linha (`leading-tight` + `overflow-wrap: anywhere`) e o
+ * cartão cresce, porque ele é `min-h-28`. Está escrito assim, com o motivo, no
+ * cabeçalho de `components/ui/painel/primitives.tsx` (item C) e ao lado do
+ * próprio JSX: subir a letra mantendo reticências seria trocar "pequeno demais
+ * para ler" por "cortado antes de terminar". Ou seja: o que passa da largura
+ * QUEBRA A LINHA, não é cortado. Não conte caracteres aqui.
+ *
+ * O que SOBREVIVE do orçamento antigo é a regra de VERACIDADE, que nunca foi
+ * sobre caber: "Nenhuma registrada" não vira "Nenhuma", e "marcada como grave"
+ * não vira "grave" — encurtar até apagar quem afirmou o quê troca um problema
+ * visível (linha mais alta) por um erro invisível (afirmação que mudou de
+ * sentido). Preferir o dado que existe ("2 resolvidas") a uma oração inteira
+ * sobre a ausência continua valendo como ESCRITA CLARA, não como corte.
  *
  * Datas e horas são formatadas pelos utilitários PT-BR do `@hubpatients/core`,
  * sem `Intl` — o mobile roda em Hermes, e paridade também é ter um formatador só.
@@ -79,6 +109,7 @@ import {
 } from '@hubpatients/supabase';
 import {
   APPOINTMENT_KIND_LABELS,
+  CONDITION_STATUS_LABELS,
   DIAS_SEMANA_PT,
   DISCLAIMERS,
   MEDICATION_FORM_LABELS,
@@ -268,9 +299,17 @@ export default function DashboardPage() {
   const meds = data?.activeMedications ?? [];
   const upcoming = data?.upcomingIntakes ?? [];
   const allergies = allergiesQuery.data ?? [];
-  const activeConditions = (conditionsQuery.data ?? []).filter(
+  const condicoes = conditionsQuery.data ?? [];
+  /*
+   * "Em acompanhamento" = tudo que não foi dado por resolvido: `active`,
+   * `controlled` e `suspected`. O rótulo do cartão dizia "registros ativos", e
+   * chamar uma condição SUSPEITA de ativa é o app afirmando mais do que o
+   * paciente escreveu — vocabulário, não cosmética.
+   */
+  const condicoesEmAcompanhamento = condicoes.filter(
     (condition) => condition.status !== 'resolved',
   );
+  const condicoesResolvidas = condicoes.length - condicoesEmAcompanhamento.length;
   const range = bpQuery.data ?? [];
   const nextAppt = appointmentQuery.data;
   const wellbeing = wellbeingQuery.data;
@@ -287,6 +326,124 @@ export default function DashboardPage() {
       )[0] ?? null;
   const bmi = computeBMI(latestWeight?.value_primary ?? null, profile?.height_cm ?? null);
   const alturaEmMetros = profile?.height_cm ? numeroBR(profile.height_cm / 100, 2) : null;
+
+  /*
+   * ── PESO E ALTURA: o destaque é do dado que EXISTE ─────────────────────────
+   *
+   * O cartão colocava o peso (ou "Não informado") no valor grande e a altura na
+   * dica. Quem já tinha cadastrado 1,85 m e ainda não pesara via a tela GRITAR
+   * a ausência e SUSSURRAR o dado que ele mesmo digitou — a leitura de quem usa
+   * é "o app perdeu minha altura". A ordem passa a ser peso → altura →
+   * "Não informado", e a dica assume o papel de dizer o que falta.
+   *
+   * Isto NÃO afrouxa a regra de veracidade: quem autoriza a tela a falar de
+   * ausência continua sendo `estado` (`estadoSecao`/`estadoAgregado`, lá em
+   * cima) — enquanto o sujeito é desconhecido ou a consulta falhou, esta parte
+   * do arquivo nem chega a rodar. O que muda aqui é só a hierarquia de leitura
+   * entre dados JÁ carregados com sucesso.
+   *
+   * Sem semáforo: peso, altura e IMC são corpo do paciente. O cartão descreve,
+   * não classifica (regra de cor clínica).
+   */
+  const pesoEmTela = latestWeight ? `${numeroBR(latestWeight.value_primary)} kg` : null;
+  const alturaEmTela = alturaEmMetros ? `${alturaEmMetros} m` : null;
+  const pesoEAlturaValor = pesoEmTela ?? alturaEmTela ?? 'Não informado';
+  let pesoEAlturaDica: string;
+  if (pesoEmTela && alturaEmTela) {
+    pesoEAlturaDica = [alturaEmTela, bmi ? `IMC ${numeroBR(bmi)}` : null]
+      .filter(Boolean)
+      .join(' · ');
+  } else if (pesoEmTela) {
+    // O IMC não existe sem altura — a dica diz o que falta e onde se resolve.
+    pesoEAlturaDica = 'Informe sua altura no perfil';
+  } else if (alturaEmTela) {
+    /*
+     * Só altura: o número grande é 1,85 m, e sem esta dica o cartão fica
+     * ambíguo — "Peso e altura · 1,85 m" pode ser lido como uma medição
+     * recente/de hoje. "Altura do perfil ·" resolve as DUAS coisas de uma vez:
+     * nomeia a grandeza E diz a procedência (é o cadastro do paciente, não uma
+     * aferição). O segundo trecho é o caminho, no imperativo curto que o resto
+     * do painel já usa ("Registre peso e altura") — não uma cobrança, e sem
+     * "falta"/"pendente", que soam a repreensão.
+     * 34 caracteres: é a dica mais longa da fileira, e é assim de propósito —
+     * encurtar aqui custaria a procedência, e procedência é regra de veracidade.
+     */
+    pesoEAlturaDica = 'Altura do perfil · registre o peso';
+  } else {
+    pesoEAlturaDica = 'Registre peso e altura';
+  }
+
+  /*
+   * ── CONDIÇÕES DE SAÚDE: mesma leitura ──────────────────────────────────────
+   *
+   * O cartão só olhava as condições não resolvidas. Quem tivesse registrado só
+   * condições já resolvidas lia "Nenhuma registrada" — o app negando um dado
+   * que ele próprio guardou. Existe um terceiro estado, e ele obedece à mesma
+   * regra do cartão de peso (proteção 3 do cabeçalho): o DESTAQUE é do dado que
+   * EXISTE. Quem só tem condições resolvidas vê "2 resolvidas" no lugar grande
+   * — o que ele cadastrou — e a ausência desce para a dica.
+   *
+   * Isto também conserta um corte: "Nenhuma em acompanhamento" tem 25
+   * caracteres e o valor do cartão compacto é 17px; a tela mostrava
+   * "Nenhuma em ac…", que é pior que silêncio, porque a frase truncada pode ser
+   * lida como o começo de qualquer coisa. "2 resolvidas" tem 12 e diz mais.
+   */
+  const condicoesValor =
+    condicoesEmAcompanhamento.length > 0
+      ? condicoesEmAcompanhamento
+          .slice(0, 2)
+          .map((condition) => condition.name)
+          .join(', ')
+      : condicoesResolvidas > 0
+        ? `${condicoesResolvidas} ${condicoesResolvidas === 1 ? 'resolvida' : 'resolvidas'}`
+        : 'Nenhuma registrada';
+  let condicoesDica: string;
+  if (condicoesEmAcompanhamento.length === 1) {
+    /*
+     * Uma só condição: a dica carrega o status que o PACIENTE escolheu. Só que
+     * o rótulo do core vem sozinho e no absoluto — "Ativa", "Controlada",
+     * "Suspeita" —, e um adjetivo solto embaixo do nome da doença é o app
+     * dizendo em que pé ela está. Quem diz isso é o cadastro; a tela só repete.
+     * "Registrada como controlada" devolve a qualificação que "1 registro
+     * ativo" carregava antes da troca pelo mapa do core, sem voltar a chamar
+     * uma condição SUSPEITA de ativa.
+     */
+    const rotuloDoStatus = CONDITION_STATUS_LABELS[condicoesEmAcompanhamento[0]!.status];
+    condicoesDica = `Registrada como ${rotuloDoStatus.toLowerCase()}`;
+  } else if (condicoesEmAcompanhamento.length > 1) {
+    // Mesmo motivo: "3 em acompanhamento" afirma um acompanhamento que o app
+    // não conhece (ele não sabe se alguém está acompanhando de fato). O que ele
+    // sabe é quantos REGISTROS não foram dados por resolvidos.
+    condicoesDica = `${condicoesEmAcompanhamento.length} registros em acompanhamento`;
+  } else if (condicoesResolvidas > 0) {
+    // O valor já diz quantas são resolvidas; a dica fica com a ausência.
+    condicoesDica = 'Nenhuma em acompanhamento';
+  } else {
+    condicoesDica = 'Você pode adicionar no perfil';
+  }
+
+  /*
+   * ── ALERGIAS: a qualificação que precisa sobreviver ao corte ───────────────
+   *
+   * "Contém alergia marcada como grave" tem 33 caracteres e virava
+   * "Contém alergia ma…" na dica compacta. A parte que NÃO pode cair é o
+   * "marcada como": quem marcou a alergia como grave foi quem cadastrou, e sem
+   * essa qualificação a frase passa a ser o app afirmando gravidade. Contar no
+   * lugar de descrever devolve a frase a ~20 caracteres com o "marcada como"
+   * intacto — e ainda diz quantas são.
+   */
+  const alergiasGraves = allergies.filter((allergy) => allergy.severity === 'severe').length;
+  let alergiasDica: string;
+  if (allergies.length === 0) {
+    alergiasDica = 'Você pode adicionar no perfil';
+  } else if (alergiasGraves > 0) {
+    alergiasDica =
+      alergiasGraves === 1
+        ? '1 marcada como grave'
+        : `${alergiasGraves} marcadas como graves`;
+  } else {
+    alergiasDica = `${allergies.length} ${allergies.length === 1 ? 'registrada' : 'registradas'}`;
+  }
 
   const timelineEvents = (timelineQuery.data?.pages ?? [])
     .flatMap((page) => page.events)
@@ -395,8 +552,15 @@ export default function DashboardPage() {
             )
           }
           /* Faixa de referência em PALAVRAS. Nada de semáforo: o app exibe e
-             organiza, quem interpreta é o médico. */
-          hint={bpStatus ? leituraDaFaixa(bpStatus.zone) : 'Você pode registrar em Indicadores'}
+             organiza, quem interpreta é o médico. A frase da faixa é longa de
+             propósito e NÃO é encurtada aqui: ela é escrita uma vez só, em
+             `clinical-range-chip.tsx`, para a tela e o leitor de tela nunca
+             divergirem sobre a mesma medida.
+             Já a dica do cartão vazio era "Você pode registrar em Indicadores"
+             (34 caracteres). O cartão inteiro é um link para /analise, com
+             chevron — o destino já está dito pelo próprio cartão, e repeti-lo
+             custava metade da linha. */
+          hint={bpStatus ? leituraDaFaixa(bpStatus.zone) : 'Você pode registrar'}
         />
 
         <StatCard
@@ -405,16 +569,11 @@ export default function DashboardPage() {
           tone="turquesa"
           label="Peso e altura"
           href="/composicao-corporal"
-          clinical={Boolean(latestWeight)}
-          value={latestWeight ? `${numeroBR(latestWeight.value_primary)} kg` : 'Não informado'}
-          hint={
-            [
-              alturaEmMetros ? `${alturaEmMetros} m` : null,
-              bmi ? `IMC ${numeroBR(bmi)}` : null,
-            ]
-              .filter(Boolean)
-              .join(' · ') || 'Complete seus dados'
-          }
+          /* `hp-num` (Atkinson Mono, tabular) vale para peso E para altura:
+             os dois são medida do corpo. Só "Não informado" não é número. */
+          clinical={Boolean(pesoEmTela || alturaEmTela)}
+          value={pesoEAlturaValor}
+          hint={pesoEAlturaDica}
         />
 
         <StatCard
@@ -423,9 +582,21 @@ export default function DashboardPage() {
           tone="ameixa"
           label="Tipo sanguíneo"
           href="/perfil"
+          /* `hp-num` é o que separa O de 0 e 1 de l — num tipo sanguíneo essa
+             ambiguidade é risco de transfusão, não detalhe tipográfico. */
           clinical={temTipoSanguineo}
+          /* Aqui não existe o problema de hierarquia do cartão de peso: o
+             cartão carrega UM dado só, então "Não informado" no destaque nunca
+             está encobrindo algo que o paciente digitou. A queixa de
+             "caracteres discretos" neste cartão era de TAMANHO, e o tamanho
+             mora na primitiva `StatCard` (layout `compact`), não aqui: lá o
+             rótulo já subiu para 15px/`fg-soft` e o valor para 17px. Se voltar
+             a parecer pequeno, o conserto é na primitiva — nunca um tamanho
+             literal nesta tela, que mataria o Modo Sênior. */
           value={temTipoSanguineo ? profile?.blood_type : 'Não informado'}
-          /* A dica segue o ESTADO: sem registro, ninguém "informou" nada. */
+          /* A dica segue o ESTADO: sem registro, ninguém "informou" nada. E com
+             registro ela diz a PROCEDÊNCIA — o app não pode deixar um tipo
+             sanguíneo de autorrelato passar por resultado de exame. */
           hint={temTipoSanguineo ? 'Informado por você' : 'Você pode informar no perfil'}
         />
 
@@ -435,19 +606,10 @@ export default function DashboardPage() {
           tone="indigo"
           label="Condições de saúde"
           href="/perfil"
-          value={
-            activeConditions.length > 0
-              ? activeConditions
-                  .slice(0, 2)
-                  .map((condition) => condition.name)
-                  .join(', ')
-              : 'Nenhuma registrada'
-          }
-          hint={
-            activeConditions.length > 0
-              ? `${activeConditions.length} ${activeConditions.length === 1 ? 'registro ativo' : 'registros ativos'}`
-              : 'Gerencie no perfil'
-          }
+          value={condicoesValor}
+          /* O nome da condição é o dado; a dica diz em que pé ele está. Sem
+             tinta de gravidade: condição de saúde é corpo do paciente. */
+          hint={condicoesDica}
         />
 
         <StatCard
@@ -464,13 +626,7 @@ export default function DashboardPage() {
                   .join(', ')
               : 'Nenhuma registrada'
           }
-          hint={
-            allergies.length === 0
-              ? 'Você pode adicionar no perfil'
-              : allergies.some((allergy) => allergy.severity === 'severe')
-                ? 'Contém alergia marcada como grave'
-                : `${allergies.length} ${allergies.length === 1 ? 'registrada' : 'registradas'}`
-          }
+          hint={alergiasDica}
         />
       </StatRow>
 

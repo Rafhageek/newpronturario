@@ -1,12 +1,14 @@
 'use client';
 
 import {
+  Children,
   cloneElement,
   forwardRef,
   isValidElement,
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
   type ReactElement,
+  type ReactNode,
 } from 'react';
 import { Spinner } from '@/components/ui/spinner';
 
@@ -69,14 +71,47 @@ export function Field({
   children: React.ReactNode;
 }) {
   const errorId = `${htmlFor}-error`;
-  // Liga o erro ao campo para leitores de tela (aria-describedby/aria-invalid).
-  const field =
-    error && isValidElement(children)
-      ? cloneElement(children as ReactElement<Record<string, unknown>>, {
-          'aria-invalid': true,
-          'aria-describedby': errorId,
-        })
-      : children;
+
+  /*
+   * Liga o erro ao campo para leitores de tela (aria-describedby/aria-invalid).
+   *
+   * Três sutilezas que já custaram caro:
+   *  - o campo nem sempre vem sozinho (ex.: <Input> + <datalist> na Condição).
+   *    Marcamos o PRIMEIRO elemento, que é o controle, em vez de desistir
+   *    quando há mais de um filho — antes, esses campos ficavam sem
+   *    `aria-invalid` e o erro só existia para quem enxerga a tela;
+   *  - se o campo já tem um `aria-describedby` (o texto de ajuda "pode deixar
+   *    as duas datas em branco", por exemplo), o erro SOMA a ele. Substituir
+   *    trocaria uma informação pela outra bem na hora em que as duas importam;
+   *  - a transformação roda SEMPRE, com erro e sem erro. Se ela só rodasse no
+   *    estado com erro, a FORMA do filho mudaria junto com o estado (elemento
+   *    solto, sem chave, virava lista com chave '.0'), o React não casaria as
+   *    duas versões e DESMONTARIA o <input> a cada aparecer/sumir do erro.
+   *    Na prática: o foco que o react-hook-form põe no campo inválido caía no
+   *    <body>, e — como a revalidação é 'onChange' — o campo era recriado no
+   *    meio da digitação, engolindo as letras seguintes. Rodando nos dois
+   *    estados, as chaves ficam idênticas e só as props mudam.
+   */
+  let controleMarcado = false;
+  const field: ReactNode = Children.map(children, (filho) => {
+    if (controleMarcado || !isValidElement<Record<string, unknown>>(filho)) return filho;
+    controleMarcado = true;
+
+    const controle: ReactElement<Record<string, unknown>> = filho;
+    const jaDescrito = controle.props['aria-describedby'];
+    const descrito = [
+      typeof jaDescrito === 'string' && jaDescrito.trim() !== '' ? jaDescrito : null,
+      error ? errorId : null,
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+    return cloneElement(controle, {
+      // sem erro, devolvemos o que o próprio campo declarou (não apagamos nada)
+      'aria-invalid': error ? true : controle.props['aria-invalid'],
+      'aria-describedby': descrito !== '' ? descrito : undefined,
+    });
+  });
 
   return (
     <div className="space-y-1.5">
@@ -84,8 +119,15 @@ export function Field({
         {label}
       </label>
       {field}
+      {/*
+        A mensagem de erro sai em 15px (`text-label`), e não nos 12px de antes:
+        o piso desta rodada é 13px, e a frase que explica por que o botão
+        "Salvar" não salvou é o último lugar do app onde economizar pixel.
+        A tinta de alerta aqui é do SISTEMA (validação de formulário), não
+        julgamento do corpo do paciente — é o mesmo token que o arquivo já usa.
+      */}
       {error ? (
-        <p id={errorId} className="text-xs text-status-alert-ink" role="alert">
+        <p id={errorId} className="text-label font-medium text-status-alert-ink" role="alert">
           {error}
         </p>
       ) : null}

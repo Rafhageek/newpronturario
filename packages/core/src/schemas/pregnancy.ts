@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { dataOpcional } from './data-opcional';
 
 /**
  * Onboarding da gestação: a usuária informa a DPP **ou** a DUM (ao menos uma).
@@ -6,8 +7,8 @@ import { z } from 'zod';
  */
 export const startPregnancySchema = z
   .object({
-    dueDate: z.coerce.date().optional(),
-    lmpDate: z.coerce.date().optional(),
+    dueDate: dataOpcional,
+    lmpDate: dataOpcional,
     riskLevel: z.enum(['habitual', 'alto']).optional(),
     obstetricianName: z.string().trim().max(120).optional(),
     obstetricianCrm: z.string().trim().max(20).optional(),

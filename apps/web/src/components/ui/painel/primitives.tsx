@@ -40,6 +40,51 @@
  *     no `<StatusChip>` de `components/ui/status-chip`.
  *  4. CONTRASTE — todo par de cor usado aqui está medido em
  *     `packages/core/src/utils/contraste-painel.test.ts`.
+ *
+ * ════════════════════════════════════════════════════════════════════════════
+ * REVISÃO DE LEGIBILIDADE 50+ (2026-08) — o texto secundário subiu de patamar
+ * ════════════════════════════════════════════════════════════════════════════
+ *
+ * O idealizador do produto (54 anos) repetiu a MESMA queixa em quatro telas:
+ * "os caracteres estão bem claro", "bem claro e pequeno", "caracteres bem
+ * discretos em relação às demais informações". Ele estava lendo `text-caption`
+ * (13px) pintado de `--hint` — o par mais fraco que o sistema permite. Passava
+ * em AA por centésimos e mesmo assim não se lia. Para este público legibilidade
+ * é SEGURANÇA: quem não lê "1 comprimido" erra a dose.
+ *
+ * Duas decisões, ambas DENTRO das primitivas (nenhum token mudou de valor):
+ *
+ * A. `text-hint` SAIU do texto destas primitivas. O piso de tinta secundária
+ *    aqui é `text-muted`; descrição de destaque e rótulo de métrica usam
+ *    `text-fg-soft`. Medido com a fórmula da WCAG 2.x, contra o PIOR fundo de
+ *    cada tema (`surface3`) e contra o cartão branco (`surface`):
+ *
+ *      tema claro (#edf1f7 / #ffffff)      tema escuro (#2b2b2b / #171717)
+ *      hint    #616e83   4,56 / 5,16       hint    #909398   4,59 / 5,82
+ *      muted   #58657a   5,21 / 5,90       muted   #a7acb2   6,19 / 7,84
+ *      fgSoft  #354056   9,18 / 10,40      fgSoft  #cfd4dd   9,52 / 12,05
+ *      fg      #151b2b  15,14 / 17,16      fg      #e8eaf0  11,77 / 14,90
+ *
+ *    Ou seja: onde havia 4,56:1 agora há 5,21:1 no mínimo, e o rótulo que "some
+ *    ao lado do ícone" (a altura, o tipo sanguíneo) foi para 9,18:1.
+ *
+ * B. `text-caption` (13px) SAIU das primitivas. O degrau mínimo de metadado
+ *    passou a ser `text-body-sm` (15px); a linha principal e o rótulo de ação
+ *    vão a `text-body` (17px, o corpo do app). 13px continua existindo no
+ *    sistema para tabela densa FORA daqui — mas nenhuma das ~49 rotas ganha
+ *    13px de graça pela fundação.
+ *
+ * Os dois degraus são `rem` puro (sem `vw`), então o Modo Sênior os leva a
+ * ~19,5px e ~22px — o que 13px em `text-[Npx]` nunca alcançaria.
+ *
+ * C. CORREÇÃO DA MESMA RODADA — letra maior dentro de coluna estreita CORTA.
+ *    Subir o texto do `StatCard` compacto sem mexer na largura da coluna trocou
+ *    "pequeno demais" por "cortado", que é o mesmo problema com outro nome. A
+ *    correção tem duas metades e as duas são necessárias: o texto do cartão
+ *    compacto perdeu o `truncate` (ele quebra linha e o cartão cresce, porque é
+ *    `min-h-28`) e o `StatRow` passou a garantir coluna de no mínimo 15rem. Se
+ *    algum dia voltar `truncate` a este cartão, a frase da faixa de referência
+ *    tem de sair do `hint` junto — meia leitura clínica não é meia informação.
  */
 
 import type { LucideIcon } from 'lucide-react';
@@ -251,7 +296,11 @@ export function PanelButton({
 }: PanelButtonProps) {
   const classes = cx(
     'inline-flex min-h-11 items-center justify-center gap-2 rounded-full font-semibold',
-    size === 'sm' ? 'px-4 text-label' : 'px-5 text-body-sm',
+    // `md` é o botão de ação principal: 17px, o corpo do app. `sm` fica em
+    // 15px. Antes os dois valiam 15px — o `md` não era maior em nada além do
+    // respiro lateral, e rótulo de ação é justamente o que o público 50+
+    // precisa ler de longe, sem aproximar o rosto da tela.
+    size === 'sm' ? 'px-4 text-body-sm' : 'px-5 text-body',
     'transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
     'disabled:cursor-not-allowed disabled:opacity-60',
     BUTTON_VARIANT[variant],
@@ -303,7 +352,10 @@ export function Seal({
   return (
     <span
       className={cx(
-        'inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-caption font-medium text-muted',
+        // 15px + `fg-soft` (10,40:1 sobre o cartão branco; 9,18:1 sobre o pior
+        // fundo). Era 13px + `muted`: o selo fala de PRIVACIDADE, e o texto que
+        // promete cuidado com o dado não pode ser o mais fraco da tela.
+        'inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-body-sm font-medium text-fg-soft',
         className,
       )}
     >
@@ -353,12 +405,17 @@ export function PageHeader({ eyebrow, title, subtitle, icon, tone, right, classN
       />
       <div className="flex flex-wrap items-start justify-between gap-4 py-2">
         <div className="min-w-0">
-          {eyebrow ? <p className="text-caption font-semibold text-primary">{eyebrow}</p> : null}
+          {/* A data por extenso é 15px, não 13px: é a primeira linha da página
+              e o público a usa para se situar no dia. `primary` sobre o canvas
+              do painel = 7,72:1 (8,28:1 sobre o cartão branco). */}
+          {eyebrow ? <p className="text-body-sm font-semibold text-primary">{eyebrow}</p> : null}
           <div className="mt-1 flex items-center gap-3">
             {icon ? <IconChip icon={icon} tone={tone} seed={title} size="md" /> : null}
             <h1 className="font-display text-title text-fg">{title}</h1>
           </div>
-          {subtitle ? <p className="mt-1 text-body-sm text-muted">{subtitle}</p> : null}
+          {/* Subtítulo em `fg-soft` (10,40:1) e não `muted` (5,90:1): ele
+              costuma carregar a frase que explica a página inteira. */}
+          {subtitle ? <p className="mt-1 text-body text-fg-soft">{subtitle}</p> : null}
         </div>
         {right ? <div className="shrink-0">{right}</div> : null}
       </div>
@@ -399,7 +456,13 @@ export function SectionHeader({
     <div className={cx('flex items-center justify-between gap-3', className)}>
       <div className="flex min-w-0 items-center gap-2.5">
         {icon ? <IconChip icon={icon} tone={tone} seed={title} size="sm" /> : null}
-        <h2 id={id} className="min-w-0 truncate font-display text-label text-fg">
+        {/* 17px, e em Atkinson — não em `font-display`.
+            Duas razões: (1) a escala de globals.css reserva a Bricolage a
+            título ≥20px, e este heading vivia a 15px, ou seja, já estava fora
+            da regra; (2) a Atkinson Hyperlegible desambigua 1/l e 0/O, que é
+            exatamente o que o público 50+ precisa num rótulo curto. O peso
+            `semibold` sustenta a hierarquia que a família dava. */}
+        <h2 id={id} className="min-w-0 truncate text-body font-semibold text-fg">
           {title}
         </h2>
       </div>
@@ -407,7 +470,8 @@ export function SectionHeader({
         (href ? (
           <Link
             href={href}
-            className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full px-3 text-caption font-semibold text-primary hover:bg-surface-2"
+            // "Ver todos" é o link mais repetido do produto e estava em 13px.
+            className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full px-3 text-body-sm font-semibold text-primary hover:bg-surface-2"
           >
             {actionLabel}
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
@@ -473,35 +537,67 @@ export function StatCard({
     <div className="flex min-w-0 items-center gap-3">
       <IconChip icon={icon} tone={tone} seed={label} size="md" />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-caption font-medium text-muted">{label}</p>
+        {/* O RÓTULO era 13px + `muted`. É literalmente a queixa "a altura ficou
+            com caracteres bem discretos em relação às demais informações do
+            ícone — a mesma situação está no tipo sanguíneo": sem saber que
+            grandeza é aquela, o número grande não informa nada. Foi para 15px +
+            `fg-soft` (9,18:1 no pior fundo, contra 5,21:1 do `muted`).
+
+            NADA AQUI TEM `truncate`, e isso é a correção de uma regressão que
+            nós mesmos criamos: subir rótulo (13→15px) e valor (15→17px) DENTRO
+            de uma coluna que tinha ~62px de texto só trocou "pequeno demais
+            para ler" por "cortado antes de terminar". Aumentar a letra e
+            manter as reticências é piorar o problema com mais tinta.
+
+            O cartão é `min-h-28`: ele foi desenhado para CRESCER. Então o texto
+            quebra a linha (`leading-tight` + `overflow-wrap:anywhere`) e o
+            cartão acompanha. `anywhere`, e não `break-word`, porque só ele
+            entra na conta de tamanho mínimo do item de grade — é o que impede a
+            coluna de forçar overflow horizontal em vez de quebrar. */}
+        <p className="text-body-sm font-semibold leading-tight text-fg-soft [overflow-wrap:anywhere]">
+          {label}
+        </p>
         <p
           className={cx(
-            'mt-0.5 truncate text-label font-semibold leading-tight text-fg',
+            'mt-0.5 text-body font-semibold leading-tight text-fg [overflow-wrap:anywhere]',
             clinical && 'hp-num',
           )}
         >
           {value}
         </p>
+        {/* A DICA é a que menos podia estar cortada: é ela que carrega a leitura
+            clínica da faixa de referência ("acima do intervalo de referência").
+            REGRA: enquanto houver `truncate` em qualquer texto deste cartão,
+            nenhuma frase de faixa de referência pode morar aqui — meia frase
+            clínica não é meia informação, é informação errada. Hoje não há
+            `truncate` nenhum, e é assim que tem de continuar. */}
         {hint ? (
-          <div className="mt-1 truncate text-caption leading-tight text-hint" aria-label={dicaLegivel || undefined}>
+          <div
+            className="mt-1 text-body-sm leading-snug text-muted [overflow-wrap:anywhere]"
+            aria-label={dicaLegivel || undefined}
+          >
             {hint}
           </div>
         ) : null}
       </div>
-      {href ? <ChevronRight className="h-5 w-5 shrink-0 text-hint" aria-hidden="true" /> : null}
+      {/* Chevron em `muted`: ele é a promessa de que o cartão leva a algum
+          lugar. 5,21:1 no pior fundo (o `hint` dava 4,56:1). */}
+      {href ? <ChevronRight className="h-5 w-5 shrink-0 text-muted" aria-hidden="true" /> : null}
     </div>
   ) : (
     <>
       <div className="flex items-start justify-between gap-3">
         <IconChip icon={icon} tone={tone} seed={label} />
         {href ? (
-          <ChevronRight className="mt-2 h-5 w-5 shrink-0 text-hint" aria-hidden="true" />
+          <ChevronRight className="mt-2 h-5 w-5 shrink-0 text-muted" aria-hidden="true" />
         ) : null}
       </div>
-      <p className="mt-4 text-caption font-medium text-muted">{label}</p>
+      <p className="mt-4 text-body-sm font-semibold text-fg-soft">{label}</p>
       <p className={cx('mt-0.5 font-display text-title text-fg', clinical && 'hp-num')}>{value}</p>
+      {/* A dica carrega a leitura clínica ("acima do intervalo de referência").
+          Frase que muda conduta não pode ser o texto mais apagado do cartão. */}
       {hint ? (
-        <div className="mt-1 text-caption text-hint" aria-label={dicaLegivel || undefined}>
+        <div className="mt-1 text-body-sm text-muted" aria-label={dicaLegivel || undefined}>
           {hint}
         </div>
       ) : null}
@@ -530,12 +626,32 @@ export function StatCard({
   );
 }
 
-/** Fileira responsiva de cartões de métrica (5 no desktop do mockup). */
+/**
+ * Fileira responsiva de cartões de métrica (5 no desktop largo do mockup).
+ *
+ * A grade é medida pela COLUNA, não por breakpoint. O motivo é aritmético: em
+ * 1280px (onde o `xl:grid-cols-5` antigo entrava) sobram 952px de conteúdo —
+ * 1280 menos a barra lateral de 264px (`components/app/sidebar.tsx`) menos o
+ * `xl:px-8` do layout. Cinco colunas com `gap-4` davam ~178px de cartão, e o
+ * `p-4` + o chip de 40px + o chevron comem ~116px: sobravam ~62px de texto,
+ * algo como OITO caracteres. "Condições de saúde" e "Pressão arterial" não
+ * cabiam — e no Modo Sênior (130%) não cabia quase nada.
+ *
+ * `auto-fit` + `minmax(15rem, 1fr)` inverte a regra: em vez de fixar quantas
+ * colunas cabem, fixa que nenhuma coluna desce de 15rem (~240px, e ~312px no
+ * Modo Sênior — a medida acompanha a letra porque é `rem`, não `px`). Nas telas
+ * largas a fileira volta sozinha aos cinco cartões do mockup; em 1280px ela cai
+ * para três, que é o que a conta permite.
+ *
+ * O `min(15rem, 100%)` é o guarda-corpo do celular: sem ele, a faixa mínima de
+ * 15rem venceria a largura da tela em aparelho estreito com Modo Sênior ligado
+ * e a página inteira rolaria na horizontal.
+ */
 export function StatRow({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div
       className={cx(
-        'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5',
+        'grid gap-4 grid-cols-[repeat(auto-fit,minmax(min(15rem,100%),1fr))]',
         className,
       )}
     >
@@ -615,12 +731,14 @@ export function EmptyState({
           className,
         )}
       >
-        <span aria-hidden="true" className="flex items-center justify-center text-hint">
+        <span aria-hidden="true" className="flex items-center justify-center text-muted">
           {visual}
         </span>
         <div className="min-w-0">
-          <p className="text-label font-semibold text-fg">{title}</p>
-          {description ? <div className="mt-2 max-w-sm text-body-sm text-muted">{description}</div> : null}
+          <p className="text-body font-semibold text-fg">{title}</p>
+          {description ? (
+            <div className="mt-2 max-w-sm text-body text-fg-soft">{description}</div>
+          ) : null}
           {acao}
         </div>
       </div>
@@ -637,11 +755,14 @@ export function EmptyState({
         className,
       )}
     >
-      <span aria-hidden="true" className="text-hint">
+      <span aria-hidden="true" className="text-muted">
         {visual}
       </span>
-      <p className="text-body font-semibold text-fg-soft">{title}</p>
-      {description ? <div className="max-w-sm text-body-sm text-muted">{description}</div> : null}
+      {/* Título em `fg` e descrição em `fg-soft`: o estado vazio é EXPLICAÇÃO —
+          é onde a pessoa descobre por que a tela está assim e o que fazer. Era
+          o bloco mais apagado da tela justamente por estar "vazio". */}
+      <p className="text-body font-semibold text-fg">{title}</p>
+      {description ? <div className="max-w-sm text-body text-fg-soft">{description}</div> : null}
       {acao}
     </div>
   );
@@ -704,8 +825,8 @@ export function ErrorState({
       <span aria-hidden="true">
         <IconChip icon={icon ?? CloudOff} tone="ardosia" size="lg" />
       </span>
-      <p className="text-body font-semibold text-fg-soft">{title}</p>
-      {description ? <div className="max-w-sm text-body-sm text-muted">{description}</div> : null}
+      <p className="text-body font-semibold text-fg">{title}</p>
+      {description ? <div className="max-w-sm text-body text-fg-soft">{description}</div> : null}
       {onRetry ? (
         <PanelButton
           className="mt-2"
@@ -771,10 +892,28 @@ export function PanelRow({
     <>
       {icon ? <IconChip icon={icon} tone={tone} seed={ariaLabel ?? 'linha'} size="md" /> : null}
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-label font-semibold text-fg">{title}</span>
-        {subtitle ? <span className="block text-caption text-muted">{subtitle}</span> : null}
+        {/* Título 17px (o corpo do app) + `fg`; subtítulo 15px + `muted`. Eram
+            15px e 13px. A hierarquia continua existindo, mas agora mora no PESO
+            e na TINTA, e não em encolher o que precisa ser lido.
+
+            ⚠️ ATENÇÃO AO QUE ESTA LINHA **NÃO** RESOLVE. Havia aqui um
+            comentário dizendo que este código atendia a queixa literal do
+            cliente sobre a tela de Medicamentos ("achei os caracteres do
+            remédio, mg, diariamente, comprimido, Dr. Rafael bem claro e de
+            difícil visualização"). Não atende, por um motivo simples: a tela de
+            Medicamentos não usa `PanelRow` — usa `components/meds/
+            medication-card.tsx`. Na verdade, nenhuma rota da web usa `PanelRow`
+            hoje (busque: só o mobile e o barril `painel/index.ts` a citam).
+            Mexer aqui não muda um pixel do que o cliente viu.
+
+            O comentário ficou porque um comentário que mente é pior que
+            nenhum: o próximo leitor conclui que a queixa foi resolvida e para
+            de procurar. Quem quiser conferir a queixa de Medicamentos tem de
+            abrir o `MedicationCard`. */}
+        <span className="block truncate text-body font-semibold text-fg">{title}</span>
+        {subtitle ? <span className="block text-body-sm text-muted">{subtitle}</span> : null}
       </span>
-      {right ?? (interativa ? <ChevronRight className="h-5 w-5 shrink-0 text-hint" aria-hidden="true" /> : null)}
+      {right ?? (interativa ? <ChevronRight className="h-5 w-5 shrink-0 text-muted" aria-hidden="true" /> : null)}
     </>
   );
 
@@ -846,7 +985,9 @@ export function QuickActions({
           const conteudo = (
             <>
               <IconChip icon={acao.icon} tone={acao.tone} seed={acao.label} size="sm" />
-              <span className="min-w-0 text-label font-medium text-fg">{acao.label}</span>
+              {/* Rótulo de AÇÃO: 17px semibold. Era 15px medium — o texto que
+                  diz o que o botão faz não pode ser menor que o corpo do app. */}
+              <span className="min-w-0 text-body font-semibold text-fg">{acao.label}</span>
             </>
           );
           const classes = cx(

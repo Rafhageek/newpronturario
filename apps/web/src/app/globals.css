@@ -745,6 +745,60 @@ body {
   --faint: var(--hint);
 }
 
+/* ══════════ ALTO CONTRASTE DENTRO DA CASCA (correção 2026-08-11) ══════════
+   Custom property resolve por HERANÇA: vence o ancestral mais PRÓXIMO, e
+   especificidade não compara elementos diferentes. Como `.hp-clinical-shell`
+   é um <div> (ver app/(app)/layout.tsx) e redefine exatamente as mesmas vars
+   que `html[data-contrast='high']`, o alto contraste era ignorado por completo
+   dentro do app autenticado: --muted ficava #58657a (5,21:1 sobre --surface-3)
+   em vez de #46413a (8,92:1), e --fg ficava #151b2b em vez de #000000.
+
+   Como o Modo Sênior liga fonte grande E contraste alto ao mesmo tempo
+   (a11y-provider.tsx), o modo entregava 130% de fonte e NENHUMA tinta
+   reforçada — metade da promessa da tela de Configurações.
+
+   Os valores abaixo são os MESMOS dos blocos de <html> acima (nada de hex
+   novo): estes espelhos só recolocam a paleta no mesmo nível do shell, para
+   que o ancestral mais próximo passe a carregar as tintas certas.
+
+   Especificidade: o espelho claro é (0,2,1) e vence `.hp-clinical-shell`
+   (0,1,0); o espelho escuro é (0,3,1) e vence tanto o claro quanto
+   `.dark .hp-clinical-shell` (0,2,0). Os dois espelhos declaram o MESMO
+   conjunto de vars, então nada do bloco claro vaza para o tema escuro.
+
+   NEUTROS e tintas de status já existentes — nenhuma cor nova, nenhum
+   semáforo introduzido no corpo do paciente. */
+html[data-contrast='high'] :is(.hp-painel, .hp-clinical-shell) {
+  --line: #b7b1a6;
+  --line-strong: #4a463f; /* 8,27:1 sobre --surface-3 */
+  --fg: #000000; /* 18,53:1 */
+  --fg-soft: #2b2620; /* 13,23:1 */
+  --muted: #46413a; /* 8,92:1 sobre --surface-3 (era 5,21:1) */
+  --hint: #55504a; /* 7,04:1 sobre --surface-3 (era 4,56:1) */
+  --primary: #052c80; /* 11,04:1 */
+  --primary-hover: #041f5c;
+  --accent: #9b1f2f;
+  --status-attention-ink: #6b4700;
+  --status-alert-ink: #a01b22;
+  --status-ok-ink: #005637;
+  --chart-band-ink: #2b3646;
+}
+html.dark[data-contrast='high'] :is(.hp-painel, .hp-clinical-shell) {
+  --line: rgba(255, 255, 255, 0.32);
+  --line-strong: rgba(255, 255, 255, 0.6);
+  --fg: #ffffff;
+  --fg-soft: #ededed;
+  --muted: #cfcfcf; /* 9,09:1 sobre --surface-3 (era 6,19:1) */
+  --hint: #b0b0b0; /* 6,53:1 sobre --surface-3 */
+  --primary: #9db2ff; /* 6,91:1 */
+  --primary-hover: #bccbff;
+  --accent: #ffb3b3;
+  --status-attention-ink: #f2b451;
+  --status-alert-ink: #ffada6;
+  --status-ok-ink: #6fd7a4;
+  --chart-band-ink: #d0d6dd;
+}
+
 /* Mancha atmosférica do mockup: atravessa o topo e o início do conteúdo sem
    competir com a leitura. A barra translúcida mantém a divisória nítida. */
 .hp-app-workspace::before {
@@ -844,12 +898,73 @@ body {
   letter-spacing: -0.025em;
 }
 
-.hp-page > header p,
-.hp-page .hp-page-hero p {
-  max-width: 62ch;
-  margin-top: 0.4rem;
-  font-size: var(--text-body-sm);
-  color: var(--muted);
+/* ══════ TIPOGRAFIA DO SUBTÍTULO — EM CAMADA (correção 2026-08-11) ══════
+   Estilo SEM camada vence QUALQUER estilo EM camada, independente de
+   especificidade. Como `@import 'tailwindcss'` declara
+   `@layer theme, base, components, utilities`, esta regra — que estava solta —
+   atropelava os utilitários que a primitiva PageHeader declara em
+   components/ui/painel/primitives.tsx:
+
+     eyebrow  → `text-body-sm font-semibold text-primary`  (perdia o azul)
+     subtítulo→ `text-body text-fg-soft`  (voltava a 15px/--muted)
+
+   Na prática o subtítulo caía para 5,21:1 sobre o fundo do cabeçalho (#ecf1fa)
+   em vez dos 9,18:1 que a primitiva promete — em ~41 rotas.
+
+   Pondo o bloco em `@layer components`, o utilitário volta a vencer onde ele
+   foi declarado, e estas declarações seguem valendo como PADRÃO para cabeçalho
+   que não declara nada. `max-width`/`margin-top` vêm junto pelo mesmo motivo:
+   quem escreveu `mt-1`/`max-w-lg` no TSX deve mandar no próprio elemento.
+
+   Só ESTE bloco entra em camada. O resto de `.hp-page` (estrutura do cartão,
+   h1, hover, campos) continua fora de camada de propósito: lá o CSS é a única
+   fonte do estilo e vários `<header>` crus dependem dele. */
+@layer components {
+  .hp-page > header p,
+  .hp-page .hp-page-hero p {
+    max-width: 62ch;
+    margin-top: 0.4rem;
+    font-size: var(--text-body-sm);
+    color: var(--muted);
+  }
+}
+
+/* PISO DE TAMANHO DO SUBTÍTULO — fora de camada DE PROPÓSITO: isto é um limite
+   de acessibilidade, não tipografia de design.
+
+   Pôr o bloco acima em camada devolveu a vitória ao utilitário escrito no TSX.
+   Isso era o objetivo para COR e para quem usa a primitiva `PageHeader` — mas
+   teve um efeito colateral de TAMANHO nos cabeçalhos crus, que escrevem a
+   classe de tamanho à mão. Nenhuma dessas classes é um degrau do projeto:
+
+     `text-xs`  → 0,75rem   = 12px  (era 15px)  · abaixo do piso de 13px
+     `text-sm`  → 0,875rem  = 14px  (era 15px)  · abaixo do subtítulo do painel
+
+   `--text-sm` NÃO é redefinido no `@theme` deste arquivo — vale o padrão do
+   Tailwind (0.875rem). Os degraus do projeto são `--text-caption` (13px),
+   `--text-body-sm` (15px) e `--text-body` (17px); ver o `@theme` no topo.
+   Confirmado no CSS COMPILADO (.next/static/css): `.hp-page > header p` sai
+   dentro de `@layer components` e `.text-sm` dentro de `@layer utilities`, que
+   vem depois — camada posterior vence, e a especificidade não entra na conta.
+
+   O `text-sm` atinge ~16 cabeçalhos crus (admin/locais, admin/vouchers,
+   compartilhar, comunidade e subrotas, configuracoes/acesso-ia,
+   configuracoes/verificacao-profissional, consentimento, diario-alimentar,
+   educacao, locais/[type], moderacao, plano-saude, planos); o `text-xs`,
+   familia e rede-social. Este piso devolve os 15px em todos eles.
+
+   O piso mexe SÓ no tamanho. A COR desses subtítulos continua sendo a que o
+   TSX pediu (`text-muted` → 5,21:1 sobre o fundo do cabeçalho #ecf1fa: passa
+   em AA, mas é menos do que os 9,18:1 de `text-fg-soft` que a primitiva
+   entrega). Forçar cor aqui recriaria exatamente o defeito que a mudança para
+   `@layer` acabou de consertar — o CSS atropelando a classe do TSX. A correção
+   definitiva é trocar `text-sm text-muted` por `text-body-sm text-fg-soft` nas
+   telas, e isso é do dono de cada rota. */
+.hp-page > header p[class~='text-xs'],
+.hp-page .hp-page-hero p[class~='text-xs'],
+.hp-page > header p[class~='text-sm'],
+.hp-page .hp-page-hero p[class~='text-sm'] {
+  font-size: var(--text-body-sm); /* 15px */
 }
 
 .hp-page [class*='rounded-2xl'][class*='border-line'][class*='bg-surface'] {
