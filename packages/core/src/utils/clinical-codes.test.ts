@@ -129,6 +129,93 @@ describe('searchCid10', () => {
     expect(searchCid10('asma banana')).toEqual([]);
     expect(searchCid10('a', 4).length).toBeLessThanOrEqual(4);
   });
+
+  it('acha pelo vocabulário do paciente, não só pelo do DATASUS', () => {
+    // Os quatro termos que a auditoria digitou e que voltavam ZERO. A descrição
+    // oficial não tem nenhuma dessas palavras; quem tem é a pessoa.
+    expect(searchCid10('colesterol')[0]?.code).toBe('E78');
+    expect(searchCid10('pressao alta')[0]?.code).toBe('I10');
+    expect(searchCid10('pressão alta')[0]?.code).toBe('I10');
+    expect(searchCid10('acucar no sangue').map((c) => c.code)).toEqual([
+      'R73',
+      'E11',
+      'E10',
+      'E14',
+    ]);
+    expect(searchCid10('labirintite')[0]?.code).toBe('H81');
+  });
+
+  it('cobre o resto do vocabulário comum de idoso e crônico', () => {
+    const primeiro = (q: string) => searchCid10(q)[0]?.code;
+    expect(primeiro('bico de papagaio')).toBe('M47');
+    expect(primeiro('depressao')).toBe('F32');
+    expect(primeiro('ansiedade')).toBe('F41');
+    expect(primeiro('insonia')).toBe('G47');
+    expect(primeiro('tireoide')).toBe('E03');
+    expect(primeiro('derrame')).toBe('I64');
+    expect(primeiro('avc')).toBe('I64');
+    expect(primeiro('pedra na vesicula')).toBe('K80');
+    expect(primeiro('pedra no rim')).toBe('N20');
+    expect(primeiro('mioma')).toBe('D25');
+    expect(primeiro('cancer de mama')).toBe('C50');
+    expect(primeiro('dpoc')).toBe('J44');
+    expect(primeiro('gordura no sangue')).toBe('E78');
+    expect(primeiro('artrose')).toBe('M19');
+  });
+
+  it('aceita o termo pela metade e com palavra a mais', () => {
+    expect(searchCid10('coleste')[0]?.code).toBe('E78');
+    expect(searchCid10('colesterol alto demais')[0]?.code).toBe('E78');
+    expect(searchCid10('acucar no sangue alto')[0]?.code).toBe('R73');
+    // Com palavra a mais, quem casa também com a descrição oficial vem antes.
+    expect(searchCid10('artrose joelho')[0]?.code).toBe('M17');
+  });
+
+  it('não regride: quem já achava continua achando igual', () => {
+    expect(searchCid10('ateros').map((c) => c.code)).toEqual(['I70']);
+    expect(searchCid10('I70').map((c) => c.code)).toEqual(['I70']);
+    expect(searchCid10('diabet').map((c) => c.code)).toEqual(['E10', 'E11', 'E14', 'O24']);
+    expect(searchCid10('hipertensao').map((c) => c.code)).toEqual(['I10', 'O13', 'O14']);
+    expect(searchCid10('asma').map((c) => c.code)).toEqual(['J45', 'J46']);
+  });
+
+  it('código e início de descrição vêm antes do sinônimo', () => {
+    // "I10" digitado inteiro ganha de qualquer sinônimo que também aponte I10.
+    expect(searchCid10('i10')[0]?.code).toBe('I10');
+    // "diabetes" começa a descrição de E10/E11/E14 — o sinônimo "açúcar no
+    // sangue" não pode empurrar R73 para a frente deles.
+    expect(searchCid10('diabetes')[0]?.code).toBe('E10');
+    // "Aterosclerose" começa com "ateros": segue em primeiro.
+    expect(searchCid10('aterosclerose')[0]?.code).toBe('I70');
+  });
+
+  it('com 1 ou 2 letras só casa o INÍCIO da palavra', () => {
+    // Antes, "ca" casava no meio de qualquer palavra e trazia 123 itens sem
+    // relação com o que estava sendo escrito ("bacteriológica", "vasculares").
+    // Agora traz só o que começa com "ca" — e nada de neoplasia no caminho.
+    const ca = searchCid10('ca', 200);
+    expect(ca.length).toBeLessThan(20);
+    expect(ca.map((c) => c.code)).toContain('H25'); // Catarata senil
+    expect(ca.map((c) => c.code)).toContain('K02'); // Cárie dentária
+    for (const item of ca) {
+      const achou = normalizeClinicalText(`${item.code} ${item.description_pt}`)
+        .split(' ')
+        .some((palavra) => palavra.startsWith('ca'));
+      expect(achou, `${item.code} ${item.description_pt}`).toBe(true);
+    }
+    // A partir do 3º caractere a busca volta a olhar o meio da palavra.
+    expect(searchCid10('artrose').map((c) => c.code)).toContain('M15'); // Poliartrose
+  });
+
+  it('a descrição oficial inteira acha a própria categoria entre as 5 primeiras', () => {
+    // A tela de Condições reencontra a categoria pelo texto salvo com
+    // `searchCid10(texto, 5)`. Se a ordenação empurrar o item para fora desse
+    // corte, o código deixa de ser reconhecido — vale para as 310 categorias.
+    for (const categoria of CID10_CATEGORIES) {
+      const cinco = searchCid10(categoria.description_pt, 5).map((c) => c.code);
+      expect(cinco, categoria.description_pt).toContain(categoria.code);
+    }
+  });
 });
 
 describe('findCid10ByCode', () => {

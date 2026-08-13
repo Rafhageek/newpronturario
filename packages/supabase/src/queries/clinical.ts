@@ -116,6 +116,92 @@ export async function deleteAllergy(client: HubPatientsClient, id: string) {
   if (error) throw error;
 }
 
+// ── "Sem alergia conhecida" — declaração ATIVA do paciente (migration 0049) ──
+//
+// Lista vazia é ambígua: pode ser "não tem" ou "ninguém preencheu". A coluna
+// `profiles.sem_alergia_conhecida_em` guarda O INSTANTE em que o paciente
+// afirmou não ter alergia — null continua significando "não declarou", e
+// nenhuma tela pode ler isso como "não tem".
+
+/** Erro do PostgREST/Postgres em formato utilizável (nem todo erro traz `code`). */
+function erroDoBanco(error: unknown): { code: string; message: string } {
+  const e = error as { code?: unknown; message?: unknown } | null;
+  return {
+    code: typeof e?.code === 'string' ? e.code : '',
+    message: typeof e?.message === 'string' ? e.message : '',
+  };
+}
+
+/**
+ * O banco ainda não tem a coluna da 0049?
+ *
+ * Acontece de verdade na janela entre o deploy do código e a aplicação da
+ * migration (ou o contrário). Duas formas possíveis:
+ *  · `42703` — undefined_column, quando o Postgres responde direto;
+ *  · `PGRST204` — o PostgREST não achou a coluna no cache de schema.
+ * A tela usa isto para dizer "recurso ainda não disponível" em vez de despejar
+ * um erro técnico em cima de quem só queria dizer que não tem alergia.
+ */
+export function isNoKnownAllergyUnavailable(error: unknown): boolean {
+  const { code, message } = erroDoBanco(error);
+  if (code === '42703' || code === 'PGRST204') return true;
+  return (
+    message.includes('sem_alergia_conhecida_em') &&
+    /does not exist|schema cache/i.test(message)
+  );
+}
+
+/**
+ * A declaração foi recusada porque existe alergia registrada.
+ *
+ * A regra é do BANCO (trigger `profiles_no_known_allergy_coherence`, 0049), não
+ * da tela: o app não é a única porta do prontuário. `check_violation` = 23514.
+ */
+export function isNoKnownAllergyConflict(error: unknown): boolean {
+  const { code, message } = erroDoBanco(error);
+  return code === '23514' && /sem alergia conhecida/i.test(message);
+}
+
+/**
+ * Registra que o paciente DECLAROU não ter alergia conhecida.
+ * Devolve o instante gravado — é ele que a tela mostra ("declarado em …").
+ */
+export async function declareNoKnownAllergy(
+  client: HubPatientsClient,
+  patientId: string,
+  quandoIso: string = new Date().toISOString(),
+): Promise<string> {
+  const { data, error } = await client
+    .from('profiles')
+    .update({ sem_alergia_conhecida_em: quandoIso })
+    .eq('id', patientId)
+    .select('sem_alergia_conhecida_em')
+    .maybeSingle();
+  if (error) throw error;
+  // Sem linha = a política não deixou escrever (não é o dono do prontuário).
+  // Silenciar isso deixaria a tela afirmando um registro que não existe.
+  if (!data) throw new Error('Não foi possível registrar a declaração neste prontuário.');
+  return data.sem_alergia_conhecida_em ?? quandoIso;
+}
+
+/**
+ * Desfaz a declaração — a operação mais importante das duas: alergia
+ * descoberta depois não pode encontrar o prontuário afirmando o contrário.
+ */
+export async function undoNoKnownAllergy(
+  client: HubPatientsClient,
+  patientId: string,
+): Promise<void> {
+  const { data, error } = await client
+    .from('profiles')
+    .update({ sem_alergia_conhecida_em: null })
+    .eq('id', patientId)
+    .select('id')
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error('Não foi possível desfazer a declaração neste prontuário.');
+}
+
 // ── Cirurgias (surgeries) ───────────────────────────────────────────────────
 export async function listSurgeries(client: HubPatientsClient, patientId: string): Promise<Surgery[]> {
   const { data, error } = await client

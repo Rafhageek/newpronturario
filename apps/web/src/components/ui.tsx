@@ -115,7 +115,36 @@ export function Field({
 
   return (
     <div className="space-y-1.5">
-      <label htmlFor={htmlFor} className="block text-sm font-medium text-fg-soft">
+      {/*
+        O RÓTULO é o que diz à pessoa o que escrever ali — "Substância",
+        "Diagnóstico em (opcional)", "CID-10". Ele saía em `text-sm`, e
+        `--text-sm` NÃO é redefinido neste projeto (vale o padrão do Tailwind,
+        0.875rem = 14px): ficava ABAIXO do piso de 15px desta rodada e, pior,
+        MENOR que o próprio campo (`Input`, 15px) e que a mensagem de erro
+        logo abaixo (15px). O rótulo tinha virado o menor texto do formulário
+        — o inverso da hierarquia que o cliente pediu.
+
+        Agora `text-label` (--text-label, 0.9375rem = 15px), o mesmo degrau do
+        erro. É `rem` PURO, então o Modo Sênior e os botões A/A+/A++ levam o
+        rótulo junto — um `text-[15px]` aqui desligaria essa escala.
+
+        Tinta MEDIDA (fórmula da WCAG 2.x) — `text-fg-soft` sobre os fundos
+        REAIS onde o <Field> aparece (`--surface` do cartão e `--surface-2` do
+        bloco de formulário), nos quatro temas da casca `.hp-clinical-shell`:
+
+                                 sobre --surface   sobre --surface-2
+          claro     #354056         10,40:1             9,80:1
+          escuro    #cfd4dd         12,05:1            10,82:1
+          AC claro  #2b2620         14,99:1            14,13:1
+          AC escuro #ededed         15,31:1            13,75:1
+
+        Fora da casca (login/cadastro, tema base) o token é #413c36 no claro:
+        10,91:1 sobre --surface e 9,67:1 sobre --surface-2; o escuro é o mesmo
+        #cfd4dd da tabela. A AA pede 4,5:1 para texto normal — o pior caso
+        medido é 9,67:1. O tamanho mudou, a tinta não: nenhuma dessas medidas
+        piorou em relação ao que já estava em produção.
+      */}
+      <label htmlFor={htmlFor} className="block text-label font-medium text-fg-soft">
         {label}
       </label>
       {field}

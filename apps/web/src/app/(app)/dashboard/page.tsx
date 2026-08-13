@@ -18,6 +18,10 @@
  *    vazio (`enabled: false`), e foi assim que a tela já afirmou ausência de
  *    alergia sobre um paciente que ainda não tinha sido identificado. Falha de
  *    carregamento vira `ErrorState` com "tentar de novo" — nunca "não há nada".
+ *    Do mesmo lado da regra: o cartão de Alergias tem TRÊS estados, não dois —
+ *    substância cadastrada, "Sem alergia conhecida" (o paciente DECLAROU, coluna
+ *    `profiles.sem_alergia_conhecida_em`) e "Nenhuma registrada" (ninguém
+ *    preencheu). Não os junte de novo: são fatos clínicos diferentes.
  *
  * 2. A DICA SEGUE O ESTADO. O mockup trazia "Nenhuma registrada" com "Informado
  *    por você" logo embaixo. Se não há registro, ninguém informou: quando o
@@ -117,6 +121,7 @@ import {
   classifyBloodPressure,
   computeBMI,
   dataDoDia,
+  dataPorExtenso,
   diaEMes,
   diaLocal,
   estadoAgregado,
@@ -208,6 +213,20 @@ function horaLocal(iso: string | null | undefined): string | null {
 /** Número com vírgula decimal. "78.4" no banco é "78,4" na tela. */
 function numeroBR(valor: number, casas = 1): string {
   return valor.toFixed(casas).replace('.', ',');
+}
+
+/**
+ * "12 de agosto de 2026" a partir do instante gravado no banco — COM o ano, ao
+ * contrário de `dataCurta`. Uma declaração de ausência de alergia envelhece:
+ * quem lê decide pela data se vale perguntar de novo, e "12 de agosto" sem ano
+ * pode ser de anteontem ou de três anos atrás. Data ilegível devolve string
+ * vazia e a tela fala da declaração SEM data — nunca com uma data inventada.
+ * Mesma regra e mesmo formato da seção de Alergias do Perfil.
+ */
+function dataDaDeclaracao(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return dataPorExtenso(diaLocal(d));
 }
 
 export default function DashboardPage() {
@@ -423,19 +442,72 @@ export default function DashboardPage() {
   }
 
   /*
-   * ── ALERGIAS: a qualificação que precisa sobreviver ao corte ───────────────
+   * ── ALERGIAS: "declarei que não tenho" ≠ "ninguém preencheu" ───────────────
    *
-   * "Contém alergia marcada como grave" tem 33 caracteres e virava
-   * "Contém alergia ma…" na dica compacta. A parte que NÃO pode cair é o
-   * "marcada como": quem marcou a alergia como grave foi quem cadastrou, e sem
-   * essa qualificação a frase passa a ser o app afirmando gravidade. Contar no
-   * lugar de descrever devolve a frase a ~20 caracteres com o "marcada como"
-   * intacto — e ainda diz quantas são.
+   * O cartão escrevia "Nenhuma registrada" nos DOIS casos — exatamente a
+   * ambiguidade que a declaração de ausência (migration 0049) existe para
+   * desfazer. Em prontuário são fatos diferentes: um é resposta de quem foi
+   * perguntado, o outro é campo em branco. Quem lê o painel antes de uma
+   * consulta precisa saber qual dos dois está vendo.
+   *
+   * A DECLARAÇÃO ENTRA PELA MESMA PORTA (proteção 1 do cabeçalho). Ela é lida
+   * de `profileQuery`, que está em `dashboardQueries` e portanto já passou por
+   * `estadoSecao`/`estadoAgregado`: este trecho só roda com `estado ===
+   * 'confirmada'`, ou seja, com o perfil E as alergias respondidos. Nada de
+   * atalho por `isLoading` — se a leitura do perfil falhar, a tela inteira vira
+   * `ErrorState` e não afirma nem declaração nem ausência.
+   *
+   * TOLERA A COLUNA AUSENTE: a 0049 pode não estar aplicada quando este código
+   * subir. Aí a chave nem vem no JSON e a leitura é `undefined`, que é
+   * indistinguível de "não declarou" — o `?? null` a trata como o estado mais
+   * modesto dos dois ("ninguém preencheu"), que é o único seguro. Sem `null`
+   * explícito, `undefined` cairia no mesmo lugar, mas o `??` é o que deixa a
+   * intenção escrita: ignorância nunca vira declaração.
+   *
+   * A ALERGIA SEMPRE VENCE: com substância na lista, o cartão mostra a
+   * substância e a declaração some daqui (o banco a derruba sozinho no trigger
+   * da 0049, mas dado velho e cache existem). Exibir as duas juntas seria o
+   * pior dos dois mundos — é o mesmo critério da seção de Alergias do Perfil.
+   *
+   * E POR QUE "Condições de saúde" CONTINUA COM "Nenhuma registrada": lá não
+   * existe terceiro estado a perder. Só há declaração de ausência para alergia
+   * (a 0049 criou uma coluna, não um conceito geral), e escrever "ninguém
+   * preencheu" num cartão sem esse caminho seria o app falando de si mesmo como
+   * se oferecesse algo que não oferece. Quando/se nascer a declaração de
+   * "nenhuma condição", o critério a repetir é este, não outro.
+   */
+  const declaradoSemAlergiaEm = profile?.sem_alergia_conhecida_em ?? null;
+  const declarouSemAlergia = allergies.length === 0 && declaradoSemAlergiaEm != null;
+  const dataDaDeclaracaoSemAlergia = declaradoSemAlergiaEm
+    ? dataDaDeclaracao(declaradoSemAlergiaEm)
+    : '';
+  /*
+   * A dica de ALERGIA, caso a caso:
+   *
+   * · DECLAROU — a dica vira PROCEDÊNCIA, como no tipo sanguíneo: sem ela,
+   *   "Sem alergia conhecida" no destaque pareceria conclusão do app, e não a
+   *   resposta que a pessoa deu. Com a data, porque declaração de prontuário
+   *   sem data é anotação solta (é o motivo de a 0049 gravar `timestamptz` em
+   *   vez de um booleano).
+   * · NINGUÉM PREENCHEU — a dica diz isso com todas as letras e oferece o
+   *   caminho (proteção 2: cartão vazio ganha caminho, nunca autoria). "no
+   *   perfil" fica de fora porque o cartão inteiro já é o link para lá.
+   * · TEM ALERGIA — a qualificação que precisa sobreviver ao corte: "Contém
+   *   alergia marcada como grave" tem 33 caracteres e virava "Contém alergia
+   *   ma…" na dica compacta. A parte que NÃO pode cair é o "marcada como": quem
+   *   marcou a alergia como grave foi quem cadastrou, e sem essa qualificação a
+   *   frase passa a ser o app afirmando gravidade. Contar no lugar de descrever
+   *   devolve a frase a ~20 caracteres com o "marcada como" intacto — e ainda
+   *   diz quantas são.
    */
   const alergiasGraves = allergies.filter((allergy) => allergy.severity === 'severe').length;
   let alergiasDica: string;
-  if (allergies.length === 0) {
-    alergiasDica = 'Você pode adicionar no perfil';
+  if (declarouSemAlergia) {
+    alergiasDica = dataDaDeclaracaoSemAlergia
+      ? `Declarado em ${dataDaDeclaracaoSemAlergia}`
+      : 'Declarado no perfil';
+  } else if (allergies.length === 0) {
+    alergiasDica = 'Ninguém preencheu ainda · você pode informar';
   } else if (alergiasGraves > 0) {
     alergiasDica =
       alergiasGraves === 1
@@ -618,13 +690,21 @@ export default function DashboardPage() {
           tone="violeta"
           label="Alergias"
           href="/perfil"
+          /* Três destaques possíveis, e a diferença entre os dois últimos é o
+             ponto do cartão: a substância cadastrada; "Sem alergia conhecida",
+             que é a RESPOSTA de quem foi perguntado; e "Nenhuma registrada",
+             que é só o estado do formulário. A frase declarada é a mesma do
+             Perfil e a mesma da 0049 — o prontuário não pode chamar o mesmo
+             fato por dois nomes conforme a tela. */
           value={
             allergies.length > 0
               ? allergies
                   .slice(0, 2)
                   .map((allergy) => allergy.substance)
                   .join(', ')
-              : 'Nenhuma registrada'
+              : declarouSemAlergia
+                ? 'Sem alergia conhecida'
+                : 'Nenhuma registrada'
           }
           hint={alergiasDica}
         />

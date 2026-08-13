@@ -18,6 +18,8 @@ import {
   listAllergies,
   createAllergy,
   deleteAllergy,
+  declareNoKnownAllergy,
+  undoNoKnownAllergy,
   listSurgeries,
   createSurgery,
   deleteSurgery,
@@ -189,9 +191,41 @@ export function useAllergyMutations(patientId: string) {
   const client = useHubPatientsClient();
   const qc = useQueryClient();
   const invalidate = () => qc.invalidateQueries({ queryKey: queryKeys.allergies(patientId) });
+  /*
+   * A declaração "sem alergia conhecida" mora em `profiles`, mas o trigger da
+   * 0049 a derruba sozinho quando uma alergia é cadastrada — ou seja, o perfil
+   * pode mudar sem que ninguém tenha pedido para mudá-lo. Por isso TODA
+   * mutação de alergia invalida também o perfil: sem isto, a tela seguiria
+   * mostrando "você declarou não ter alergia" com a alergia recém-cadastrada
+   * logo acima, que é exatamente a contradição que a 0049 existe para impedir.
+   *
+   * `patientId` aqui é o id do perfil (allergies.patient_id → profiles.id),
+   * então é a mesma chave de `queryKeys.profile`.
+   */
+  const invalidateComPerfil = () => {
+    invalidate();
+    qc.invalidateQueries({ queryKey: queryKeys.profile(patientId) });
+  };
   return {
-    create: useMutation({ mutationFn: (row: InsertRow<'allergies'>) => createAllergy(client, row), onSuccess: invalidate }),
+    create: useMutation({
+      mutationFn: (row: InsertRow<'allergies'>) => createAllergy(client, row),
+      onSuccess: invalidateComPerfil,
+    }),
     remove: useMutation({ mutationFn: (id: string) => deleteAllergy(client, id), onSuccess: invalidate }),
+    /** Declara que o paciente NÃO tem alergia conhecida (grava o instante). */
+    declararSemAlergia: useMutation({
+      mutationFn: () => declareNoKnownAllergy(client, patientId),
+      onSuccess: invalidateComPerfil,
+    }),
+    /**
+     * Desfaz a declaração. É a mais importante das duas: a pessoa pode
+     * descobrir uma alergia depois, e o caminho de volta não pode ser mais
+     * difícil que o de ida.
+     */
+    desfazerSemAlergia: useMutation({
+      mutationFn: () => undoNoKnownAllergy(client, patientId),
+      onSuccess: invalidateComPerfil,
+    }),
   };
 }
 

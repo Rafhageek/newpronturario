@@ -31,6 +31,13 @@
 //   * Alergias e medicamentos são fail-closed: sem eles, nenhum relatório sai.
 //   * As demais seções avisam que não carregaram e o relatório segue — a pessoa
 //     está na porta do consultório, e o resto do que ela registrou ainda serve.
+//   * Lista de alergias vazia é AMBÍGUA, e aqui a ambiguidade custa mais caro do
+//     que na tela: quem lê este papel pode prescrever. A seção de alergias
+//     separa três situações do lado do dado confirmado — o paciente DECLAROU não
+//     ter alergia (com a data, coluna `profiles.sem_alergia_conhecida_em`, 0049),
+//     ninguém preencheu nada, ou não foi possível confirmar se existe
+//     declaração. A quarta situação, a consulta de alergias falhar, continua
+//     sendo fail-closed: não sai papel nenhum.
 //
 // USO
 //   POST  /functions/v1/clinical-report            (web — header Authorization)
@@ -150,6 +157,13 @@ const EXAM_CATEGORY_LABELS: Record<string, string> = {
 interface ProfileRow {
   full_name: string | null;
   date_of_birth: string | null;
+  /**
+   * Instante em que o paciente DECLAROU não ter alergia conhecida (0049).
+   * Opcional de propósito: esta função tem deploy próprio e pode ir ao ar antes
+   * da migração ser aplicada — nesse intervalo a chave simplesmente não existe.
+   * `null`/ausente significa "não declarou", NUNCA "não tem".
+   */
+  sem_alergia_conhecida_em?: string | null;
 }
 interface AllergyRow {
   substance: string;
@@ -403,6 +417,12 @@ interface ReportData {
   diary: DiaryRow[];
   timeline: TimelineRow[];
   /**
+   * Declaração de ausência de alergia (0049). Vive no PERFIL, não na lista de
+   * alergias, e por isso tem confirmação própria: o perfil pode não ter vindo
+   * mesmo com as alergias confirmadas.
+   */
+  declaracaoSemAlergia: DeclaracaoSemAlergia;
+  /**
    * Quais consultas realmente responderam. Lista vazia só pode virar "nenhum
    * registro" quando o banco confirmou que não há nada — sem isso, uma consulta
    * que falhou vira uma afirmação falsa no papel que o médico vai ler.
@@ -430,24 +450,95 @@ const NAO_CARREGADO =
 const IDENTIFICACAO_NAO_CARREGADA =
   '<p class="empty">Não foi possível carregar o nome e a data de nascimento. Confirme a identificação com o paciente.</p>';
 
-function sectionAlergias(rows: AllergyRow[]): string {
+/**
+ * Estado da declaração "não tenho alergia conhecida" (0049) para ESTE relatório.
+ *
+ * São dois fatos diferentes, e o papel precisa dos dois separados:
+ *  · `confirmada` — o perfil respondeu e foi lido. Só isso autoriza o relatório
+ *    a dizer que existe declaração OU que não existe. Sem perfil na mão, as
+ *    duas frases seriam invenção.
+ *  · `em` — o instante declarado, quando existe. `null` = não declarou.
+ * Invariante: `em` só é preenchido com `confirmada === true`.
+ */
+interface DeclaracaoSemAlergia {
+  confirmada: boolean;
+  em: string | null;
+}
+
+/**
+ * Alergias — a seção mais perigosa do documento.
+ *
+ * Chegar aqui já significa que a consulta de alergias RESPONDEU (o portão
+ * fail-closed de `loadReportData` derruba o relatório inteiro quando ela falha).
+ * Só por isso lista vazia pode virar frase. O que esta função acrescenta é a
+ * distinção que faltava dentro do "vazio":
+ *
+ *   tem alergia          → lista (e, se sobrou declaração antiga, diz que ela
+ *                          não vale mais — nunca as duas afirmações lado a lado)
+ *   declarou não ter     → a declaração e a DATA em que foi feita
+ *   ninguém preencheu    → "Nenhuma alergia registrada" + o que isso NÃO diz
+ *   declaração incerta   → "Nenhuma alergia registrada" e nada além disso
+ *
+ * A declaração é TEXTO A MAIS sobre um dado já confirmado. Ela nunca substitui
+ * a confirmação da lista de alergias nem abre caminho para o relatório sair sem
+ * ela.
+ */
+function sectionAlergias(rows: AllergyRow[], declaracao: DeclaracaoSemAlergia): string {
   const shown = rows.slice(0, CAP.alergias);
-  const body = shown.length
-    ? `<ul>${shown
-        .map((a) => {
-          const severity = SEVERITY_LABELS[a.severity] ?? a.severity;
-          const reaction = clip(a.reaction, 70);
-          return `<li class="item"><span class="k">${esc(a.substance)}</span> <span class="d">— gravidade registrada: ${esc(severity)}${
-            reaction ? ` · reação: ${esc(reaction)}` : ''
-          }</span></li>`;
-        })
-        .join('')}</ul>`
-    : '<p class="empty">Nenhuma alergia registrada.</p>';
-  const more =
-    rows.length > shown.length
-      ? `<p class="more">e mais ${rows.length - shown.length} registrada(s) no app.</p>`
+  // Data ilegível sai como declaração SEM data — data inventada em prontuário é
+  // pior que data ausente (mesma regra da tela de Alergias na web).
+  const quando = declaracao.em ? fmtStampDate(declaracao.em) : '';
+  const declarou = declaracao.confirmada && declaracao.em != null;
+
+  if (shown.length) {
+    const itens = shown
+      .map((a) => {
+        const severity = SEVERITY_LABELS[a.severity] ?? a.severity;
+        const reaction = clip(a.reaction, 70);
+        return `<li class="item"><span class="k">${esc(a.substance)}</span> <span class="d">— gravidade registrada: ${esc(severity)}${
+          reaction ? ` · reação: ${esc(reaction)}` : ''
+        }</span></li>`;
+      })
+      .join('');
+    const more =
+      rows.length > shown.length
+        ? `<p class="more">e mais ${rows.length - shown.length} registrada(s) no app.</p>`
+        : '';
+    /*
+     * CONTRADIÇÃO. Com a 0049 aplicada o banco não deixa acontecer (cadastrar
+     * alergia derruba a declaração), mas dado antigo existe — e o que este papel
+     * NUNCA pode fazer é exibir "declarou não ter alergia" ao lado de uma
+     * alergia registrada. A alergia sempre vence; a declaração aparece só para
+     * dizer, em uma linha, que deixou de valer.
+     */
+    const conflito = declarou
+      ? `<p class="more">Há também neste prontuário uma declaração de “sem alergia conhecida”${
+          quando ? `, de ${esc(quando)}` : ''
+        }. Ela não vale mais: há alergia registrada acima.</p>`
       : '';
-  return `<section><h2>Alergias</h2>${body}${more}</section>`;
+    return `<section><h2>Alergias</h2><ul>${itens}</ul>${more}${conflito}</section>`;
+  }
+
+  if (declarou) {
+    // A DATA é o que separa esta declaração de um simples "não tem": quem lê
+    // decide, por ela, se vale perguntar de novo.
+    const data = quando ? `Declarado em ${esc(quando)}.` : 'Declarado pelo paciente.';
+    return `<section><h2>Alergias</h2><p class="item"><span class="k">O paciente declarou não ter alergia conhecida.</span></p><p class="item"><span class="d">${data}</span></p><p class="count">É a declaração do próprio paciente, feita no aplicativo — não é teste nem avaliação de alergia.</p></section>`;
+  }
+
+  /*
+   * Lista vazia sem declaração. A frase antiga parava em "Nenhuma alergia
+   * registrada." e deixava quem prescreve completar a informação sozinho. O
+   * complemento diz qual das duas coisas o app realmente sabe:
+   *  · perfil lido e sem declaração → ninguém afirmou ausência (campo em branco);
+   *  · perfil não lido → o app não sabe se existe declaração, e cala sobre isso.
+   * O segundo caso é o normal quando quem gera o resumo é um CUIDADOR: desde a
+   * 0032 o SELECT direto em `profiles` é só do próprio dono.
+   */
+  const complemento = declaracao.confirmada
+    ? ' Ninguém declarou ausência de alergia: campo em branco não afirma que não há.'
+    : ' Não foi possível confirmar se o paciente declarou não ter alergia.';
+  return `<section><h2>Alergias</h2><p class="empty">Nenhuma alergia registrada.${complemento}</p></section>`;
 }
 
 function sectionMedicamentos(rows: MedicationRow[]): string {
@@ -619,7 +710,7 @@ function buildReportBody(
 
   const rendered: string[] = [];
   for (const key of sections) {
-    if (key === 'alergias') rendered.push(sectionAlergias(data.allergies));
+    if (key === 'alergias') rendered.push(sectionAlergias(data.allergies, data.declaracaoSemAlergia));
     else if (key === 'medicamentos') rendered.push(sectionMedicamentos(data.medications));
     else if (key === 'vitais') rendered.push(sectionVitais(data.vitals, days, data.loaded.vitals));
     else if (key === 'exames') rendered.push(sectionExames(data.exams, days, data.loaded.exams));
@@ -774,6 +865,65 @@ class ReportAuditError extends Error {}
  */
 class ReportCriticalSectionError extends Error {}
 
+/* ── Perfil: identificação + declaração de ausência de alergia (0049) ── */
+
+const PERFIL_CAMPOS_BASE = 'full_name, date_of_birth';
+const PERFIL_CAMPOS_COM_DECLARACAO = 'full_name, date_of_birth, sem_alergia_conhecida_em';
+
+/**
+ * O banco ainda não tem a coluna da 0049?
+ *
+ * Esta função tem deploy SEPARADO (nem Vercel nem OTA a publicam), então ela
+ * pode ir ao ar antes da migração ser aplicada. Pedir uma coluna inexistente
+ * derruba a consulta INTEIRA — e junto com ela o nome e a idade do paciente.
+ * Mesmos códigos usados pelo app web (`isNoKnownAllergyUnavailable`, em
+ * packages/supabase/src/queries/clinical.ts):
+ *   · `42703` — undefined_column, quando o Postgres responde direto;
+ *   · `PGRST204` — o PostgREST não achou a coluna no cache de schema.
+ */
+function colunaDeclaracaoAusente(error: unknown): boolean {
+  const e = error as { code?: unknown; message?: unknown } | null;
+  const code = typeof e?.code === 'string' ? e.code : '';
+  const message = typeof e?.message === 'string' ? e.message : '';
+  if (code === '42703' || code === 'PGRST204') return true;
+  return message.includes('sem_alergia_conhecida_em') && /does not exist|schema cache/i.test(message);
+}
+
+interface ProfileFetch {
+  data: ProfileRow | null;
+  /** Erro cru: aqui só interessa se houve ou não (alimenta `loaded.profile`). */
+  error: unknown;
+}
+
+/**
+ * Lê o perfil pedindo também a declaração de ausência de alergia e, se a coluna
+ * ainda não existir, REPETE a consulta sem ela.
+ *
+ * A segunda ida ao banco só acontece na janela entre publicar esta função e
+ * aplicar a 0049. Nessa janela o resultado é exatamente o de hoje: perfil lido,
+ * declaração ausente — o que é verdade, porque sem a coluna ninguém declarou
+ * nada. O que NÃO pode acontecer é o relatório perder a identificação do
+ * paciente por causa de um campo que ainda não nasceu.
+ */
+async function loadProfile(supabase: Client, patientId: string): Promise<ProfileFetch> {
+  const comDeclaracao = await supabase
+    .from('profiles')
+    .select(PERFIL_CAMPOS_COM_DECLARACAO)
+    .eq('id', patientId)
+    .maybeSingle();
+
+  if (!comDeclaracao.error || !colunaDeclaracaoAusente(comDeclaracao.error)) {
+    return { data: (comDeclaracao.data ?? null) as ProfileRow | null, error: comDeclaracao.error };
+  }
+
+  const semDeclaracao = await supabase
+    .from('profiles')
+    .select(PERFIL_CAMPOS_BASE)
+    .eq('id', patientId)
+    .maybeSingle();
+  return { data: (semDeclaracao.data ?? null) as ProfileRow | null, error: semDeclaracao.error };
+}
+
 async function loadReportData(
   supabase: Client,
   patientId: string,
@@ -792,11 +942,10 @@ async function loadReportData(
     p_limit: 60,
   });
 
-  const profilePromise = supabase
-    .from('profiles')
-    .select('full_name, date_of_birth')
-    .eq('id', patientId)
-    .maybeSingle();
+  // Identificação do paciente + a declaração "não tenho alergia conhecida"
+  // (0049), que mora no perfil e não na lista de alergias. `loadProfile` tolera
+  // a coluna ainda não existir sem derrubar o nome e a idade.
+  const profilePromise = loadProfile(supabase, patientId);
 
   // As demais seções vêm das tabelas (com RLS) porque precisam de campos que a
   // timeline não carrega: posologia, valores numéricos por tipo e recorte do
@@ -886,6 +1035,24 @@ async function loadReportData(
     throw new ReportCriticalSectionError();
   }
 
+  /*
+   * A declaração de ausência de alergia é lida com o MESMO rigor da lista: só o
+   * perfil efetivamente lido autoriza o papel a dizer que existe declaração —
+   * ou que não existe. Perfil que falhou, ou que não veio (desde a 0032 o
+   * SELECT direto em `profiles` é só do dono, então o resumo gerado por um
+   * cuidador não recebe linha nenhuma), deixa a seção calada sobre a
+   * declaração; nunca a transforma em "ninguém declarou".
+   *
+   * Isto é informação SOBRE um dado já confirmado. O portão fail-closed das
+   * alergias continua sendo o de cima, intacto: sem confirmar a lista, não há
+   * relatório — com declaração ou sem ela.
+   */
+  const perfilRespondeu = !profile.error && profile.data != null;
+  const declaracaoSemAlergia: DeclaracaoSemAlergia = {
+    confirmada: perfilRespondeu,
+    em: perfilRespondeu ? (profile.data?.sem_alergia_conhecida_em ?? null) : null,
+  };
+
   const fromMs = new Date(fromISO).getTime();
 
   const examRows = ((exams?.data ?? []) as ExamRow[]).filter((e) => {
@@ -904,7 +1071,8 @@ async function loadReportData(
   });
 
   return {
-    profile: (profile.data ?? null) as ProfileRow | null,
+    profile: profile.data,
+    declaracaoSemAlergia,
     // Chegou aqui: as duas críticas responderam (ou não foram pedidas). Só
     // depois desse portão o `?? []` volta a significar "o banco disse vazio".
     allergies: (allergies?.data ?? []) as AllergyRow[],

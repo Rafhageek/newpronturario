@@ -100,6 +100,18 @@ export interface Database {
           guardian_id: string | null;
           is_minor: boolean;
           emergency_note: string | null;
+          /**
+           * Instante em que o paciente DECLAROU não ter alergia conhecida
+           * (migration 0049). `null` = nunca declarou — o que NÃO é o mesmo que
+           * "não tem alergia": é ausência de dado, e a tela precisa dizer isso
+           * com todas as letras (regra de veracidade, `utils/estado-secao.ts`).
+           *
+           * Enquanto a 0049 não for aplicada, o campo simplesmente não vem no
+           * JSON de `get_accessible_profile` e chega `undefined` em runtime —
+           * por isso quem lê usa `?? null` e quem escreve trata o erro de coluna
+           * inexistente (ver `queries/clinical.ts`).
+           */
+          sem_alergia_conhecida_em: string | null;
           deleted_at: string | null;
           deletion_scheduled_at: string | null;
           calendar_token: string;
@@ -122,6 +134,7 @@ export interface Database {
         | 'height_cm'
         | 'guardian_id'
         | 'emergency_note'
+        | 'sem_alergia_conhecida_em'
         | 'deleted_at'
         | 'deletion_scheduled_at'
       >;

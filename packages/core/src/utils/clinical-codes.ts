@@ -19,6 +19,11 @@ import {
   type Cid10Chapter,
 } from '../data/cid10-br';
 import {
+  CID10_SINONIMOS,
+  CID10_SINONIMOS_RECUSADOS,
+  type Cid10Sinonimo,
+} from '../data/cid10-sinonimos';
+import {
   LOINC_ATTRIBUTION,
   LOINC_CATEGORY_LABELS,
   LOINC_CHECKED_AT,
@@ -33,6 +38,8 @@ export {
   CID10_CATEGORIES,
   CID10_CHAPTERS,
   CID10_CHECKED_AT,
+  CID10_SINONIMOS,
+  CID10_SINONIMOS_RECUSADOS,
   CID10_SOURCE_URL,
   LOINC_ATTRIBUTION,
   LOINC_CATEGORY_LABELS,
@@ -41,7 +48,7 @@ export {
   LOINC_SOURCE_URL,
   LOINC_VERIFICATION_URL,
 };
-export type { Cid10Category, Cid10Chapter, LoincCategory, LoincExam };
+export type { Cid10Category, Cid10Chapter, Cid10Sinonimo, LoincCategory, LoincExam };
 
 // Marcas diacríticas combinantes (acentos), removidas após normalize('NFD').
 const COMBINING_MARKS = /[̀-ͯ]/g;
@@ -145,6 +152,8 @@ interface IndexedCid10 {
   category: Cid10Category;
   haystack: string;
   description: string;
+  /** Código + palavras da descrição, para casar por INÍCIO de palavra. */
+  words: string[];
 }
 
 let CID10_INDEX: IndexedCid10[] | null = null;
@@ -152,14 +161,127 @@ function cid10Index(): IndexedCid10[] {
   if (!CID10_INDEX) {
     CID10_INDEX = CID10_CATEGORIES.map((category) => {
       const description = normalizeClinicalText(category.description_pt);
+      const haystack = `${normalizeClinicalText(category.code)} ${description}`;
       return {
         category,
         description,
-        haystack: `${normalizeClinicalText(category.code)} ${description}`,
+        haystack,
+        words: haystack.split(' ').filter(Boolean),
       };
     });
   }
   return CID10_INDEX;
+}
+
+/* ─────────────────── CID-10: sinônimos populares (busca) ─────────────────── */
+
+/**
+ * Mínimo de caracteres para a busca "ampla" — casar no MEIO da palavra e
+ * consultar os sinônimos.
+ *
+ * Por quê: com 2 caracteres e casamento por substring em qualquer posição, a
+ * lista abria no meio das palavras e trazia item alarmante sem relação com o que
+ * a pessoa estava escrevendo. Digitar "ca" trazia, entre outros, "Neoplasia
+ * maligna do cólon" (por "neoplasia"), "Varicela" e "Escabiose". Agora 1 e 2
+ * caracteres só casam por INÍCIO de palavra — "ca" traz "Catarata senil",
+ * "Cárie dentária", "Candidíase", "Calculose do rim e do ureter" — e a busca
+ * ampla entra a partir do 3º caractere, quando a intenção já está clara.
+ */
+const CID10_MIN_BUSCA_AMPLA = 3;
+
+/** Palavras de ligação: não carregam sentido na comparação com o sinônimo. */
+const CID10_LIGACOES = new Set(
+  'de do da dos das no na nos nas e em com a o as os ao aos um uma'.split(' '),
+);
+
+function palavrasSignificativas(texto: string): string[] {
+  const todas = texto.split(' ').filter(Boolean);
+  const uteis = todas.filter((p) => !CID10_LIGACOES.has(p));
+  return uteis.length > 0 ? uteis : todas;
+}
+
+interface IndexedSinonimo {
+  termo: string;
+  palavras: string[];
+  codigos: readonly string[];
+}
+
+let CID10_SINONIMO_INDEX: IndexedSinonimo[] | null = null;
+function sinonimoIndex(): IndexedSinonimo[] {
+  if (!CID10_SINONIMO_INDEX) {
+    CID10_SINONIMO_INDEX = CID10_SINONIMOS.map((s) => {
+      const termo = normalizeClinicalText(s.termo);
+      return { termo, palavras: palavrasSignificativas(termo), codigos: s.codigos };
+    });
+  }
+  return CID10_SINONIMO_INDEX;
+}
+
+/**
+ * A consulta e o sinônimo começam igual, palavra a palavra?
+ *
+ * Compara alinhado desde a primeira palavra, porque paciente digita pela metade
+ * e também digita demais: "coleste" alcança "colesterol", "acucar no sangue
+ * alto" alcança "acucar no sangue" e "artrose joelho" alcança "artrose".
+ *
+ * Alinhar importa: sem isso, quem digitasse "tireoide" cairia também em "câncer
+ * de tireoide" e veria uma neoplasia no topo da lista sem ter escrito nada
+ * parecido. Casar só o final da expressão popular assusta e não ajuda.
+ */
+function comecaIgual(consulta: string[], palavras: string[]): boolean {
+  const n = Math.min(consulta.length, palavras.length);
+  if (n === 0) return false;
+  for (let i = 0; i < n; i += 1) {
+    const a = consulta[i] ?? '';
+    const b = palavras[i] ?? '';
+    const maior = a.length >= b.length ? a : b;
+    const menor = a.length >= b.length ? b : a;
+    if (!maior.startsWith(menor)) return false;
+  }
+  return true;
+}
+
+/**
+ * Códigos que a consulta alcança pelos sinônimos populares, com a posição em que
+ * o sinônimo os declarou (ordem de exibição escolhida na curadoria).
+ */
+function sinonimoRanks(q: string): Map<string, number> {
+  const encontrados = new Map<string, number>();
+  if (q.length < CID10_MIN_BUSCA_AMPLA) return encontrados;
+  const consulta = palavrasSignificativas(q);
+  for (const s of sinonimoIndex()) {
+    if (!comecaIgual(consulta, s.palavras)) continue;
+    s.codigos.forEach((codigo, ordem) => {
+      const anterior = encontrados.get(codigo);
+      if (anterior === undefined || ordem < anterior) encontrados.set(codigo, ordem);
+    });
+  }
+  return encontrados;
+}
+
+/* Faixas de relevância. Menor = aparece antes. */
+const RANK_CODIGO = 0; // a pessoa digitou o código inteiro ("I70")
+const RANK_DESCRICAO_INICIO = 1; // a descrição oficial começa com o que foi digitado
+const RANK_SINONIMO = 2; // chegou pelo vocabulário popular ("pressão alta")
+const RANK_PALAVRA = 3; // todo termo casa no início de alguma palavra
+const RANK_SUBSTRING = 4; // algum termo só casa no meio da palavra
+const SEM_RANK = Number.POSITIVE_INFINITY;
+
+/** Relevância do item pela descrição oficial, ou `SEM_RANK` se não casa. */
+function rankPorDescricao(item: IndexedCid10, termos: string[], q: string): number {
+  let todoInicio = true;
+  for (const termo of termos) {
+    if (item.words.some((w) => w.startsWith(termo))) continue;
+    // Casar no meio da palavra só a partir do 3º caractere: com 2, a lista
+    // abria cheia de item sem relação com o que a pessoa estava escrevendo.
+    if (termo.length >= CID10_MIN_BUSCA_AMPLA && item.haystack.includes(termo)) {
+      todoInicio = false;
+      continue;
+    }
+    return SEM_RANK;
+  }
+  if (!todoInicio) return RANK_SUBSTRING;
+  return item.description.startsWith(q) ? RANK_DESCRICAO_INICIO : RANK_PALAVRA;
 }
 
 let CID10_BY_CODE: Map<string, Cid10Category> | null = null;
@@ -171,30 +293,47 @@ function cid10ByCode(): Map<string, Cid10Category> {
 }
 
 /**
- * Busca categorias da CID-10 por código ou descrição.
+ * Busca categorias da CID-10 por código, por descrição oficial ou pelo
+ * vocabulário popular do paciente.
  *
  * Sem acento, sem caixa, exige todas as palavras: "i10" e "hipertensao
- * essencial" chegam ao mesmo item.
+ * essencial" chegam ao mesmo item. E "pressao alta" chega nele também — pela
+ * camada de sinônimos de `../data/cid10-sinonimos`, que é só CHAVE DE BUSCA: o
+ * que sai daqui é sempre a categoria oficial do DATASUS, com a descrição
+ * original intacta.
+ *
+ * Ordem: código digitado inteiro → descrição que começa com o texto → sinônimo
+ * popular → todo termo no início de alguma palavra → termo no meio da palavra.
  */
 export function searchCid10(query: string, limit = 30): Cid10Category[] {
   const q = normalizeClinicalText(query);
   if (!q) return [];
   const terms = q.split(' ').filter(Boolean);
-  const matches: IndexedCid10[] = [];
+  const porSinonimo = sinonimoRanks(q);
+  const matches: { item: IndexedCid10; rank: number; sub: number; ordem: number }[] = [];
   for (const item of cid10Index()) {
-    if (terms.every((t) => item.haystack.includes(t))) matches.push(item);
+    const porDescricao = rankPorDescricao(item, terms, q);
+    let rank = normalizeClinicalText(item.category.code) === q ? RANK_CODIGO : porDescricao;
+    let ordem = 0;
+    let sub = 0;
+    const sinonimo = porSinonimo.get(item.category.code);
+    if (sinonimo !== undefined && RANK_SINONIMO < rank) {
+      rank = RANK_SINONIMO;
+      ordem = sinonimo;
+      // Quem veio pelo sinônimo E ainda casa com a descrição é o mais próximo do
+      // que a pessoa escreveu ("artrose joelho" → M17 antes do resto da família).
+      sub = porDescricao === SEM_RANK ? 1 : 0;
+    }
+    if (rank === SEM_RANK) continue;
+    matches.push({ item, rank, sub, ordem });
   }
   matches.sort((a, b) => {
-    // Código digitado inteiro vem primeiro; depois descrição que começa com o termo.
-    const ca = normalizeClinicalText(a.category.code) === q ? 0 : 1;
-    const cb = normalizeClinicalText(b.category.code) === q ? 0 : 1;
-    if (ca !== cb) return ca - cb;
-    const sa = a.description.startsWith(q) ? 0 : 1;
-    const sb = b.description.startsWith(q) ? 0 : 1;
-    if (sa !== sb) return sa - sb;
-    return a.category.code < b.category.code ? -1 : 1;
+    if (a.rank !== b.rank) return a.rank - b.rank;
+    if (a.sub !== b.sub) return a.sub - b.sub;
+    if (a.ordem !== b.ordem) return a.ordem - b.ordem;
+    return a.item.category.code < b.item.category.code ? -1 : 1;
   });
-  return matches.slice(0, limit).map((m) => m.category);
+  return matches.slice(0, limit).map((m) => m.item.category);
 }
 
 /**
