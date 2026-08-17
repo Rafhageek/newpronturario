@@ -56,6 +56,63 @@ export function isValidCEP(value: string): boolean {
   return onlyDigits(value).length === 8;
 }
 
+/* ───────────────────────────── Números em pt-BR ─────────────────────────────
+ * O Brasil escreve 36,5 e 1.234,5 — vírgula decimal, ponto de milhar. O
+ * `Number()` do JavaScript só entende o formato inglês, e as telas vinham
+ * resolvendo isso com `v.replace(',', '.')`, que tem DOIS furos:
+ *
+ *   1. `String.replace` com string literal troca só a PRIMEIRA ocorrência;
+ *   2. o ponto de milhar não era tratado — `'1.234,5'` virava `'1.234.5'` e
+ *      `Number` devolvia NaN.
+ *
+ * Onde isso doía: glicemia. É o campo de sinal vital em que a casa do milhar
+ * aparece de verdade, e é o campo de quem tem diabetes — exatamente o
+ * registro que não pode ser recusado por causa da pontuação.
+ * ========================================================================== */
+
+/**
+ * Milhar brasileiro, com ou sem decimal: `1.234`, `1.234,5`, `1.234.567`.
+ *
+ * O primeiro grupo NÃO pode começar com zero. É isso que separa `1.234`
+ * (mil duzentos e trinta e quatro) de `0.123` — quem escreve zero antes do
+ * ponto está escrevendo um decimal em formato inglês, não um milhar.
+ */
+const MILHAR_BR = /^-?[1-9]\d{0,2}(\.\d{3})+(,\d+)?$/;
+
+/** Decimal com vírgula, sem milhar: `36,5`, `1234,5`, `42`. */
+const DECIMAL_VIRGULA = /^-?\d+(,\d+)?$/;
+
+/**
+ * Texto de campo → número, aceitando a pontuação brasileira.
+ *
+ *   `'36,5'`    → 36.5     (vírgula decimal, o jeito certo daqui)
+ *   `'36.5'`    → 36.5     (ponto decimal; teclado numérico do celular)
+ *   `'1.234'`   → 1234     (ponto de milhar)
+ *   `'1.234,5'` → 1234.5   (milhar + decimal)
+ *   `''`        → undefined
+ *   `'abc'`     → NaN
+ *
+ * Vazio sai como `undefined` (campo em branco = não informado). Tudo o mais
+ * que não for número sai como **NaN de propósito**, nunca `undefined`:
+ * `undefined` jogaria fora, em silêncio, um valor que a pessoa digitou. Num
+ * prontuário, descartar dado calado é pior que recusar com explicação — o NaN
+ * cai na validação e volta com a mensagem que diz qual campo é.
+ *
+ * Pela mesma razão a função não "conserta" o que não reconhece: `'1,5.5'` sai
+ * NaN em vez de virar um número que ninguém digitou.
+ */
+export function parseNumeroBR(value: string): number | undefined {
+  const limpo = value.trim();
+  if (limpo === '') return undefined;
+  // Milhar: tira os pontos ANTES de mexer na vírgula, senão `1.234,5` vira
+  // `1.234.5` — o bug original.
+  if (MILHAR_BR.test(limpo)) return Number(limpo.replace(/\./g, '').replace(',', '.'));
+  if (DECIMAL_VIRGULA.test(limpo)) return Number(limpo.replace(',', '.'));
+  // Sobra o formato inglês (`36.5`, `1234`) e o lixo. O `Number` resolve os
+  // dois: número de verdade passa, o resto vira NaN e reprova na validação.
+  return Number(limpo);
+}
+
 /* ────────────────────────────── Datas em pt-BR ──────────────────────────────
  * O Brasil escreve DD/MM/AAAA. O formulário pedia AAAA-MM-DD (formato de banco)
  * e isso é fonte real de erro: "05/03" é março para quem digita e maio para o

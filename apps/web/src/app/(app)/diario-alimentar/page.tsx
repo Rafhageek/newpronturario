@@ -25,6 +25,28 @@
  * número (TACO, Open Food Facts, digitado pela pessoa), e o rodapé nomeia as
  * origens que de fato estão no dia. Assinar "Tabela TACO" embaixo de valor que
  * veio de outro lugar seria o app afirmando o que não conferiu.
+ *
+ * ────────────────────────────────────────────────────────────────────────────
+ * SÓDIO (2026-08)
+ *
+ * Entrou porque o público aqui é de gente com hipertensão, e para ela o sal é o
+ * número que a consulta cobra — mais que a caloria. Ele obedece às MESMAS três
+ * decisões acima, e a duas a mais que valem só para ele:
+ *
+ * · NÃO EXISTE ALVO DE SÓDIO NESTA TELA. Nenhuma barra, nenhum anel, nenhum
+ *   "de 2.000 mg". A recomendação da OMS aparece como FRASE, com a fonte e o
+ *   ano à vista, dizendo em letra que é referência de saúde pública e não meta
+ *   que o app definiu — do mesmo jeito que as faixas de pressão citam a
+ *   diretriz que as publicou. Desenhar a barra transformaria a citação em alvo,
+ *   e alvo de sódio para hipertenso é prescrição.
+ *
+ * · O TOTAL DIZ DE QUANTOS ITENS ELE SAIU. O banco ainda não guarda sódio; o
+ *   que dá para fazer hoje é reler a Tabela TACO pelo id que ficou em
+ *   `source_ref` nos itens que vieram de lá. Item da Open Food Facts, digitado
+ *   à mão ou sem origem NÃO entra na soma nem como zero — ele é contado à parte
+ *   e a tela diz quantos são. Um total que engolisse esses itens seria um
+ *   número menor apresentado como o dia inteiro: a mentira que tranquiliza
+ *   justamente quem precisa de sal controlado.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -71,6 +93,12 @@ import {
   FONTE_CONFIANCA,
   estadoSecao,
   podeAfirmarAusencia,
+  sodioDoDia,
+  sodioParaGramas,
+  tacoFoodPorId,
+  coberturaDoSodio,
+  SODIO_REFERENCIA_NOTA,
+  SODIO_SEM_SAL_ADICIONADO_NOTA,
   type EstadoSecao,
   type MealType,
 } from '@hubpatients/core';
@@ -124,6 +152,20 @@ function refeicaoPeloRelogio(): MealType {
   return 'dinner';
 }
 
+/**
+ * Sódio de um item já registrado, relido da Tabela TACO pelo id que ficou em
+ * `source_ref`. Sempre devolve texto: quando o app não tem o número, ele DIZ
+ * que não tem, porque silêncio ao lado de "158 kcal" seria lido como "sem sal".
+ */
+function sodioDoItem(e: FoodEntry): string {
+  const food = normalizarFonte(e.source) === 'taco' ? tacoFoodPorId(e.source_ref) : null;
+  if (!food) return 'sódio não informado';
+  const s = sodioParaGramas(food, Number(e.grams));
+  if (s.estado === 'medido' && s.mg != null) return `${numeroBR(s.mg)} mg de sódio`;
+  if (s.estado === 'traco') return 'traço de sódio na TACO';
+  return 'sódio não informado';
+}
+
 type AbaBusca = 'recentes' | 'favoritos' | 'meus';
 
 export default function DiarioAlimentarPage() {
@@ -174,6 +216,7 @@ export default function DiarioAlimentarPage() {
 
   const progressoKcal = progressoNutriente(totais.kcal, metaKcal, 'kcal');
   const origens = useMemo(() => origensPresentes(itens), [itens]);
+  const sodio = useMemo(() => sodioDoDia(itens), [itens]);
 
   const grupos = useMemo(() => agruparPorRefeicao(itens, MEAL_TYPES_DO_DIA), [itens]);
   const resumoSemana = resumoDaSemana(semana, semanaQ.data ?? []);
@@ -422,6 +465,33 @@ export default function DiarioAlimentarPage() {
               </div>
             </div>
 
+            {/* ───────────────────────────── Sódio ─────────────────────────────
+                Número factual, sem barra e sem alvo. A citação da OMS é frase
+                com fonte, nunca meta desenhada — ver o cabeçalho do arquivo. */}
+            <div className="mt-5 border-t border-line pt-4">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <h3 className="text-body-sm font-semibold text-fg-soft">Sódio registrado</h3>
+                {estadoDia !== 'falhou' && sodio.medidos > 0 ? (
+                  <p className="hp-num text-body font-semibold text-fg">
+                    {numeroBR(sodio.mg)} mg
+                  </p>
+                ) : (
+                  <p className="text-body-sm font-medium text-fg-soft">Nada para somar ainda</p>
+                )}
+              </div>
+
+              <p className="mt-1 text-body-sm text-fg-soft">
+                {estadoDia === 'falhou'
+                  ? 'Não foi possível conferir os itens deste dia — não dá para somar o sódio.'
+                  : coberturaDoSodio(sodio)}
+              </p>
+
+              <p className="mt-2 text-body-sm text-fg-soft">
+                {SODIO_SEM_SAL_ADICIONADO_NOTA}
+              </p>
+              <p className="mt-2 text-body-sm text-fg-soft">{SODIO_REFERENCIA_NOTA}</p>
+            </div>
+
             {/* Rodapé de origem: nomeia as bases que REALMENTE estão no dia. */}
             <p className="mt-5 flex items-start gap-2 border-t border-line pt-4 text-xs leading-5 text-muted">
               <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -480,11 +550,18 @@ export default function DiarioAlimentarPage() {
                           <li key={e.id} className="flex items-center gap-3 py-2.5">
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm text-fg">{e.food_name}</p>
-                              <p className="hp-num text-xs text-muted">
+                              {/* Duas linhas de propósito: a 15px o sódio não
+                                  cabe atrás do kcal sem quebrar no meio de
+                                  "854 mg de sódio". Encolher o número clínico
+                                  para caber numa linha só não é opção. */}
+                              <p className="hp-num text-body-sm text-fg-soft">
                                 {numeroBR(e.grams)} g · {numeroBR(e.kcal)} kcal
                                 <span className="ml-2 font-sans" title={FONTE_CONFIANCA[fonte]}>
                                   {FONTE_ROTULO[fonte]}
                                 </span>
+                              </p>
+                              <p className="hp-num text-body-sm text-fg-soft">
+                                {sodioDoItem(e)}
                               </p>
                             </div>
                             <button

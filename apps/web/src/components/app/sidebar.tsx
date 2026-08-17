@@ -5,8 +5,8 @@
  * LATERAL DO PAINEL — web
  * ════════════════════════════════════════════════════════════════════════════
  *
- * Clara, recolhível, com os grupos do mockup em maiúsculas pequenas. Item ativo
- * é pílula azul-clara com texto azul (`nav-active-*`, 6,98:1 — medido em
+ * Clara, recolhível. Item ativo é pílula azul-clara com texto azul
+ * (`nav-active-*`, 6,98:1 — medido em
  * `packages/core/src/utils/contraste-painel.test.ts`).
  *
  * O QUE ESTE ARQUIVO NÃO FAZ:
@@ -14,10 +14,35 @@
  *  · não escreve tamanho de fonte literal (`text-[10px]` matava o Modo Sênior
  *    em todo item de menu: era o degrau mais usado da casca inteira);
  *  · não usa `height` em alvo tocável, só `min-h-11` em rem — com
- *    `html[data-senior] { font-size: 130% }` o item cresce para ~57px sozinho.
+ *    `html[data-senior] { font-size: 130% }` o item cresce para ~57px sozinho;
+ *  · não pinta item de menu com cor de status do corpo. O único marcador por
+ *    item é o pontinho de "em testes", em `--primary` (azul), sempre com o
+ *    texto equivalente em `sr-only`. Vermelho/âmbar aqui seriam alarme sobre
+ *    uma SEÇÃO do prontuário, e alarme é do sistema, não do paciente.
  *
  * RECOLHIDA: o rótulo sai da tela, então cada item vira ícone + `title` +
  * `aria-label`. Ícone sozinho sem nome acessível é um botão mudo.
+ *
+ * ── SEÇÕES NASCEM ABERTAS (2026-08-17) ──────────────────────────────────────
+ * O padrão era "só o grupo principal + o grupo da rota atual". Resultado: o
+ * Diário alimentar (pronto desde julho, com a tabela TACO) morava num grupo
+ * FECHADO, e o idealizador pediu "um campo de nutrição" para um app que já
+ * tinha um. Na véspera havia acontecido o mesmo com a busca de CID-10. Menu
+ * fechado não economiza atenção: apaga o produto. Agora tudo nasce aberto, e
+ * quem quiser fechar fecha — a escolha da pessoa continua sendo respeitada e
+ * gravada. Ver `CHAVE_GRUPOS` para o cuidado com quem já tinha estado salvo.
+ *
+ * ── CONTRASTE MEDIDO (2026-08-17, casca `hp-clinical-shell`) ────────────────
+ *                                   claro      escuro
+ *   item ativo (ink/tint)           6,98:1     6,81:1
+ *   item inativo (muted/surface)    5,90:1     7,84:1
+ *   item inativo no hover           5,56:1     7,04:1
+ *   cabeçalho de seção (fg-soft)   10,40:1    12,05:1
+ *   pontinho "em testes"            8,28:1     7,87:1  (SC 1.4.11 pede 3)
+ * Alto contraste sobe todos (o pior par vira 7,57:1). Nenhum degrau abaixo de
+ * AA, e nenhum texto abaixo de 15px — o cabeçalho de seção estava em 13px
+ * `--hint` (5,16:1) e subiu, porque "texto claro demais" já voltou do cliente
+ * cinco vezes e o cabeçalho é o que diz ONDE a pessoa está.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -28,13 +53,7 @@ import { useProfile, useActivePregnancy, useCommunityMember } from '@hubpatients
 import { calculateAge } from '@hubpatients/core';
 import { useAuth } from '@/components/auth-provider';
 import { useActiveProfile } from '@/components/profile-context';
-import {
-  NAV,
-  NAV_SECTIONS,
-  PRIMARY_NAV_SECTION,
-  type NavItem,
-  type NavSection,
-} from './nav';
+import { NAV, NAV_SECTIONS, type NavItem, type NavSection } from './nav';
 
 /** Rodapé da lateral. Fica aqui porque é a única superfície que o exibe. */
 const PRODUTO = 'HubPatients';
@@ -42,7 +61,23 @@ const VERSAO = 'MVP · v0.1.0';
 
 /** Preferências da casca. Lidas depois da montagem (evita erro de hidratação). */
 const CHAVE_RECOLHIDA = 'hp.painel.lateral.recolhida';
-const CHAVE_GRUPOS = 'hp.painel.lateral.grupos';
+
+/*
+ * A chave dos grupos tem VERSÃO no nome, e isso é o que faz a correção chegar
+ * em quem mais precisa dela.
+ *
+ * Mudar só o padrão do código consertaria a navegação de quem instalasse hoje —
+ * e deixaria de fora exatamente as pessoas que já usam o app, porque elas têm um
+ * `["Meu prontuário"]` gravado desde o primeiro clique, e valor gravado ganha do
+ * padrão para sempre. O cliente que não achou o Diário alimentar é uma delas.
+ *
+ * Trocar `grupos` por `grupos.v2` faz a leitura falhar uma vez, cair no padrão
+ * novo (tudo aberto) e regravar a partir dali. Quem gostava de tudo fechado
+ * fecha de novo em dois cliques; quem não sabia que existia um menu embaixo
+ * passa a ver. A chave antiga é apagada na mesma passada para não virar lixo.
+ */
+const CHAVE_GRUPOS = 'hp.painel.lateral.grupos.v2';
+const CHAVE_GRUPOS_LEGADA = 'hp.painel.lateral.grupos';
 
 function lerJson<T>(chave: string, padrao: T): T {
   try {
@@ -61,6 +96,17 @@ function gravarJson(chave: string, valor: unknown): void {
   }
 }
 
+/** Lê os grupos abertos e aposenta a chave antiga. `null` = ninguém escolheu. */
+function lerGruposAbertos(): NavSection[] | null {
+  const salvo = lerJson<NavSection[] | null>(CHAVE_GRUPOS, null);
+  try {
+    window.localStorage.removeItem(CHAVE_GRUPOS_LEGADA);
+  } catch {
+    /* sem storage: nada a aposentar. */
+  }
+  return salvo;
+}
+
 export function AppSidebar({
   mobileOpen = false,
   onClose,
@@ -70,14 +116,14 @@ export function AppSidebar({
 }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
-  /** `null` = ainda não escolheu nada; cai no padrão (grupo principal aberto). */
+  /** `null` = ainda não escolheu nada; cai no padrão (todos os grupos abertos). */
   const [gruposAbertos, setGruposAbertos] = useState<NavSection[] | null>(null);
   const asideRef = useRef<HTMLElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     setCollapsed(lerJson<boolean>(CHAVE_RECOLHIDA, false));
-    setGruposAbertos(lerJson<NavSection[] | null>(CHAVE_GRUPOS, null));
+    setGruposAbertos(lerGruposAbertos());
   }, []);
 
   useEffect(() => {
@@ -163,19 +209,19 @@ export function AppSidebar({
   /*
    * Quais grupos estão abertos.
    *
-   * `null` = a pessoa ainda não escolheu nada; aí o padrão é o grupo principal
-   * MAIS o grupo de onde ela está — chegar numa tela e não ver o próprio item no
-   * menu é desorientador.
+   * `null` = a pessoa ainda não escolheu nada, e aí TODOS abrem. O padrão
+   * anterior era "grupo principal + grupo da rota atual", o que fazia sentido no
+   * papel (menos rolagem) e custou caro duas vezes na vida real: o Diário
+   * alimentar e a busca de CID-10 estavam prontos e invisíveis, cada um atrás de
+   * um cabeçalho fechado. Rolagem se resolve rolando; funcionalidade que a
+   * pessoa não sabe que existe não se resolve sozinha.
    *
    * O que NÃO fazemos: forçar o grupo da rota atual a ficar aberto para sempre.
    * A versão anterior fazia isso, e o botão do grupo virava um controle morto —
    * clicava, `aria-expanded` prometia mudar, e nada acontecia. Um botão que não
    * responde é pior que um rótulo fixo, porque promete uma ação que não existe.
    */
-  const abertos = gruposAbertos ?? [
-    PRIMARY_NAV_SECTION,
-    ...(secaoAtiva && secaoAtiva !== PRIMARY_NAV_SECTION ? [secaoAtiva] : []),
-  ];
+  const abertos = gruposAbertos ?? NAV_SECTIONS;
 
   /* Navegou para um grupo fechado? Ele abre. Continua fechável logo em seguida. */
   useEffect(() => {
@@ -334,13 +380,23 @@ export function AppSidebar({
               const idGrupo = `nav-grupo-${indice}`;
 
               return (
-                <div key={secao} className="mb-1">
+                <div key={secao} className="mb-2">
+                  {/*
+                    Era `text-caption uppercase tracking-wider text-hint`: 13px,
+                    caixa alta, 5,16:1. Passa em AA e mesmo assim é o degrau que
+                    o cliente descreve como "letra clarinha" — e caixa alta apaga
+                    a silhueta da palavra, que é justamente a pista de leitura
+                    que sobra quando a visão de perto piora. Agora 15px, caixa
+                    normal, `fg-soft` (10,40:1 claro · 12,05:1 escuro). A
+                    hierarquia contra o item continua existindo pelo peso e pela
+                    tinta mais escura, não pelo tamanho menor.
+                  */}
                   <button
                     type="button"
                     onClick={() => alternarGrupo(secao)}
                     aria-expanded={aberto}
                     aria-controls={idGrupo}
-                    className="flex min-h-11 w-full items-center justify-between gap-2 rounded-chip px-3 text-left text-caption font-semibold uppercase tracking-wider text-hint transition-colors hover:bg-surface-2 hover:text-fg-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                    className="flex min-h-11 w-full items-center justify-between gap-2 rounded-chip px-3 text-left text-label font-bold text-fg-soft transition-colors hover:bg-surface-2 hover:text-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                   >
                     <span className="min-w-0 truncate">{secao}</span>
                     <ChevronDown
@@ -371,8 +427,10 @@ export function AppSidebar({
         {!recolhida && (
           <div className="shrink-0 border-t border-line p-5">
             <div className="rounded-card border border-line bg-surface px-4 py-3 shadow-xs">
+              {/* 15px nas duas linhas: a versão é o que a pessoa lê em voz alta
+                  quando pede ajuda por telefone, então precisa ser legível. */}
               <p className="truncate text-label font-semibold text-fg">{PRODUTO}</p>
-              <p className="truncate text-caption text-muted">{VERSAO}</p>
+              <p className="truncate text-body-sm text-muted">{VERSAO}</p>
             </div>
           </div>
         )}
@@ -395,8 +453,18 @@ function ItemLink({
   onNavigate?: () => void;
 }) {
   const Icon = item.icon;
-  /* Estado do módulo em PALAVRAS. O ponto azul é reforço, nunca o único canal —
-     um ponto sozinho não diz nada a quem não enxerga a cor (SC 1.4.1). */
+  /*
+   * Estado do módulo em PALAVRAS. O ponto azul é reforço, nunca o único canal —
+   * um ponto sozinho não diz nada a quem não enxerga a cor (SC 1.4.1).
+   *
+   * A tinta do ponto é decidida aqui e em lugar nenhum mais, e a escolha é
+   * deliberada: `--primary` para "em testes", contorno `--line-strong` para
+   * "em breve". Nada de vermelho/âmbar. Um item de menu não tem estado de
+   * sistema para alarmar — dose atrasada e falha de envio moram na tela do
+   * assunto, não na porta dela. Este arquivo já teve `bg-amber-400/60` no item
+   * "em breve" (import inicial, removido depois): âmbar para dizer "ainda não
+   * existe", que é informação neutra vestida de alerta.
+   */
   const marca =
     item.plus ? 'Plus' : item.status === 'beta' ? 'em testes' : item.status === 'planned' ? 'em breve' : null;
 

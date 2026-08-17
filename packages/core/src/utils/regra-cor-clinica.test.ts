@@ -84,6 +84,16 @@ const ARQUIVOS_AVULSOS = [
    */
   'apps/web/src/app/(app)/diario-alimentar/page.tsx',
   'apps/mobile/app/diario-alimentar.tsx',
+  /*
+   * Atividade física (web). É a tela mais TENTADORA do app para o semáforo: a
+   * meta semanal pede um verde de "semana boa" e o campo de sintoma pede um
+   * âmbar de "cuidado" — os dois seriam julgamento sobre o corpo de quem
+   * registrou, e "semana ruim" em vermelho é exatamente o que faz a pessoa
+   * parar de registrar. Constância e sintoma se mostram por número, forma e
+   * texto; entrou na varredura no mesmo commit em que o módulo nasceu, para a
+   * trava não chegar depois do design.
+   */
+  'apps/web/src/app/(app)/atividade-fisica/page.tsx',
 ];
 
 /** Pastas varridas por inteiro — arquivo novo aqui já nasce coberto. */
@@ -100,6 +110,15 @@ const PASTAS = [
    */
   'apps/web/src/components/ui/painel',
   'apps/mobile/src/components/painel',
+  /*
+   * Componentes de Atividade física (2026-08). Pasta inteira, e não só a tela:
+   * é no resumo da semana e na lista que o verde tende a aparecer primeiro
+   * ("bateu a meta"), e no formulário que o sintoma tende a virar âmbar. Um
+   * arquivo novo do módulo já nasce coberto.
+   *
+   * Nenhuma exceção foi aberta junto: o módulo não usa cor de status.
+   */
+  'apps/web/src/components/activity',
 ];
 
 /** Abre uma região onde a cor pertence ao SISTEMA, com justificativa escrita. */

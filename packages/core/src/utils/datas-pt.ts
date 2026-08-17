@@ -50,6 +50,29 @@ export function diaLocal(data: Date = new Date()): string {
 }
 
 /**
+ * `Date` que veio de um `<input type="date">` → `AAAA-MM-DD`, de volta ao dia
+ * que a pessoa digitou.
+ *
+ * Este é o caminho INVERSO do `diaLocal`, e os dois não são intercambiáveis —
+ * confundi-los é o bug de um dia a menos.
+ *
+ * O `<input type="date">` manda a string `'2026-08-17'`. O Zod a coage com
+ * `new Date('2026-08-17')`, e o motor de JS lê data sem hora como UTC: o `Date`
+ * resultante é meia-noite UTC, que no Brasil é 16/08 às 21h. Ler esse `Date`
+ * com getters LOCAIS (o que `diaLocal` faz, corretamente, para um instante de
+ * verdade) devolveria 16/08 — um dia a menos do que a pessoa escreveu. Então
+ * aqui os componentes são lidos em UTC, que é onde o dia digitado está intacto.
+ *
+ * Use isto para gravar coluna `date` (dia sem hora: `performed_at`,
+ * `diagnosed_at`). Para carimbar QUANDO ALGO ACONTECEU AGORA, o instante é real
+ * e `diaLocal` continua sendo o certo.
+ */
+export function diaDeFormulario(data: Date | null | undefined): string | null {
+  if (!(data instanceof Date) || Number.isNaN(data.getTime())) return null;
+  return data.toISOString().slice(0, 10);
+}
+
+/**
  * `AAAA-MM-DD` → `Date` à meia-noite LOCAL.
  * `new Date('2026-08-05')` seria interpretado como UTC e voltaria dia 4 no
  * Brasil; por isso os componentes entram separados no construtor.

@@ -17,3 +17,4 @@ export * from './community';
 export * from './ai';
 export * from './notifications';
 export * from './ai-disclosure';
+export * from './activity';

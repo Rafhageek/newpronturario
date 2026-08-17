@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   diaLocal,
+  diaDeFormulario,
   dataDoDia,
   somarDias,
   diaEMes,
@@ -178,5 +179,52 @@ describe('hora e tempo relativo — sem Intl, e sem UTC', () => {
       })
       .join('\n');
     expect(semComentarios).not.toMatch(/\bIntl\b/);
+  });
+});
+
+/*
+ * ════════════════════════════════════════════════════════════════════════════
+ * `diaDeFormulario` — a trava do bug de um dia a menos
+ * ════════════════════════════════════════════════════════════════════════════
+ *
+ * Um `<input type="date">` manda `'2026-08-17'`. O Zod coage isso com
+ * `new Date('2026-08-17')`, e o motor de JS lê data sem hora como UTC — o
+ * `Date` resultante é meia-noite UTC, que no Brasil é 16/08 às 21h.
+ *
+ * Foi assim que a primeira versão do módulo de atividade física gravou a
+ * caminhada de terça como tendo acontecido na segunda, às 21h, e ainda a fez
+ * cair na semana anterior no total de "esta semana". O `Date` está certo; o que
+ * não pode é ler os componentes dele em horário LOCAL para recuperar o dia
+ * digitado.
+ *
+ * Os testes rodam sob o fuso definido em `vitest.config.ts`; para não depender
+ * dele, a asserção decisiva compara com o dia que o próprio `Date` carrega em
+ * UTC, e o teste do deslocamento monta um `Date` a partir de componentes UTC.
+ */
+describe('diaDeFormulario — dia digitado volta intacto', () => {
+  it('devolve o MESMO dia que a pessoa digitou no <input type="date">', () => {
+    // Este é o caminho real: string do input → coerção do Zod → gravação.
+    for (const digitado of ['2026-08-17', '2026-01-01', '2026-12-31', '2024-02-29']) {
+      expect(diaDeFormulario(new Date(digitado)), `digitado: ${digitado}`).toBe(digitado);
+    }
+  });
+
+  it('NÃO usa a leitura local, que voltaria o dia anterior a oeste de Greenwich', () => {
+    // Meia-noite UTC do dia 17 é 16/08 às 21h em São Paulo.
+    const meiaNoiteUtc = new Date(Date.UTC(2026, 7, 17, 0, 0, 0));
+    expect(diaDeFormulario(meiaNoiteUtc)).toBe('2026-08-17');
+    // E a prova de que os dois helpers NÃO são intercambiáveis: num fuso
+    // negativo, `diaLocal` do mesmo instante cai no dia anterior. Onde o fuso
+    // do teste for UTC ou positivo eles coincidem, e aí não há o que provar.
+    const local = diaLocal(meiaNoiteUtc);
+    if (meiaNoiteUtc.getTimezoneOffset() > 0) {
+      expect(local).toBe('2026-08-16');
+    }
+  });
+
+  it('sem data e data inválida saem como null (ausência é resposta honesta)', () => {
+    expect(diaDeFormulario(undefined)).toBeNull();
+    expect(diaDeFormulario(null)).toBeNull();
+    expect(diaDeFormulario(new Date('abacaxi'))).toBeNull();
   });
 });

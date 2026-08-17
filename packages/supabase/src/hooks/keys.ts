@@ -86,4 +86,7 @@ export const queryKeys = {
   personalTokens: (userId: string) => ['personal-tokens', userId] as const,
   hasAiAssistant: (userId: string) => ['has-ai-assistant', userId] as const,
   clinicalTimeline: (patientId: string) => ['clinical-timeline', patientId] as const,
+  activitySessions: (patientId: string) => ['activity-sessions', patientId] as const,
+  activitySessionsSince: (patientId: string, sinceIso: string) =>
+    ['activity-sessions-since', patientId, sinceIso] as const,
 };

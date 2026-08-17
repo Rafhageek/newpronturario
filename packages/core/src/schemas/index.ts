@@ -21,3 +21,4 @@ export * from './pregnancy';
 export * from './child';
 export * from './cycle';
 export * from './pain';
+export * from './activity';

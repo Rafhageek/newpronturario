@@ -34,3 +34,4 @@ export * from './sharing';
 export * from './doses';
 export * from './dose-guardian';
 export * from './insurance-finance';
+export * from './activity';

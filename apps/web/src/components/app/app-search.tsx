@@ -40,8 +40,15 @@ export function AppSearch() {
   const results = useMemo(() => {
     const normalizedQuery = normalize(query);
     if (!normalizedQuery) return NAV.slice(0, 6);
+    // Os sinônimos (`nav.ts`) entram no texto pesquisável junto com o nome
+    // oficial: é o que faz "nutrição" achar o Diário alimentar. O campo é
+    // opcional, e item sem sinônimo cai no `?? ''` — continua buscável pelo
+    // rótulo. `normalize` tira acento e caixa dos dois lados, então os termos
+    // ficam escritos sem acento lá.
     return NAV.filter((item) =>
-      normalize(`${item.label} ${item.section}`).includes(normalizedQuery),
+      normalize(`${item.label} ${item.section} ${item.sinonimos?.join(' ') ?? ''}`).includes(
+        normalizedQuery,
+      ),
     ).slice(0, 7);
   }, [query]);
 

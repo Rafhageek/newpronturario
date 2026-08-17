@@ -46,3 +46,6 @@ ruvector.db
 .swarm/memory.db-shm
 .swarm/memory.db-wal
 .claude-flow/metrics/
+
+# Configuracao local de maquina (permissoes do Claude Code) — nunca versionar
+.claude/settings.local.json

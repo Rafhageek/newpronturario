@@ -7,6 +7,16 @@
  * preservando o nome do export `Database`.
  */
 
+/**
+ * Os vocabulários de atividade física NÃO são reescritos aqui: eles moram em
+ * `constants/activity.ts`, junto com os rótulos que a tela mostra e com a
+ * justificativa de cada item. Uma segunda cópia da lista viraria, na primeira
+ * vez que o vocabulário crescesse, um banco e uma tela discordando sobre o que
+ * é uma atividade válida. `import type` some na compilação, então isto não cria
+ * dependência de runtime entre `types/` e `constants/`.
+ */
+import type { ActivityEffort, ActivityKind, ActivitySymptom } from '../constants/activity';
+
 // ---- Enums (espelham os CREATE TYPE da migration) ----
 export type BiologicalSex = 'female' | 'male' | 'intersex' | 'unspecified';
 export type BloodType = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-' | 'unknown';
@@ -448,6 +458,59 @@ export interface Database {
         },
         'id' | 'created_at' | 'updated_at',
         'performed_at' | 'hospital' | 'notes' | 'report_path'
+      >;
+      /**
+       * Atividade física registrada pelo paciente (migration 0050).
+       *
+       * O que NÃO existe aqui é a parte importante: nenhuma coluna de meta, de
+       * gravidade de sintoma, de classificação de desempenho ou de pontuação de
+       * constância. A tabela registra e organiza — quem interpreta é a equipe de
+       * saúde (regra 1 do projeto).
+       *
+       * Enquanto a 0050 não for aplicada, a tabela simplesmente não existe e o
+       * PostgREST devolve `42P01`/`PGRST205`. As consultas tratam isso como
+       * "recurso ainda não disponível" (`isActivityModuleUnavailable`, em
+       * `packages/supabase/src/queries/activity.ts`) — e NUNCA como lista vazia,
+       * que faria a tela afirmar "nenhuma atividade registrada" sobre um dado
+       * que ela nem chegou a ler (`utils/estado-secao.ts`).
+       */
+      activity_sessions: Table<
+        {
+          id: string;
+          patient_id: string;
+          kind: ActivityKind;
+          duration_min: number;
+          /** Teste da fala. `null` = não respondido (não é "esforço zero"). */
+          effort: ActivityEffort | null;
+          /**
+           * `[]` = não respondeu · `['nenhum']` = afirmou não ter sentido nada.
+           * São fatos diferentes, e a tela precisa poder dizer qual aconteceu.
+           */
+          symptoms: ActivitySymptom[];
+          /** Mesma escala 1–5 de `diary_entries.mood`. `null` = não respondido. */
+          feeling_after: number | null;
+          /**
+           * `date` no banco: chega como `AAAA-MM-DD`, sem hora — igual a
+           * `surgeries.performed_at`. `null` = não informou quando foi (o app
+           * não carimba `now()` no lugar).
+           */
+          performed_at: string | null;
+          /**
+           * Coluna GERADA no banco (`coalesce(performed_at, created_at)`), usada
+           * só para ordenar e indexar. É somente leitura — por isso entra na
+           * lista de campos que o Insert nunca exige.
+           *
+           * NÃO exiba data a partir dela e não agrupe por semana com ela: o dia
+           * informado entra aqui como meia-noite UTC e, lido em horário local,
+           * volta o dia ANTERIOR no Brasil.
+           */
+          occurred_at: string;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        },
+        'id' | 'occurred_at' | 'created_at' | 'updated_at',
+        'effort' | 'symptoms' | 'feeling_after' | 'performed_at' | 'notes'
       >;
       family_history: Table<
         {
