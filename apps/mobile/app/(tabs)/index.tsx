@@ -95,6 +95,7 @@ import {
 } from '@/components/painel';
 import { useTabBarSpace } from '@/components/tab-bar';
 import { WhatsNewSheet } from '@/components/whats-new-sheet';
+import { CreatePasswordSheet } from '@/components/create-password-sheet';
 import { ActiveProfileSwitcher } from '@/components/active-profile-switcher';
 import { WaterCard } from '@/components/water-card';
 import { StepsCard } from '@/components/steps-card';
@@ -257,6 +258,10 @@ export default function InicioScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const tabBarSpace = useTabBarSpace();
+
+  // "O que mudou" tem prioridade — só oferece "Criar senha" depois que ele
+  // decidir NÃO aparecer, para nunca empilhar dois sheets de boas-vindas.
+  const [whatsNewShowing, setWhatsNewShowing] = useState<boolean | null>(null);
 
   const dashboardQ = useDashboard(pid);
   const { data: profile } = useProfile(pid);
@@ -1047,7 +1052,9 @@ export default function InicioScreen() {
       </ScrollView>
 
       {/* "O que mudou" — aparece uma vez por versão e se esconde sozinho. */}
-      <WhatsNewSheet />
+      <WhatsNewSheet onDecided={setWhatsNewShowing} />
+      {/* "Criar senha" (contas só-Google) — só entra na fila depois do "O que mudou". */}
+      {whatsNewShowing === false ? <CreatePasswordSheet /> : null}
     </View>
   );
 }

@@ -8,7 +8,7 @@ import {
   Bell, Mail, MessageCircle, User, ShieldCheck, LogOut, Check, Palette, Bot, Stethoscope,
   Type, Contrast, MoonStar, Sun, Lock, Smartphone, CalendarClock, ShieldAlert,
   Share2, RefreshCw, Flower2, Trash2, KeyRound, ChevronDown, Settings2, ScanFace, Fingerprint,
-  Accessibility, type LucideIcon,
+  Accessibility, LockKeyhole, type LucideIcon,
 } from 'lucide-react-native';
 import {
   useUserSettings, useUpdateSettings, useProfile, useHubPatientsClient, useHasPlusAccess,
@@ -43,6 +43,7 @@ import {
   saveRemindersPref,
   cancelMedicationReminders,
 } from '@/lib/notifications';
+import { CreatePasswordForm, useCreatePasswordEligibility } from '@/components/create-password-sheet';
 
 const extra = Constants.expoConfig?.extra as { supabaseUrl?: string } | undefined;
 const SUPABASE_URL = extra?.supabaseUrl ?? process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
@@ -283,6 +284,7 @@ export default function ConfiguracoesScreen() {
         {/* Segurança */}
         <SectionTitle>Segurança</SectionTitle>
         <ScreenCaptureSection />
+        <CreatePasswordSection />
         <BiometricSection />
         <SecuritySection lastSignInAt={user?.last_sign_in_at ?? null} />
         <TwoFactorSection />
@@ -722,6 +724,52 @@ function TimeField({
 }
 
 /* ──────────────────────────── Segurança ──────────────────────────── */
+
+/**
+ * Convite permanente para contas que só entram com Google (sem senha).
+ * Some sozinho assim que a conta ganha uma senha própria — não depende de
+ * lembrar se o convite automático da Home já foi dispensado.
+ */
+function CreatePasswordSection() {
+  const colors = useColors();
+  const eligible = useCreatePasswordEligibility();
+  const [open, setOpen] = useState(false);
+  const [done, setDone] = useState(false);
+  const sheetRef = useRef<AppSheetHandle>(null);
+
+  if (!eligible || done) return null;
+
+  return (
+    <>
+      <Card>
+        <View className="flex-row items-center gap-3 py-1">
+          <LockKeyhole size={20} color={colors.primary} />
+          <View className="flex-1">
+            <Text style={{ fontFamily: fonts.medium }} className="text-[15px] text-fg">
+              Criar senha
+            </Text>
+            <Text style={{ fontFamily: fonts.regular }} className="text-[12px] text-muted">
+              Sua conta usa só o Google. Crie uma senha para ter uma segunda forma de entrar.
+            </Text>
+          </View>
+        </View>
+        <View className="pl-8 pt-1">
+          <Button label="Criar senha" variant="outline" size="sm" onPress={() => setOpen(true)} />
+        </View>
+      </Card>
+      {open ? (
+        <AppSheet ref={sheetRef} onClose={() => setOpen(false)} title="Criar uma senha">
+          <CreatePasswordForm
+            onSuccess={() => {
+              setDone(true);
+              sheetRef.current?.close();
+            }}
+          />
+        </AppSheet>
+      ) : null}
+    </>
+  );
+}
 
 /** Desbloqueio por biometria (Face ID / digital) ao abrir o app. */
 function BiometricSection() {

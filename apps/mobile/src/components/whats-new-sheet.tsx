@@ -24,8 +24,11 @@ import { useColors, fonts } from '@/theme';
  *  - Falha de leitura/escrita do SecureStore NÃO bloqueia o app nem mostra erro:
  *    é preferência, não dado clínico. Na dúvida, não mostra o popup — atrapalhar
  *    quem abriu o app para ver um remédio é pior do que perder um aviso.
+ *
+ * `onDecided` avisa se o popup VAI aparecer, para quem monta mais de um
+ * "sheet" de boas-vindas na mesma tela evitar empilhar dois ao mesmo tempo.
  */
-export function WhatsNewSheet() {
+export function WhatsNewSheet({ onDecided }: { onDecided?: (willShow: boolean) => void } = {}) {
   const colors = useColors();
   const sheetRef = useRef<AppSheetHandle>(null);
   const [visible, setVisible] = useState(false);
@@ -35,12 +38,18 @@ export function WhatsNewSheet() {
     (async () => {
       try {
         const vista = await SecureStore.getItemAsync(WHATS_NEW_STORAGE_KEY);
-        if (cancelado || vista === WHATS_NEW_VERSION) return;
+        if (cancelado) return;
+        if (vista === WHATS_NEW_VERSION) {
+          onDecided?.(false);
+          return;
+        }
         setVisible(true);
+        onDecided?.(true);
         // Marca como vista já na abertura (ver comentário acima).
         await SecureStore.setItemAsync(WHATS_NEW_STORAGE_KEY, WHATS_NEW_VERSION);
       } catch {
         // sem popup neste caso — de propósito
+        onDecided?.(false);
       }
     })();
     return () => {
