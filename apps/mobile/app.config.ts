@@ -26,7 +26,7 @@ const config: ExpoConfig = {
   //   pnpm --filter @hubpatients/mobile run check:runtime
   // que compara o hash das entradas nativas com o registrado em
   // `native-fingerprint.json` e falha se mudou sem bump. Roda no CI.
-  runtimeVersion: '0.4.0',
+  runtimeVersion: '0.5.0', // bump: novo plugin nativo (withHealthConnectPermissionDelegate)
   updates: { url: 'https://u.expo.dev/dad7daea-2577-4c30-a744-26466879562b' },
   icon: './assets/icon.png',
   // Logo final HubPatients (gerada de img/Logo.png).
@@ -84,6 +84,10 @@ const config: ExpoConfig = {
     // Passos via Health Connect (Android). O plugin adiciona o intent-filter de
     // "rationale"; a permissão READ_STEPS é declarada em android.permissions.
     'react-native-health-connect',
+    // O plugin acima só mexe no AndroidManifest — não registra o
+    // ActivityResultLauncher que o Health Connect precisa na MainActivity.
+    // Sem isso, tocar em "Permitir" derruba o app (ver comentário no arquivo).
+    './plugins/withHealthConnectPermissionDelegate',
     // Health Connect exige minSdkVersion 26 (Android 8.0).
     ['expo-build-properties', { android: { minSdkVersion: 26 } }],
     // Câmera: leitura de código de barras da caixa do remédio e do alimento.
