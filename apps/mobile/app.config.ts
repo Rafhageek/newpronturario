@@ -1,9 +1,4 @@
 import type { ExpoConfig } from 'expo/config';
-// Importado como função (não string) de propósito: um caminho relativo em
-// string no array `plugins` trava a leitura remota do config no worker do
-// EAS Build (fase READ_APP_CONFIG) — comprovado empiricamente. Como função já
-// resolvida, o config plugin nunca precisa ser localizado por caminho lá.
-import withHealthConnectPermissionDelegate from './plugins/withHealthConnectPermissionDelegate';
 
 const config: ExpoConfig = {
   name: 'HubPatients',
@@ -91,8 +86,9 @@ const config: ExpoConfig = {
     'react-native-health-connect',
     // O plugin acima só mexe no AndroidManifest — não registra o
     // ActivityResultLauncher que o Health Connect precisa na MainActivity.
-    // Sem isso, tocar em "Permitir" derruba o app (ver comentário no arquivo).
-    withHealthConnectPermissionDelegate,
+    // Sem isso, tocar em "Permitir" derruba o app. Pacote de workspace (não
+    // arquivo local por caminho) — ver comentário em index.js do pacote.
+    '@hubpatients/eas-plugin-health-connect',
     // Health Connect exige minSdkVersion 26 (Android 8.0).
     ['expo-build-properties', { android: { minSdkVersion: 26 } }],
     // Câmera: leitura de código de barras da caixa do remédio e do alimento.

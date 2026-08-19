@@ -1,6 +1,6 @@
 {
   "runtimeVersion": "0.5.0",
-  "hash": "7e062faa2cb57e84",
+  "hash": "f80756a19e1279b0",
   "updatedAt": "2026-08-19",
   "deps": [
     "@expo-google-fonts/atkinson-hyperlegible-mono@^0.4.1",
@@ -8,6 +8,7 @@
     "@expo-google-fonts/bricolage-grotesque@^0.4.1",
     "@expo-google-fonts/inter@^0.4.2",
     "@gorhom/bottom-sheet@^5.2.14",
+    "@hubpatients/eas-plugin-health-connect@workspace:*",
     "@react-native-community/netinfo@11.4.1",
     "@testing-library/react-native@^14.0.0",
     "babel-plugin-react-compiler@^1.0.0",

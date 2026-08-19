@@ -21,6 +21,7 @@
     "@expo-google-fonts/inter": "^0.4.2",
     "@gorhom/bottom-sheet": "^5.2.14",
     "@hubpatients/core": "workspace:*",
+    "@hubpatients/eas-plugin-health-connect": "workspace:*",
     "@hubpatients/supabase": "workspace:*",
     "@hubpatients/ui-tokens": "workspace:*",
     "@react-native-community/netinfo": "11.4.1",

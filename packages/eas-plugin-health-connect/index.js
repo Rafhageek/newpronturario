@@ -11,6 +11,15 @@ const { mergeContents } = require('@expo/config-plugins/build/utils/generateCode
  * var` nunca inicializada: tocar em "Permitir" lança uma coroutine que acessa
  * essa variável, derruba o processo inteiro (exceção nativa fora da bridge —
  * nenhum try/catch em JS alcança) e mostra "o app apresenta falhas contínuas".
+ *
+ * Vive em `packages/` (pacote de workspace de verdade, com `package.json`
+ * próprio) em vez de um arquivo solto em `apps/mobile/plugins/`, porque
+ * referenciar um plugin por CAMINHO RELATIVO travava a fase READ_APP_CONFIG
+ * no worker remoto do EAS Build ("Unexpected token '{'" ao ler app.config.ts)
+ * — comprovado empiricamente. Como pacote resolvido por NOME via
+ * node_modules (igual a 'react-native-health-connect', 'expo-camera' etc.,
+ * que sempre funcionaram), o worker nunca precisa localizar um arquivo local
+ * por caminho.
  */
 const withHealthConnectPermissionDelegate = (config) =>
   withMainActivity(config, (config) => {
