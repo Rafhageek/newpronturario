@@ -26,7 +26,7 @@ const config: ExpoConfig = {
   //   pnpm --filter @hubpatients/mobile run check:runtime
   // que compara o hash das entradas nativas com o registrado em
   // `native-fingerprint.json` e falha se mudou sem bump. Roda no CI.
-  runtimeVersion: '0.5.0', // bump: novo plugin nativo (withHealthConnectPermissionDelegate)
+  runtimeVersion: '0.6.0', // bump: intent-filter da rationale do Health Connect (categoria DEFAULT que faltava)
   updates: { url: 'https://u.expo.dev/dad7daea-2577-4c30-a744-26466879562b' },
   icon: './assets/icon.png',
   // Logo final HubPatients (gerada de img/Logo.png).
