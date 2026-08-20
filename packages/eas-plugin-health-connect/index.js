@@ -2,37 +2,66 @@ const { withMainActivity, withAndroidManifest, AndroidConfig } = require('@expo/
 const { addImports } = require('@expo/config-plugins/build/android/codeMod');
 const { mergeContents } = require('@expo/config-plugins/build/utils/generateCode');
 
-const RATIONALE_ACTION = 'androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE';
+const RATIONALE_ACTION_LEGACY = 'androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE';
 const DEFAULT_CATEGORY = 'android.intent.category.DEFAULT';
+const RATIONALE_ACTION_14 = 'android.intent.action.VIEW_PERMISSION_USAGE';
+const HEALTH_PERMISSIONS_CATEGORY = 'android.intent.category.HEALTH_PERMISSIONS';
+const START_VIEW_PERMISSION_USAGE = 'android.permission.START_VIEW_PERMISSION_USAGE';
 
 /**
- * O plugin embutido em react-native-health-connect (app.plugin.js) adiciona
- * a <action> androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE na
- * MainActivity, mas ESQUECE a <category android.intent.category.DEFAULT>.
- * Sem essa categoria, o intent-filter não é resolvível via intent implícito
- * — é exigência básica do Android, não peculiaridade do Health Connect.
+ * "Rationale" do Health Connect (tela de privacidade que ele mostra ao
+ * usuário) — a exigência muda de forma incompatível entre versões do
+ * Android, e https://developer.android.com/health-and-fitness/health-connect/get-started
+ * documenta as DUAS como necessárias juntas, num componente CADA:
  *
- * Resultado real, visto no logcat de um aparelho físico (Android 14+,
- * Samsung One UI): o Health Connect abre a tela de permissão e a fecha
- * sozinho em menos de 200ms, logando
+ *  • Android 13-: <action androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE>
+ *    numa <activity> normal — é o que react-native-health-connect's
+ *    app.plugin.js adiciona (só a action, faltando a <category DEFAULT>,
+ *    exigência básica de resolução de intent implícito — sem ela nem esse
+ *    caminho funciona).
+ *
+ *  • Android 14+ (Health Connect passou a ser parte do SO): exige um
+ *    <activity-alias> SEPARADO — não é outro intent-filter na mesma
+ *    activity — com a permission android.permission.START_VIEW_PERMISSION_USAGE
+ *    e um par ação/categoria totalmente diferente
+ *    (VIEW_PERMISSION_USAGE / HEALTH_PERMISSIONS).
+ *
+ * Sem o alias do Android 14+, a `PermissionsActivity` do Health Connect
+ * abre e se fecha sozinha em ~150-200ms (visto ao vivo via `adb logcat`
+ * num Samsung Android 14+), logando:
  *   E/PermissionsActivity: App should support rationale intent, finishing!
- * Nenhum diálogo chega a aparecer, a permissão nunca é concedida, e o app
- * nem aparece na lista de apps conectados do Health Connect — tudo isso
- * SEM erro nenhum do lado do nosso app (o pedido "funciona", só que o
- * Health Connect recusa antes de mostrar qualquer coisa).
- *
- * Corrigido adicionando um SEGUNDO <intent-filter>, completo (ação +
- * categoria), em vez de tentar editar o do plugin upstream — mais simples e
- * não quebra se a versão da lib mudar a implementação dele.
+ * SEM erro nenhum do nosso lado — o pedido "funciona", só que o Health
+ * Connect recusa antes de mostrar qualquer tela. Corrigir só a v13- (que já
+ * tínhamos feito antes) não resolve em aparelho Android 14+: são checagens
+ * independentes.
  */
-const withHealthConnectRationaleCategory = (config) =>
+const withHealthConnectRationale = (config) =>
   withAndroidManifest(config, (config) => {
     const mainActivity = AndroidConfig.Manifest.getMainActivityOrThrow(config.modResults);
+    const application = config.modResults.manifest.application[0];
+
     mainActivity['intent-filter'] = mainActivity['intent-filter'] ?? [];
     mainActivity['intent-filter'].push({
-      action: [{ $: { 'android:name': RATIONALE_ACTION } }],
+      action: [{ $: { 'android:name': RATIONALE_ACTION_LEGACY } }],
       category: [{ $: { 'android:name': DEFAULT_CATEGORY } }],
     });
+
+    application['activity-alias'] = application['activity-alias'] ?? [];
+    application['activity-alias'].push({
+      $: {
+        'android:name': 'ViewPermissionUsageActivity',
+        'android:exported': 'true',
+        'android:targetActivity': mainActivity.$['android:name'],
+        'android:permission': START_VIEW_PERMISSION_USAGE,
+      },
+      'intent-filter': [
+        {
+          action: [{ $: { 'android:name': RATIONALE_ACTION_14 } }],
+          category: [{ $: { 'android:name': HEALTH_PERMISSIONS_CATEGORY } }],
+        },
+      ],
+    });
+
     return config;
   });
 
@@ -56,7 +85,7 @@ const withHealthConnectRationaleCategory = (config) =>
  * por caminho.
  */
 const withHealthConnectPermissionDelegate = (config) => {
-  config = withHealthConnectRationaleCategory(config);
+  config = withHealthConnectRationale(config);
   return withMainActivity(config, (config) => {
     const isJava = config.modResults.language === 'java';
 
