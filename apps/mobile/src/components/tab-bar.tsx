@@ -11,7 +11,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Home, NotebookPen, Pill, LayoutGrid, type LucideIcon } from 'lucide-react-native';
 import { motion } from '@hubpatients/ui-tokens';
-import { useColors, fonts, useSeniorMode, useFontScale } from '@/theme';
+import { useColors, fonts, useSeniorMode, useFontScale, shadowRaised, elevationDark } from '@/theme';
 
 const { springPhysics } = motion;
 
@@ -68,6 +68,18 @@ const TAB_CONFIG: Record<string, { label: string; icon: LucideIcon }> = {
  * do iOS 26 (`expo-glass-effect` vira View comum fora dele) e este app é
  * Android; e no Android o `expo-blur` só borra com
  * `experimentalBlurMethod="dimezisBlurView"` — sem isso a barra fica quebrada.
+ *
+ * FLUTUANTE (2026-08-20): a barra deixou de encostar nas 3 bordas (esquerda,
+ * direita, embaixo) — agora paira com margem, cápsula fechada (raio total),
+ * pedido do Rafael inspirado no menu do app 99 (99Food). O que NÃO mudou, de
+ * propósito, é exatamente o que a pesquisa M3 Expressive documentada acima
+ * cobre: o alvo continua largura_da_tela ÷ nº de abas (só encolhe pelas
+ * margens de 16px, não pela contagem de itens) e o rótulo continua sempre
+ * visível. O 99 usa cápsula compacta com só ícone porque tem 3 destinos e
+ * ainda soma um FAB à parte; nós temos 4 abas para público majoritariamente
+ * idoso — reduzir o alvo ou esconder o rótulo para "parecer" mais com a
+ * referência teria desfeito o motivo pelo qual a Lei de Fitts e o rótulo
+ * sempre visível estão documentados acima.
  */
 
 /** Alvo/ícone crescem no Modo Sênior. O TEXTO não entra aqui: quem escala o
@@ -81,6 +93,14 @@ const SIZES = {
 const LABEL = { size: 12, line: 16 } as const;
 const GAP = 4;
 const PAD_TOP = 8;
+/** Antes ia direto no `insets.bottom` (barra encostada); agora a barra
+ *  flutua, então o respiro de baixo fica menor e fixo — o "encaixe" no
+ *  fundo seguro vira MARGEM (fora da barra), não padding (dentro dela). */
+const PAD_BOTTOM_INNER = 12;
+/** Vão entre a cápsula flutuante e a borda segura inferior. */
+const FLOAT_GAP = 12;
+/** Margem lateral — é o que faz a barra "flutuar" em vez de encostar. */
+const FLOAT_MARGIN_H = 16;
 
 /**
  * Espaço que as telas devem reservar no fim do scroll para não ficarem
@@ -92,7 +112,8 @@ export function useTabBarSpace(): number {
   const { style: fontFactor } = useFontScale();
   const s = senior ? SIZES.senior : SIZES.normal;
   const label = Math.round(LABEL.line * fontFactor);
-  return PAD_TOP + Math.max(s.item, s.pillH + GAP + label) + insets.bottom + 16;
+  const barHeight = PAD_TOP + Math.max(s.item, s.pillH + GAP + label) + PAD_BOTTOM_INNER;
+  return barHeight + FLOAT_GAP + insets.bottom + 16;
 }
 
 export function HubPatientsTabBar({ state, navigation }: TabBarProps) {
@@ -113,9 +134,10 @@ export function HubPatientsTabBar({ state, navigation }: TabBarProps) {
     tabRoutes.findIndex((r) => r.key === focusedKey),
   );
 
-  // Barra ancorada usando a largura cheia: alvo maior e encostado na borda da
-  // tela, onde o dedo não erra (Lei de Fitts).
-  const tabWidth = width / Math.max(1, tabRoutes.length);
+  // Alvo = (largura da tela − as duas margens flutuantes) ÷ nº de abas. A
+  // barra flutua, mas o alvo continua grande — só encolhe pela margem fixa
+  // de 16px, nunca pela contagem de itens (Lei de Fitts continua valendo).
+  const tabWidth = (width - FLOAT_MARGIN_H * 2) / Math.max(1, tabRoutes.length);
 
   // Tint da cápsula por tema (ver o "REFINO" no cabeçalho para os contrastes).
   const pillFill = dark ? '#31374a' : '#dce5f6';
@@ -225,30 +247,55 @@ export function HubPatientsTabBar({ state, navigation }: TabBarProps) {
     </View>
   );
 
+  // Sombra não se lê sobre preto (mesma regra do resto do app — ver
+  // `elevationDark` em @/theme): no escuro a "flutuação" vira degrau tonal +
+  // hairline, sem gradiente; no claro é o gradiente de sempre + sombra.
   return (
     <View
-      style={{
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        bottom: 0,
-        borderTopWidth: 1,
-        // `lineStrong` (3:1), não a linha decorativa: esta borda é o limite
-        // entre navegação e conteúdo, e precisa ser percebida (SC 1.4.11).
-        borderTopColor: colors.lineStrong,
-      }}
+      style={[
+        {
+          position: 'absolute',
+          left: FLOAT_MARGIN_H,
+          right: FLOAT_MARGIN_H,
+          bottom: insets.bottom + FLOAT_GAP,
+          borderRadius: 999,
+          borderCurve: 'continuous',
+        },
+        dark ? elevationDark.raised : shadowRaised,
+      ]}
     >
-      {/* Gradiente de um degrau só — dá profundidade sem chamar atenção.
-            É o "refino" que faltava; nada aqui altera contraste de texto,
-            porque o rótulo fica sobre a faixa superior (surface). */}
-      <LinearGradient
-        colors={[colors.surface, colors.surface2]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={{ paddingTop: PAD_TOP, paddingBottom: insets.bottom }}
-      >
-        {linhas}
-      </LinearGradient>
+      {dark ? (
+        <View
+          style={{
+            borderRadius: 999,
+            borderCurve: 'continuous',
+            overflow: 'hidden',
+            paddingTop: PAD_TOP,
+            paddingBottom: PAD_BOTTOM_INNER,
+          }}
+        >
+          {linhas}
+        </View>
+      ) : (
+        // Gradiente de um degrau só — dá profundidade sem chamar atenção.
+        // Precisa do próprio `borderRadius` + `overflow: hidden`: a sombra
+        // (na View de fora) e o recorte de cantos (aqui dentro) não podem
+        // dividir a mesma View, ou a sombra fica cortada junto.
+        <LinearGradient
+          colors={[colors.surface, colors.surface2]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={{
+            borderRadius: 999,
+            borderCurve: 'continuous',
+            overflow: 'hidden',
+            paddingTop: PAD_TOP,
+            paddingBottom: PAD_BOTTOM_INNER,
+          }}
+        >
+          {linhas}
+        </LinearGradient>
+      )}
     </View>
   );
 }
