@@ -1,6 +1,16 @@
 packages:
   - "apps/*"
   - "packages/*"
+# Expo/React Native precisam das deps nativas acessíveis no topo (hoisted) —
+# o mesmo motivo que já estava documentado no .npmrc (node-linker/shamefully-hoist),
+# mas o pnpm 10.4+ (aqui: 11.5.2) parou de ler esses dois campos do .npmrc; agora
+# moram aqui. Sem isso, o node_modules vira isolado (.pnpm com symlinks) mesmo com
+# o .npmrc pedindo hoisted — e presets do Babel que resolvem sub-plugin por STRING
+# (não por require() direto) quebram sob isolamento estrito: `eas update` local
+# falhava com "Cannot find module '@babel/plugin-transform-react-jsx'" mesmo com
+# o pacote presente e corretamente linkado três níveis abaixo — Node/Babel não
+# resolve através da cadeia de symlinks isolada.
+nodeLinker: hoisted
 allowBuilds:
   esbuild: true
   sharp: true
