@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Pressable, Image } from 'react-native';
+import { View, Text, ScrollView, Pressable, Image, Switch } from 'react-native';
 import { Link, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -20,6 +20,11 @@ import { useAuth } from '@/lib/auth';
 import { Button, Input } from '@/components/ui';
 import { toast } from '@/components/toast';
 import { fonts, gradients, useColors } from '@/theme';
+import {
+  loadRememberedCredentials,
+  saveRememberedCredentials,
+  clearRememberedCredentials,
+} from '@/lib/remember-me';
 import appIcon from '../../assets/icon.png';
 
 const APPLE_SOON = 'Login com Apple chega em breve — estamos implementando! 🍎';
@@ -85,11 +90,29 @@ function AppleButton({ onPress }: { onPress: () => void }) {
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
+  const colors = useColors();
   const { signIn, signInWithGoogle, oauthError, clearOauthError } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [lembrar, setLembrar] = useState(false);
+
+  // Preenche com a credencial salva (se houver) assim que a tela abre — não
+  // envia sozinho: quem decide continuar é o toque em "Entrar".
+  useEffect(() => {
+    let ativo = true;
+    void (async () => {
+      const salvo = await loadRememberedCredentials();
+      if (!ativo || !salvo) return;
+      setEmail(salvo.email);
+      setPassword(salvo.password);
+      setLembrar(true);
+    })();
+    return () => {
+      ativo = false;
+    };
+  }, []);
 
   // Pulso do ícone no hero. Desligado se o sistema pede "reduzir movimento" e,
   // mesmo quando ligado, limitado a LOOP_LIMIT ciclos: WCAG SC 2.2.2 proíbe
@@ -128,7 +151,17 @@ export default function LoginScreen() {
     setLoading(true);
     const { error: signInError } = await signIn(email, password);
     setLoading(false);
-    if (signInError) setError(signInError);
+    if (signInError) {
+      setError(signInError);
+      return;
+    }
+    // Guarda (ou esquece) DEPOIS do login confirmar — nunca guarda uma senha
+    // que nem sabemos se está certa.
+    if (lembrar) {
+      void saveRememberedCredentials(email, password);
+    } else {
+      void clearRememberedCredentials();
+    }
   }
 
   return (
@@ -226,13 +259,33 @@ export default function LoginScreen() {
               textContentType="password"
               placeholder="••••••••"
             />
-            <Link
-              href={'/(auth)/recuperar-senha' as Href}
-              style={{ fontFamily: fonts.semibold, alignSelf: 'flex-end' }}
-              className="text-[13px] text-primary"
-            >
-              Esqueceu a senha?
-            </Link>
+            <View className="flex-row items-center justify-between">
+              <Pressable
+                onPress={() => setLembrar((v) => !v)}
+                accessibilityRole="switch"
+                accessibilityState={{ checked: lembrar }}
+                accessibilityLabel="Lembrar meu login neste aparelho"
+                hitSlop={4}
+                className="flex-row items-center gap-2"
+              >
+                <Switch
+                  value={lembrar}
+                  onValueChange={setLembrar}
+                  trackColor={{ false: colors.line, true: colors.accent }}
+                  thumbColor="#ffffff"
+                />
+                <Text style={{ fontFamily: fonts.regular }} className="text-[13px] text-fg-soft">
+                  Lembrar meu login
+                </Text>
+              </Pressable>
+              <Link
+                href={'/(auth)/recuperar-senha' as Href}
+                style={{ fontFamily: fonts.semibold }}
+                className="text-[13px] text-primary"
+              >
+                Esqueceu a senha?
+              </Link>
+            </View>
             {error || oauthError ? (
               <Text
                 accessibilityLiveRegion="assertive"
