@@ -96,6 +96,7 @@ import {
 import { useTabBarSpace } from '@/components/tab-bar';
 import { WhatsNewSheet } from '@/components/whats-new-sheet';
 import { CreatePasswordSheet } from '@/components/create-password-sheet';
+import { BiometricEnableSheet } from '@/components/biometric-enable-sheet';
 import { ActiveProfileSwitcher } from '@/components/active-profile-switcher';
 import { WaterCard } from '@/components/water-card';
 import { StepsCard } from '@/components/steps-card';
@@ -259,9 +260,11 @@ export default function InicioScreen() {
   const insets = useSafeAreaInsets();
   const tabBarSpace = useTabBarSpace();
 
-  // "O que mudou" tem prioridade — só oferece "Criar senha" depois que ele
-  // decidir NÃO aparecer, para nunca empilhar dois sheets de boas-vindas.
+  // Fila de sheets de boas-vindas: "O que mudou" → "Criar senha" → "Ativar
+  // biometria" — cada um só entra depois que o anterior decide NÃO aparecer,
+  // para nunca empilhar dois ao mesmo tempo.
   const [whatsNewShowing, setWhatsNewShowing] = useState<boolean | null>(null);
+  const [createPasswordShowing, setCreatePasswordShowing] = useState<boolean | null>(null);
 
   const dashboardQ = useDashboard(pid);
   const { data: profile } = useProfile(pid);
@@ -1054,7 +1057,11 @@ export default function InicioScreen() {
       {/* "O que mudou" — aparece uma vez por versão e se esconde sozinho. */}
       <WhatsNewSheet onDecided={setWhatsNewShowing} />
       {/* "Criar senha" (contas só-Google) — só entra na fila depois do "O que mudou". */}
-      {whatsNewShowing === false ? <CreatePasswordSheet /> : null}
+      {whatsNewShowing === false ? (
+        <CreatePasswordSheet onDecided={setCreatePasswordShowing} />
+      ) : null}
+      {/* "Ativar biometria" — último da fila. */}
+      {whatsNewShowing === false && createPasswordShowing === false ? <BiometricEnableSheet /> : null}
     </View>
   );
 }
